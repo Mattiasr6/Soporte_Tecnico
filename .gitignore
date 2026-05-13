@@ -1,0 +1,28 @@
+# =========================
+# Backend (.NET / C#)
+# =========================
+[Bb]in/
+[Oo]bj/
+*.user
+*.userosscache
+*.sln.docstates
+appsettings.Development.json
+
+# Base de datos SQLite (¡Importante no subirla!)
+*.db
+*.db-shm
+*.db-wal
+
+# =========================
+# Frontend (Next.js / Node)
+# =========================
+node_modules/
+.next/
+out/
+build/
+.env*.local
+.vercel/
+
+# SO / Entorno
+.DS_Store
+Thumbs.db
