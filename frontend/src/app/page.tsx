@@ -1,27 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { getMe } from "@/lib/api";
-import type { Usuario } from "@/types";
+import { useAuth } from "@/components/AuthProvider";
 
 export default function Home() {
-  const [user, setUser] = useState<Usuario | null>(null);
-  const isMock = process.env.NEXT_PUBLIC_USE_MOCK_AUTH === "true";
-
-  useEffect(() => {
-    getMe()
-      .then(setUser)
-      .catch(() => {});
-  }, []);
-
-  const logout = () => {
-    localStorage.removeItem("mockUser");
-    window.location.reload();
-  };
+  const { user, logout } = useAuth();
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center px-6">
-      {/* logo / título */}
       <div className="mb-6 text-center">
         <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-500 to-amber-600 shadow-lg shadow-amber-500/25">
           <svg className="h-8 w-8 text-slate-950" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -34,7 +19,6 @@ export default function Home() {
         </p>
       </div>
 
-      {/* bienvenida */}
       {user && (
         <div className="mb-8 rounded-xl border border-slate-800 bg-slate-900/60 px-6 py-4 text-center shadow-lg backdrop-blur-sm">
           <p className="text-lg text-slate-200">
@@ -46,7 +30,6 @@ export default function Home() {
         </div>
       )}
 
-      {/* navegación */}
       <div className="flex flex-wrap gap-4">
         <a
           href="/dashboard"
@@ -71,15 +54,12 @@ export default function Home() {
         </a>
       </div>
 
-      {/* logout */}
-      {isMock && (
-        <button
-          onClick={logout}
-          className="mt-12 text-sm text-slate-600 transition hover:text-slate-400"
-        >
-          Volver al inicio de sesión
-        </button>
-      )}
+      <button
+        onClick={logout}
+        className="mt-12 text-sm text-slate-600 transition hover:text-slate-400"
+      >
+        Cerrar sesión
+      </button>
     </main>
   );
 }

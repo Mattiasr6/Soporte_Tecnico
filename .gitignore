@@ -26,3 +26,7 @@ build/
 # SO / Entorno
 .DS_Store
 Thumbs.db
+.gitnexus
+
+*.csv
+

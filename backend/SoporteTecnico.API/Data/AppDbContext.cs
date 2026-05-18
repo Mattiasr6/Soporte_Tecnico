@@ -14,13 +14,12 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         {
             entity.ToTable("Usuarios");
 
-            entity.Property(u => u.MicrosoftId)
-                  .IsRequired()
-                  .HasMaxLength(255);
-
             entity.Property(u => u.Email)
                   .IsRequired()
                   .HasMaxLength(255);
+
+            entity.Property(u => u.PasswordHash)
+                  .IsRequired();
 
             entity.Property(u => u.DisplayName)
                   .IsRequired()
@@ -35,43 +34,16 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                   .IsRequired()
                   .HasDefaultValue(false);
 
-            entity.Property(u => u.CreatedAt);
-
-            entity.Property(u => u.UpdatedAt);
-
-            entity.HasIndex(u => u.MicrosoftId).IsUnique();
             entity.HasIndex(u => u.Email).IsUnique();
 
             entity.HasData(
                 new Usuario
                 {
                     Id = 1,
-                    MicrosoftId = "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
-                    Email = "carlos@empresa.com",
-                    DisplayName = "Carlos Méndez",
+                    Email = "riberarojasmattias6@gmail.com",
+                    PasswordHash = BCrypt.Net.BCrypt.HashPassword("admin123"),
+                    DisplayName = "Mattias Ribera",
                     Role = "Jefe",
-                    EstadoActual = false,
-                    CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc),
-                    UpdatedAt = new DateTime(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc)
-                },
-                new Usuario
-                {
-                    Id = 2,
-                    MicrosoftId = "b2c3d4e5-f6a7-8901-bcde-f12345678901",
-                    Email = "ana@empresa.com",
-                    DisplayName = "Ana López",
-                    Role = "Tecnico",
-                    EstadoActual = false,
-                    CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc),
-                    UpdatedAt = new DateTime(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc)
-                },
-                new Usuario
-                {
-                    Id = 3,
-                    MicrosoftId = "c3d4e5f6-a7b8-9012-cdef-123456789012",
-                    Email = "pedro@empresa.com",
-                    DisplayName = "Pedro Ramírez",
-                    Role = "Tecnico",
                     EstadoActual = false,
                     CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc),
                     UpdatedAt = new DateTime(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc)
@@ -87,6 +59,14 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                   .IsRequired()
                   .HasMaxLength(200);
 
+            entity.Property(a => a.MedioSolicitud)
+                  .IsRequired()
+                  .HasMaxLength(50);
+
+            entity.Property(a => a.UsuarioSolicitante)
+                  .IsRequired()
+                  .HasMaxLength(10);
+
             entity.Property(a => a.Categoria)
                   .IsRequired()
                   .HasMaxLength(200);
@@ -101,6 +81,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
             entity.Property(a => a.Observaciones)
                   .HasMaxLength(2000);
+
+            entity.Property(a => a.EnlaceApoyo)
+                  .HasMaxLength(500);
 
             entity.Property(a => a.FechaRegistro)
                   .IsRequired();

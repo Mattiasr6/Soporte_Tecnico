@@ -19,9 +19,8 @@ public class UsuariosController : ControllerBase
         _db = db;
     }
 
-    private string? GetMicrosoftId() =>
-        User.FindFirstValue("http://schemas.microsoft.com/identity/claims/objectidentifier")
-        ?? User.FindFirstValue("oid");
+    private int GetUserId() =>
+        int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
     [HttpGet]
     public async Task<ActionResult<List<UsuarioDto>>> GetAll()
@@ -43,11 +42,10 @@ public class UsuariosController : ControllerBase
     [HttpGet("me")]
     public async Task<ActionResult<UsuarioDto>> GetMe()
     {
-        var msId = GetMicrosoftId();
-        if (msId is null) return Unauthorized();
+        var userId = GetUserId();
 
         var usuario = await _db.Usuarios
-            .Where(u => u.MicrosoftId == msId)
+            .Where(u => u.Id == userId)
             .Select(u => new UsuarioDto
             {
                 Id = u.Id,
@@ -65,10 +63,9 @@ public class UsuariosController : ControllerBase
     [HttpPatch("estado")]
     public async Task<ActionResult> ToggleEstado([FromBody] UserStatusUpdateDto dto)
     {
-        var msId = GetMicrosoftId();
-        if (msId is null) return Unauthorized();
+        var userId = GetUserId();
 
-        var usuario = await _db.Usuarios.FirstOrDefaultAsync(u => u.MicrosoftId == msId);
+        var usuario = await _db.Usuarios.FirstOrDefaultAsync(u => u.Id == userId);
         if (usuario is null) return NotFound("Usuario no registrado en el sistema.");
 
         usuario.EstadoActual = dto.EstadoActual;

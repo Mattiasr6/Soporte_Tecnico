@@ -1,71 +1,58 @@
-import {
-  PublicClientApplication,
-  AccountInfo,
-} from "@azure/msal-browser";
-import { loginRequest, apiConfig } from "./authConfig";
-import type { Usuario, AtencionCreate } from "@/types";
+import type { Usuario, AtencionCreate, AtencionItem } from "@/types";
 
-let msalInstance: PublicClientApplication | null = null;
-
-export function setMsalInstance(instance: PublicClientApplication) {
-  msalInstance = instance;
+function getApiUrl(): string {
+  if (typeof window === "undefined") return "http://localhost:5000/api";
+  const hostname = window.location.hostname;
+  return `http://${hostname}:5000/api`;
 }
 
-const isMock = () =>
-  typeof window !== "undefined" &&
-  process.env.NEXT_PUBLIC_USE_MOCK_AUTH === "true";
-
-function getMockUserId(): number | null {
+function getToken(): string | null {
   if (typeof window === "undefined") return null;
-  try {
-    const raw = localStorage.getItem("mockUser");
-    return raw ? JSON.parse(raw).id : null;
-  } catch {
-    return null;
-  }
-}
-
-function getAccount(): AccountInfo {
-  if (!msalInstance) throw new Error("MSAL no inicializado");
-  const accounts = msalInstance.getAllAccounts();
-  if (accounts.length === 0) throw new Error("No hay sesión activa");
-  return accounts[0];
-}
-
-async function getToken(): Promise<string> {
-  const account = getAccount();
-  const response = await msalInstance!.acquireTokenSilent({
-    ...loginRequest,
-    account,
-  });
-  return response.accessToken;
+  return localStorage.getItem("auth_token");
 }
 
 async function fetchApi<T>(
   endpoint: string,
   options?: RequestInit
 ): Promise<T> {
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-  };
+  const token = getToken();
 
-  if (isMock()) {
-    const userId = getMockUserId();
-    if (userId) {
-      headers["X-Mock-User-Id"] = String(userId);
-    }
-  } else {
-    const token = await getToken();
+  const headers: Record<string, string> = {};
+
+  if (token) {
     headers["Authorization"] = `Bearer ${token}`;
   }
 
-  const res = await fetch(`${apiConfig.baseUrl}${endpoint}`, {
+  if (options?.body instanceof FormData) {
+  } else {
+    headers["Content-Type"] = "application/json";
+  }
+
+  const res = await fetch(`${getApiUrl()}${endpoint}`, {
     ...options,
     headers: { ...headers, ...options?.headers },
   });
-  if (!res.ok) throw new Error(`Error ${res.status}: ${res.statusText}`);
+
+  if (res.status === 401) {
+    localStorage.removeItem("auth_token");
+    localStorage.removeItem("auth_user");
+    window.location.reload();
+    throw new Error("Sesión expirada");
+  }
+
+  if (!res.ok) {
+    const text = await res.text();
+    let msg: string;
+    try {
+      msg = JSON.parse(text).error || `Error ${res.status}`;
+    } catch {
+      msg = `Error ${res.status}: ${res.statusText}`;
+    }
+    throw new Error(msg);
+  }
+
   const text = await res.text();
-  return text ? JSON.parse(text) : undefined;
+  return text ? JSON.parse(text) : (undefined as T);
 }
 
 export async function getUsuarios(): Promise<Usuario[]> {
@@ -89,5 +76,23 @@ export async function createAtenciones(
   return fetchApi("/atenciones/batch", {
     method: "POST",
     body: JSON.stringify({ atenciones }),
+  });
+}
+
+export async function getAtenciones(usuarioId?: number): Promise<AtencionItem[]> {
+  const query = usuarioId ? `?usuarioId=${usuarioId}` : "";
+  return fetchApi(`/atenciones${query}`);
+}
+
+export async function getAreas(): Promise<string[]> {
+  return fetchApi("/areas");
+}
+
+export async function importCsv(file: File): Promise<{ registrosInsertados: number; errores?: string[] }> {
+  const formData = new FormData();
+  formData.append("file", file);
+  return fetchApi("/atenciones/import-csv", {
+    method: "POST",
+    body: formData,
   });
 }

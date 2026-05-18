@@ -3,8 +3,8 @@ namespace SoporteTecnico.API.Models;
 public class Usuario
 {
     public int Id { get; set; }
-    public string MicrosoftId { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;
+    public string PasswordHash { get; set; } = string.Empty;
     public string DisplayName { get; set; } = string.Empty;
     public string Role { get; set; } = "Tecnico";
     public bool EstadoActual { get; set; } = false;
