@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using SoporteTecnico.API.Data;
+using SoporteTecnico.API.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -35,6 +36,9 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+
+builder.Services.AddSingleton<IVerificationCodeStore, InMemoryVerificationCodeStore>();
+builder.Services.AddTransient<IEmailService, SmtpEmailService>();
 
 builder.Services.AddCors(options =>
 {

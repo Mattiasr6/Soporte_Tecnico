@@ -84,6 +84,17 @@ export async function getAtenciones(usuarioId?: number): Promise<AtencionItem[]>
   return fetchApi(`/atenciones${query}`);
 }
 
+export async function updateAtencion(id: number, data: Record<string, any>): Promise<void> {
+  await fetchApi(`/atenciones/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteAtencion(id: number): Promise<void> {
+  await fetchApi(`/atenciones/${id}`, { method: "DELETE" });
+}
+
 export async function getAreas(): Promise<string[]> {
   return fetchApi("/areas");
 }
@@ -94,5 +105,47 @@ export async function importCsv(file: File): Promise<{ registrosInsertados: numb
   return fetchApi("/atenciones/import-csv", {
     method: "POST",
     body: formData,
+  });
+}
+
+export interface DashboardStats {
+  total: number;
+  porTecnico: { usuarioId: number; displayName: string; total: number }[];
+  porCategoria: { categoria: string; total: number }[];
+  porMes: { anio: number; mes: number; total: number }[];
+  porArea: { area: string; total: number }[];
+}
+
+export async function getDashboardStats(opts?: {
+  usuarioId?: number;
+  desdeMes?: number;
+  desdeAnio?: number;
+  hastaMes?: number;
+  hastaAnio?: number;
+}): Promise<DashboardStats> {
+  const params = new URLSearchParams();
+  if (opts?.usuarioId) params.set("usuarioId", String(opts.usuarioId));
+  if (opts?.desdeMes) params.set("desdeMes", String(opts.desdeMes));
+  if (opts?.desdeAnio) params.set("desdeAnio", String(opts.desdeAnio));
+  if (opts?.hastaMes) params.set("hastaMes", String(opts.hastaMes));
+  if (opts?.hastaAnio) params.set("hastaAnio", String(opts.hastaAnio));
+  const qs = params.toString();
+  return fetchApi(`/atenciones/stats${qs ? `?${qs}` : ""}`);
+}
+
+export async function sendCode(email: string): Promise<void> {
+  await fetchApi("/auth/send-code", {
+    method: "POST",
+    body: JSON.stringify({ email }),
+  });
+}
+
+export async function verifyCode(
+  email: string,
+  code: string
+): Promise<{ token: string; user: any }> {
+  return fetchApi("/auth/verify-code", {
+    method: "POST",
+    body: JSON.stringify({ email, code }),
   });
 }

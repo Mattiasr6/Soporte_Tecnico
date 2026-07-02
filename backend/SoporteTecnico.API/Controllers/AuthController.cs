@@ -5,6 +5,8 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using SoporteTecnico.API.Data;
+using SoporteTecnico.API.Models;
+using SoporteTecnico.API.Services;
 
 namespace SoporteTecnico.API.Controllers;
 
@@ -14,23 +16,107 @@ public class AuthController : ControllerBase
 {
     private readonly AppDbContext _db;
     private readonly IConfiguration _config;
+    private readonly IEmailService _emailService;
+    private readonly IVerificationCodeStore _codeStore;
 
-    public AuthController(AppDbContext db, IConfiguration config)
+    public AuthController(
+        AppDbContext db,
+        IConfiguration config,
+        IEmailService emailService,
+        IVerificationCodeStore codeStore)
     {
         _db = db;
         _config = config;
+        _emailService = emailService;
+        _codeStore = codeStore;
     }
 
-    public record LoginRequest(string Email, string Password);
+    public record SendCodeRequest(string Email);
 
-    [HttpPost("login")]
-    public async Task<ActionResult> Login([FromBody] LoginRequest request)
+    [HttpPost("send-code")]
+    public async Task<ActionResult> SendCode([FromBody] SendCodeRequest request)
     {
-        var usuario = await _db.Usuarios.FirstOrDefaultAsync(u => u.Email == request.Email);
+        var email = request.Email.Trim().ToLowerInvariant();
 
-        if (usuario is null || !BCrypt.Net.BCrypt.Verify(request.Password, usuario.PasswordHash))
-            return Unauthorized(new { error = "Credenciales inválidas" });
+        if (string.IsNullOrWhiteSpace(email))
+            return BadRequest(new { error = "El correo es requerido" });
 
+        var code = Random.Shared.Next(100000, 999999).ToString();
+
+        try
+        {
+            await _emailService.SendVerificationCodeAsync(email, code);
+            _codeStore.Store(email, code);
+            return Ok(new { message = "Codigo enviado al correo" });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { error = $"Error al enviar el codigo: {ex.Message}" });
+        }
+    }
+
+    public record VerifyCodeRequest(string Email, string Code);
+
+    [HttpPost("verify-code")]
+    public async Task<ActionResult> VerifyCode([FromBody] VerifyCodeRequest request)
+    {
+        var email = request.Email.Trim().ToLowerInvariant();
+
+        if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(request.Code))
+            return BadRequest(new { error = "Correo y codigo son requeridos" });
+
+        var storedCode = _codeStore.Get(email);
+
+        if (storedCode is null || storedCode != request.Code.Trim())
+            return Unauthorized(new { error = "Codigo invalido o expirado" });
+
+        _codeStore.Remove(email);
+
+        var usuario = await _db.Usuarios.FirstOrDefaultAsync(u => u.Email == email);
+
+        if (usuario is null)
+        {
+            var displayName = DeriveDisplayNameFromEmail(email);
+
+            var dashboardAccess = _config.GetSection("DashboardAccess").Get<string[]>() ?? [];
+            var canViewDashboard = dashboardAccess.Any(a => a.Equals(email, StringComparison.OrdinalIgnoreCase)) || usuario?.Role == "Jefe";
+
+            usuario = new Usuario
+            {
+                Email = email,
+                DisplayName = displayName,
+                Role = "Tecnico",
+                EstadoActual = false,
+                CanViewDashboard = canViewDashboard,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+
+            _db.Usuarios.Add(usuario);
+            await _db.SaveChangesAsync();
+        }
+
+        var token = GenerateJwt(usuario);
+
+        var canView = usuario.CanViewDashboard || usuario.Role == "Jefe";
+
+        return Ok(new
+        {
+            token,
+            user = new
+            {
+                usuario.Id,
+                usuario.DisplayName,
+                usuario.Role,
+                usuario.Email,
+                usuario.EstadoActual,
+                canViewDashboard = canView
+            }
+        });
+    }
+
+    private string GenerateJwt(Usuario usuario)
+    {
         var key = new SymmetricSecurityKey(
             Encoding.UTF8.GetBytes(_config["Jwt:Key"]!));
         var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
@@ -52,19 +138,13 @@ public class AuthController : ControllerBase
             signingCredentials: credentials
         );
 
-        var tokenStr = new JwtSecurityTokenHandler().WriteToken(token);
+        return new JwtSecurityTokenHandler().WriteToken(token);
+    }
 
-        return Ok(new
-        {
-            token = tokenStr,
-            user = new
-            {
-                usuario.Id,
-                usuario.DisplayName,
-                usuario.Role,
-                usuario.Email,
-                usuario.EstadoActual
-            }
-        });
+    private static string DeriveDisplayNameFromEmail(string email)
+    {
+        var localPart = email.Split('@')[0];
+        var name = localPart.Replace('.', ' ');
+        return Thread.CurrentThread.CurrentCulture.TextInfo.ToTitleCase(name.ToLower());
     }
 }

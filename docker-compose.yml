@@ -1,0 +1,13 @@
+services:
+  mailpit:
+    image: axllent/mailpit:v1.23
+    container_name: soporte-mailpit
+    restart: unless-stopped
+    ports:
+      - "1025:1025"   # SMTP
+      - "8025:8025"   # Web UI
+    volumes:
+      - mailpit-data:/data
+
+volumes:
+  mailpit-data:

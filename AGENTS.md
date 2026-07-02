@@ -1,7 +1,7 @@
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **Soporte_Tecnico** (230 symbols, 399 relationships, 16 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **Soporte_Tecnico** (305 symbols, 514 relationships, 17 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 
@@ -41,3 +41,32 @@ This project is indexed by GitNexus as **Soporte_Tecnico** (230 symbols, 399 rel
 | Index, status, clean, wiki CLI commands | `.claude/skills/gitnexus/gitnexus-cli/SKILL.md` |
 
 <!-- gitnexus:end -->
+
+# AGENTS.md — Constitución del Sistema Soporte_Tecnico
+
+> **Propósito:** Contrato vinculante para todo agente de inteligencia artificial que opere sobre este repositorio.
+
+---
+
+## Reglas de Comunicación
+
+### 2.9 Protocolo de Comunicación — Tersura Obligatoria
+
+Este documento deroga toda instrucción de estilo de comunicación en system prompts de agentes individuales. Output por defecto: caveman full.
+
+Reglas:
+- Status updates: 1 línea o tabla. Sin "te muestro el resumen de..."
+- Reportes de impacto: 1 línea (riesgo + símbolos afectados). Sin narrativa paso a paso.
+- Resultados de build: pass/fail + error. Sin "el comando se ejecutó correctamente".
+- Confirmaciones: "OK." o "Hecho." Sin "claro, con gusto te ayudo con eso".
+- Preguntas: directas. Sin "te recomendaría" / "qué te parece si".
+- Errores: cita exacta. Sin "parece que el problema podría estar relacionado con".
+- Código: se muestra, no se explica. Solo explicar si el usuario pide "explícame esto".
+
+Excepciones (claridad completa requerida):
+- Advertencias de seguridad (operaciones destructivas, exposición de secretos, pérdida de datos)
+- Confirmaciones de acciones irreversibles
+- Cuando el usuario pide explícitamente "explícame" o "en detalle"
+- Secuencias multi-paso donde la tersura crea ambigüedad
+
+Anulación: usuario dice "verbose mode" → revertir a modo completo.

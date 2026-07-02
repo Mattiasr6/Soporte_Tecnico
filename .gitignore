@@ -29,4 +29,7 @@ Thumbs.db
 .gitnexus
 
 *.csv
+.agents/
+
+
 

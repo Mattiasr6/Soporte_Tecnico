@@ -19,7 +19,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                   .HasMaxLength(255);
 
             entity.Property(u => u.PasswordHash)
-                  .IsRequired();
+                  .IsRequired(false);
 
             entity.Property(u => u.DisplayName)
                   .IsRequired()
@@ -34,6 +34,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                   .IsRequired()
                   .HasDefaultValue(false);
 
+            entity.Property(u => u.CanViewDashboard)
+                  .HasDefaultValue(false);
+
             entity.HasIndex(u => u.Email).IsUnique();
 
             entity.HasData(
@@ -41,7 +44,6 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                 {
                     Id = 1,
                     Email = "riberarojasmattias6@gmail.com",
-                    PasswordHash = BCrypt.Net.BCrypt.HashPassword("admin123"),
                     DisplayName = "Mattias Ribera",
                     Role = "Jefe",
                     EstadoActual = false,

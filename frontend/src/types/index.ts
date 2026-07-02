@@ -3,6 +3,7 @@ export interface Usuario {
   displayName: string;
   role: "Tecnico" | "Jefe";
   estadoActual: boolean;
+  canViewDashboard: boolean;
 }
 
 export interface AtencionCreate {

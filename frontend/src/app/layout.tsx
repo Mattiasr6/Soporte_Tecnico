@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { DM_Sans, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import AuthProvider from "@/components/AuthProvider";
+import { ToastProvider } from "@/components/Toast";
+import Navbar from "@/components/Navbar";
 
 const dmSans = DM_Sans({
   subsets: ["latin"],
@@ -27,7 +29,14 @@ export default function RootLayout({
   return (
     <html lang="es" className={`${dmSans.variable} ${jetbrainsMono.variable}`}>
       <body className="min-h-screen bg-slate-950 font-body text-slate-100 antialiased">
-        <AuthProvider>{children}</AuthProvider>
+        <AuthProvider>
+          <ToastProvider>
+            <div className="lg:flex">
+              <Navbar />
+              <main className="flex-1 pt-14 lg:pt-0">{children}</main>
+            </div>
+          </ToastProvider>
+        </AuthProvider>
       </body>
     </html>
   );

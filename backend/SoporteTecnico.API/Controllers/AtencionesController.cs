@@ -62,6 +62,135 @@ public class AtencionesController : ControllerBase
         return Ok(atenciones);
     }
 
+    [HttpGet("stats")]
+    public async Task<ActionResult> GetStats(
+        [FromQuery] int? usuarioId,
+        [FromQuery] int? desdeMes, [FromQuery] int? desdeAnio,
+        [FromQuery] int? hastaMes, [FromQuery] int? hastaAnio)
+    {
+        var userId = GetUserId();
+        var user = await _db.Usuarios.FindAsync(userId);
+        if (user is null || (user.Role != "Jefe" && !user.CanViewDashboard))
+            return Unauthorized();
+
+        IQueryable<Atencion> query = _db.Atenciones.Include(a => a.Usuario);
+
+        if (usuarioId.HasValue)
+            query = query.Where(a => a.UsuarioId == usuarioId.Value);
+
+        if (desdeAnio.HasValue && desdeMes.HasValue)
+        {
+            var desde = new DateOnly(desdeAnio.Value, desdeMes.Value, 1);
+            query = query.Where(a => a.FechaRegistro >= desde);
+        }
+
+        if (hastaAnio.HasValue && hastaMes.HasValue)
+        {
+            var hasta = new DateOnly(hastaAnio.Value, hastaMes.Value,
+                DateTime.DaysInMonth(hastaAnio.Value, hastaMes.Value));
+            query = query.Where(a => a.FechaRegistro <= hasta);
+        }
+
+        var total = await query.CountAsync();
+
+        var porTecnico = await query
+            .GroupBy(a => new { a.UsuarioId, a.Usuario.DisplayName })
+            .Select(g => new
+            {
+                usuarioId = g.Key.UsuarioId,
+                displayName = g.Key.DisplayName,
+                total = g.Count()
+            })
+            .OrderByDescending(g => g.total)
+            .ToListAsync();
+
+        var porCategoria = await query
+            .GroupBy(a => a.Categoria)
+            .Select(g => new
+            {
+                categoria = g.Key,
+                total = g.Count()
+            })
+            .OrderByDescending(g => g.total)
+            .Take(10)
+            .ToListAsync();
+
+        var porMes = await query
+            .GroupBy(a => new { a.FechaRegistro.Year, a.FechaRegistro.Month })
+            .Select(g => new
+            {
+                anio = g.Key.Year,
+                mes = g.Key.Month,
+                total = g.Count()
+            })
+            .OrderBy(g => g.anio).ThenBy(g => g.mes)
+            .ToListAsync();
+
+        var porArea = await query
+            .GroupBy(a => a.AreaSolicitante)
+            .Select(g => new
+            {
+                area = g.Key,
+                total = g.Count()
+            })
+            .OrderByDescending(g => g.total)
+            .Take(8)
+            .ToListAsync();
+
+        return Ok(new
+        {
+            total,
+            porTecnico,
+            porCategoria,
+            porMes,
+            porArea
+        });
+    }
+
+    [HttpPut("{id}")]
+    public async Task<ActionResult> Update(int id, [FromBody] UpdateAtencionDto dto)
+    {
+        var userId = GetUserId();
+        var user = await _db.Usuarios.FindAsync(userId);
+        if (user is null) return Unauthorized();
+
+        var atencion = await _db.Atenciones.FindAsync(id);
+        if (atencion is null) return NotFound();
+
+        if (atencion.UsuarioId != userId && user.Role != "Jefe")
+            return Forbid();
+
+        if (dto.AreaSolicitante is not null) atencion.AreaSolicitante = dto.AreaSolicitante;
+        if (dto.MedioSolicitud is not null) atencion.MedioSolicitud = dto.MedioSolicitud;
+        if (dto.UsuarioSolicitante is not null) atencion.UsuarioSolicitante = dto.UsuarioSolicitante;
+        if (dto.Categoria is not null) atencion.Categoria = dto.Categoria;
+        if (dto.Descripcion is not null) atencion.Descripcion = dto.Descripcion;
+        if (dto.Solucion is not null) atencion.Solucion = dto.Solucion;
+        if (dto.Observaciones is not null) atencion.Observaciones = dto.Observaciones;
+        if (dto.EnlaceApoyo is not null) atencion.EnlaceApoyo = dto.EnlaceApoyo;
+
+        await _db.SaveChangesAsync();
+        return NoContent();
+    }
+
+    [HttpDelete("{id}")]
+    public async Task<ActionResult> Delete(int id)
+    {
+        var userId = GetUserId();
+        var user = await _db.Usuarios.FindAsync(userId);
+        if (user is null) return Unauthorized();
+
+        var atencion = await _db.Atenciones.FindAsync(id);
+        if (atencion is null) return NotFound();
+
+        if (atencion.UsuarioId != userId && user.Role != "Jefe")
+            return Forbid();
+
+        _db.Atenciones.Remove(atencion);
+        await _db.SaveChangesAsync();
+        return NoContent();
+    }
+
     [HttpPost("batch")]
     public async Task<ActionResult> CreateBatch([FromBody] AtencionBulkCreateDto dto)
     {

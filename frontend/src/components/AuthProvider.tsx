@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from "react";
+import { sendCode, verifyCode } from "@/lib/api";
 
 interface User {
   id: number;
@@ -8,21 +9,19 @@ interface User {
   role: string;
   email: string;
   estadoActual: boolean;
+  canViewDashboard: boolean;
 }
 
 interface AuthContextValue {
   user: User | null;
   token: string | null;
-  login: (email: string, password: string) => Promise<void>;
+  loginStep1: (email: string) => Promise<void>;
+  loginStep2: (code: string) => Promise<void>;
   logout: () => void;
   loading: boolean;
   error: string | null;
-}
-
-function getApiUrl(): string {
-  if (typeof window === "undefined") return "http://localhost:5000/api";
-  const hostname = window.location.hostname;
-  return `http://${hostname}:5000/api`;
+  step: "email" | "code";
+  email: string;
 }
 
 const AuthContext = createContext<AuthContextValue>(null!);
@@ -34,6 +33,8 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [step, setStep] = useState<"email" | "code">("email");
+  const [email, setEmail] = useState("");
 
   useEffect(() => {
     const storedToken = localStorage.getItem("auth_token");
@@ -50,31 +51,50 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
     setLoading(false);
   }, []);
 
-  const login = useCallback(async (email: string, password: string) => {
+  const loginStep1 = useCallback(async (emailInput: string) => {
     setError(null);
-    const res = await fetch(`${getApiUrl()}/auth/login`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
-    });
+    const normalized = emailInput.trim().toLowerCase();
 
-    if (!res.ok) {
-      const msg = res.status === 401 ? "Credenciales inválidas" : "Error del servidor";
-      throw new Error(msg);
+    if (!normalized) {
+      setError("Ingresa tu correo institucional");
+      return;
     }
 
-    const data = await res.json();
-    localStorage.setItem("auth_token", data.token);
-    localStorage.setItem("auth_user", JSON.stringify(data.user));
-    setToken(data.token);
-    setUser(data.user);
+    try {
+      await sendCode(normalized);
+      setEmail(normalized);
+      setStep("code");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error al enviar el codigo");
+    }
   }, []);
+
+  const loginStep2 = useCallback(async (code: string) => {
+    setError(null);
+
+    if (!code || code.length !== 6) {
+      setError("Ingresa el codigo de 6 digitos");
+      return;
+    }
+
+    try {
+      const data = await verifyCode(email, code);
+      localStorage.setItem("auth_token", data.token);
+      localStorage.setItem("auth_user", JSON.stringify(data.user));
+      setToken(data.token);
+      setUser(data.user);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Codigo invalido");
+    }
+  }, [email]);
 
   const logout = useCallback(() => {
     localStorage.removeItem("auth_token");
     localStorage.removeItem("auth_user");
     setToken(null);
     setUser(null);
+    setStep("email");
+    setEmail("");
   }, []);
 
   if (loading) {
@@ -106,21 +126,24 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
           </p>
         </div>
 
-        <LoginForm onLogin={login} error={error} />
+        {step === "email" ? (
+          <EmailForm onSubmit={loginStep1} error={error} />
+        ) : (
+          <CodeForm email={email} onSubmit={loginStep2} onBack={() => { setStep("email"); setError(null); }} error={error} />
+        )}
       </div>
     );
   }
 
   return (
-    <AuthContext.Provider value={{ user, token, login, logout, loading, error }}>
+    <AuthContext.Provider value={{ user, token, loginStep1, loginStep2, logout, loading, error, step, email }}>
       {children}
     </AuthContext.Provider>
   );
 }
 
-function LoginForm({ onLogin, error }: { onLogin: (email: string, password: string) => Promise<void>; error: string | null }) {
+function EmailForm({ onSubmit, error }: { onSubmit: (email: string) => Promise<void>; error: string | null }) {
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
 
@@ -129,7 +152,7 @@ function LoginForm({ onLogin, error }: { onLogin: (email: string, password: stri
     setSubmitting(true);
     setLocalError(null);
     try {
-      await onLogin(email, password);
+      await onSubmit(email);
     } catch (err) {
       setLocalError(err instanceof Error ? err.message : "Error desconocido");
     } finally {
@@ -149,29 +172,14 @@ function LoginForm({ onLogin, error }: { onLogin: (email: string, password: stri
 
       <div className="mb-4">
         <label htmlFor="email" className="mb-1 block text-xs font-medium uppercase tracking-wider text-slate-500">
-          Correo electrónico
+          Correo institucional
         </label>
         <input
           id="email"
           type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          placeholder="tu@correo.com"
-          required
-          className="w-full rounded-xl border border-slate-700 bg-slate-800/60 px-4 py-3 text-sm text-slate-100 placeholder-slate-600 backdrop-blur-sm transition focus:border-amber-500/50 focus:outline-none focus:ring-1 focus:ring-amber-500/30"
-        />
-      </div>
-
-      <div className="mb-6">
-        <label htmlFor="password" className="mb-1 block text-xs font-medium uppercase tracking-wider text-slate-500">
-          Contraseña
-        </label>
-        <input
-          id="password"
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          placeholder="••••••••"
+          placeholder="tu@UPDS.edu.bo"
           required
           className="w-full rounded-xl border border-slate-700 bg-slate-800/60 px-4 py-3 text-sm text-slate-100 placeholder-slate-600 backdrop-blur-sm transition focus:border-amber-500/50 focus:outline-none focus:ring-1 focus:ring-amber-500/30"
         />
@@ -182,7 +190,76 @@ function LoginForm({ onLogin, error }: { onLogin: (email: string, password: stri
         disabled={submitting}
         className="w-full rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 px-4 py-3 text-sm font-semibold text-slate-950 shadow-lg shadow-amber-500/25 transition hover:from-amber-400 hover:to-amber-500 disabled:opacity-50"
       >
-        {submitting ? "Iniciando sesión..." : "Iniciar sesión"}
+        {submitting ? "Enviando..." : "Enviar código"}
+      </button>
+    </form>
+  );
+}
+
+function CodeForm({ email, onSubmit, onBack, error }: { email: string; onSubmit: (code: string) => Promise<void>; onBack: () => void; error: string | null }) {
+  const [code, setCode] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [localError, setLocalError] = useState<string | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitting(true);
+    setLocalError(null);
+    try {
+      await onSubmit(code);
+    } catch (err) {
+      setLocalError(err instanceof Error ? err.message : "Error desconocido");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const displayError = localError || error;
+
+  return (
+    <form onSubmit={handleSubmit} className="w-full max-w-sm">
+      <p className="mb-4 text-center text-sm text-slate-400">
+        Código enviado a <span className="font-medium text-slate-300">{email}</span>
+      </p>
+
+      {displayError && (
+        <div className="mb-4 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-2 text-sm text-red-400">
+          {displayError}
+        </div>
+      )}
+
+      <div className="mb-4">
+        <label htmlFor="code" className="mb-1 block text-xs font-medium uppercase tracking-wider text-slate-500">
+          Código de verificación
+        </label>
+        <input
+          id="code"
+          type="text"
+          inputMode="numeric"
+          maxLength={6}
+          value={code}
+          onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
+          placeholder="123456"
+          required
+          autoFocus
+          className="w-full rounded-xl border border-slate-700 bg-slate-800/60 px-4 py-3 text-center text-2xl tracking-[0.5em] text-slate-100 placeholder-slate-600 backdrop-blur-sm transition focus:border-amber-500/50 focus:outline-none focus:ring-1 focus:ring-amber-500/30"
+        />
+      </div>
+
+      <button
+        type="submit"
+        disabled={submitting || code.length !== 6}
+        className="w-full rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 px-4 py-3 text-sm font-semibold text-slate-950 shadow-lg shadow-amber-500/25 transition hover:from-amber-400 hover:to-amber-500 disabled:opacity-50"
+      >
+        {submitting ? "Verificando..." : "Verificar código"}
+      </button>
+
+      <button
+        type="button"
+        onClick={onBack}
+        className="mt-3 w-full text-center text-sm text-slate-500 transition hover:text-slate-300"
+      >
+        ← Usar otro correo
       </button>
     </form>
   );
