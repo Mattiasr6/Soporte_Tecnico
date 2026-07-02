@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using SoporteTecnico.API.Data;
 using SoporteTecnico.API.DTOs;
+using SoporteTecnico.API.Models;
 
 namespace SoporteTecnico.API.Controllers;
 
@@ -58,6 +59,28 @@ public class UsuariosController : ControllerBase
         if (usuario is null) return NotFound("Usuario no registrado en el sistema.");
 
         return Ok(usuario);
+    }
+
+    public record NotasDto(string? Contenido);
+
+    [HttpGet("notas")]
+    public async Task<ActionResult<NotasDto>> GetNotas()
+    {
+        var userId = GetUserId();
+        var usuario = await _db.Usuarios.FirstOrDefaultAsync(u => u.Id == userId);
+        if (usuario is null) return NotFound();
+        return Ok(new NotasDto(usuario.Notas));
+    }
+
+    [HttpPut("notas")]
+    public async Task<ActionResult> UpdateNotas([FromBody] NotasDto dto)
+    {
+        var userId = GetUserId();
+        var usuario = await _db.Usuarios.FirstOrDefaultAsync(u => u.Id == userId);
+        if (usuario is null) return NotFound();
+        usuario.Notas = dto.Contenido;
+        await _db.SaveChangesAsync();
+        return NoContent();
     }
 
     [HttpPatch("estado")]

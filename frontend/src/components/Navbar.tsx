@@ -4,11 +4,13 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "./AuthProvider";
+import BlocNotas from "./BlocNotas";
 
 export default function Navbar() {
   const { user, logout } = useAuth();
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [notasOpen, setNotasOpen] = useState(false);
 
   if (!user) return null;
 
@@ -80,6 +82,14 @@ export default function Navbar() {
               {link.label}
             </Link>
           ))}
+
+          <button
+            onClick={() => setNotasOpen(true)}
+            className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-slate-400 transition-all hover:bg-slate-800/60 hover:text-slate-200"
+          >
+            <MdiNotas />
+            Bloc de Notas
+          </button>
         </nav>
 
         <div className="border-t border-slate-800 px-4 py-4">
@@ -103,6 +113,7 @@ export default function Navbar() {
           </div>
         </div>
       </aside>
+      {notasOpen && <BlocNotas onClose={() => setNotasOpen(false)} />}
     </>
   );
 }
@@ -122,6 +133,14 @@ function MdiWrench() {
   return (
     <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M11.42 15.17l2.15-2.15a2.5 2.5 0 013.53 0l.7.7a2.5 2.5 0 010 3.53l-3.51 3.51a2.5 2.5 0 01-3.53 0l-.7-.7m-7.39-7.39l2.15-2.15a2.5 2.5 0 013.53 0l.7.7a2.5 2.5 0 010 3.53l-3.51 3.51a2.5 2.5 0 01-3.53 0l-.7-.7" />
+    </svg>
+  );
+}
+
+function MdiNotas() {
+  return (
+    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
     </svg>
   );
 }

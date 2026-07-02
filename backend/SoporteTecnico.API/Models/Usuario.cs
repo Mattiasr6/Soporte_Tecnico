@@ -6,6 +6,7 @@ public class Usuario
     public string Email { get; set; } = string.Empty;
     public string? PasswordHash { get; set; }
     public string DisplayName { get; set; } = string.Empty;
+    public string? Notas { get; set; }
     public string Role { get; set; } = "Tecnico";
     public bool EstadoActual { get; set; } = false;
     public bool CanViewDashboard { get; set; } = false;
