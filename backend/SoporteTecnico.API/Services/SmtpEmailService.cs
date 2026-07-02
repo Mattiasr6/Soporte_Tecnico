@@ -1,37 +1,66 @@
-using MailKit.Net.Smtp;
-using MailKit.Security;
-using MimeKit;
+using System.Text;
+using System.Text.Json;
 
 namespace SoporteTecnico.API.Services;
 
 public class SmtpEmailService : IEmailService
 {
     private readonly IConfiguration _config;
+    private readonly IHttpClientFactory _httpClientFactory;
 
-    public SmtpEmailService(IConfiguration config)
+    public SmtpEmailService(IConfiguration config, IHttpClientFactory httpClientFactory)
     {
         _config = config;
+        _httpClientFactory = httpClientFactory;
     }
 
     public async Task SendVerificationCodeAsync(string toEmail, string code)
     {
+        var mailServiceUrl = _config["MailService:Url"] ?? "http://mail-service:8080/send.php";
+        var directSmtp = bool.Parse(_config["MailService:DirectSmtp"] ?? "false");
+
+        if (directSmtp)
+        {
+            await SendDirectSmtp(toEmail, code);
+            return;
+        }
+
+        // Intentar via PHP mail service
+        try
+        {
+            var client = _httpClientFactory.CreateClient();
+            var payload = JsonSerializer.Serialize(new { to = toEmail, code });
+            var content = new StringContent(payload, Encoding.UTF8, "application/json");
+            var response = await client.PostAsync(mailServiceUrl, content);
+            response.EnsureSuccessStatusCode();
+        }
+        catch
+        {
+            // Fallback a SMTP directo si el PHP service no esta disponible
+            await SendDirectSmtp(toEmail, code);
+        }
+    }
+
+    private async Task SendDirectSmtp(string toEmail, string code)
+    {
+        using var client = new System.Net.Mail.SmtpClient();
         var section = _config.GetSection("Smtp");
-        var host = section["Host"]!;
-        var port = int.Parse(section["Port"] ?? "25");
-        var username = section["User"];
-        var password = section["Password"];
+        client.Host = section["Host"] ?? "localhost";
+        client.Port = int.Parse(section["Port"] ?? "1025");
+        client.EnableSsl = bool.Parse(section["UseSsl"] ?? "false");
+
+        var user = section["User"];
+        var pass = section["Password"];
+        if (!string.IsNullOrEmpty(user))
+            client.Credentials = new System.Net.NetworkCredential(user, pass);
+
         var fromEmail = section["FromEmail"] ?? "noreply@soporte.local";
         var fromName = section["FromName"] ?? "Soporte Tecnico";
-        var useSsl = bool.Parse(section["UseSsl"] ?? "false");
 
-        var message = new MimeMessage();
-        message.From.Add(new MailboxAddress(fromName, fromEmail));
-        message.To.Add(new MailboxAddress("", toEmail));
-        message.Subject = "Tu codigo de verificacion - Soporte Tecnico";
-
-        message.Body = new TextPart("plain")
+        var mailMessage = new System.Net.Mail.MailMessage(fromEmail, toEmail)
         {
-            Text = $"""
+            Subject = "Tu codigo de verificacion - Soporte Tecnico",
+            Body = $"""
                 Has solicitado iniciar sesion en el Sistema de Soporte Tecnico.
 
                 Tu codigo de verificacion es: {code}
@@ -42,17 +71,6 @@ public class SmtpEmailService : IEmailService
                 """
         };
 
-        using var client = new SmtpClient();
-
-        if (!useSsl)
-            await client.ConnectAsync(host, port, SecureSocketOptions.StartTlsWhenAvailable);
-        else
-            await client.ConnectAsync(host, port, SecureSocketOptions.Auto);
-
-        if (!string.IsNullOrEmpty(username))
-            await client.AuthenticateAsync(username, password);
-
-        await client.SendAsync(message);
-        await client.DisconnectAsync(true);
+        await client.SendMailAsync(mailMessage);
     }
 }

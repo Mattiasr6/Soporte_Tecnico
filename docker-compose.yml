@@ -1,13 +1,56 @@
 services:
-  mailpit:
-    image: axllent/mailpit:v1.23
-    container_name: soporte-mailpit
+  mail-service:
+    build:
+      context: ./mail-service
+      dockerfile: Dockerfile
+    container_name: soporte-mail
     restart: unless-stopped
-    ports:
-      - "1025:1025"   # SMTP
-      - "8025:8025"   # Web UI
+    environment:
+      SMTP_HOST: ${SMTP_HOST:-smtp.office365.com}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      FROM_EMAIL: ${FROM_EMAIL:-noreply@soporte.upds.edu.bo}
+      FROM_NAME: ${FROM_NAME:-Soporte Tecnico UPDS}
+    networks:
+      - soporte-network
+
+  backend:
+    build:
+      context: ./backend/SoporteTecnico.API
+      dockerfile: Dockerfile
+    container_name: soporte-backend
+    restart: unless-stopped
+    depends_on:
+      - mail-service
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      MailService__Url: http://mail-service:8080/send.php
+      MailService__DirectSmtp: "false"
+      ConnectionStrings__DefaultConnection: Data Source=/data/soporte.db
     volumes:
-      - mailpit-data:/data
+      - soporte-db:/data
+    ports:
+      - "5000:5000"
+    networks:
+      - soporte-network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: soporte-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "3002:3000"
+    networks:
+      - soporte-network
+
+networks:
+  soporte-network:
+    driver: bridge
 
 volumes:
-  mailpit-data:
+  soporte-db:
