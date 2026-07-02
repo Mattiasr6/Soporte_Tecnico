@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -239,7 +240,22 @@ public class AtencionesController : ControllerBase
         var atenciones = new List<Atencion>();
         var errores = new List<string>();
 
-        using var reader = new StreamReader(file.OpenReadStream());
+        // Detect encoding: prefer UTF-8, fallback a Latin-1 para Excel/Windows
+        var stream = file.OpenReadStream();
+        var preamble = new byte[4];
+        var bytesRead = stream.Read(preamble, 0, 4);
+        stream.Position = 0;
+        Encoding encoding;
+        if (bytesRead >= 3 && preamble[0] == 0xEF && preamble[1] == 0xBB && preamble[2] == 0xBF)
+            encoding = Encoding.UTF8;   // BOM UTF-8
+        else if (bytesRead >= 2 && preamble[0] == 0xFF && preamble[1] == 0xFE)
+            encoding = Encoding.Unicode; // BOM UTF-16 LE
+        else if (bytesRead >= 2 && preamble[0] == 0xFE && preamble[1] == 0xFF)
+            encoding = Encoding.BigEndianUnicode;
+        else
+            encoding = Encoding.Latin1; // Excel/Windows sin BOM
+
+        using var reader = new StreamReader(stream, encoding);
         var lineNumber = 0;
         while (await reader.ReadLineAsync() is string line)
         {

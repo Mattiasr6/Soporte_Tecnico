@@ -2,17 +2,22 @@
 
 import { useState } from "react";
 import { updateEstado } from "@/lib/api";
+import { useAuth } from "./AuthProvider";
 
 export default function ToggleButton() {
-  const [ocupado, setOcupado] = useState(false);
+  const { user, setUser } = useAuth();
   const [loading, setLoading] = useState(false);
+
+  const ocupado = user?.estadoActual ?? false;
 
   const handleToggle = async () => {
     setLoading(true);
     try {
       const nuevo = !ocupado;
       await updateEstado(nuevo);
-      setOcupado(nuevo);
+      if (user && setUser) {
+        setUser({ ...user, estadoActual: nuevo });
+      }
     } catch (err) {
       console.error("Error al cambiar estado", err);
     } finally {

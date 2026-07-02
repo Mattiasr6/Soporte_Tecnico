@@ -22,6 +22,7 @@ interface AuthContextValue {
   error: string | null;
   step: "email" | "code";
   email: string;
+  setUser: (u: User) => void;
 }
 
 const AuthContext = createContext<AuthContextValue>(null!);
@@ -35,17 +36,25 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null);
   const [step, setStep] = useState<"email" | "code">("email");
   const [email, setEmail] = useState("");
+  const [rememberMe, setRememberMe] = useState(true);
+
+  const storage = useCallback(() => rememberMe ? localStorage : sessionStorage, [rememberMe]);
 
   useEffect(() => {
-    const storedToken = localStorage.getItem("auth_token");
-    const storedUser = localStorage.getItem("auth_user");
+    const s = window.localStorage;
+    const storedToken = s.getItem("auth_token") || window.sessionStorage.getItem("auth_token");
+    const storedUser = s.getItem("auth_user") || window.sessionStorage.getItem("auth_user");
+    const storedRemember = s.getItem("auth_remember");
+    if (storedRemember !== null) setRememberMe(storedRemember === "true");
     if (storedToken && storedUser) {
       try {
         setToken(storedToken);
         setUser(JSON.parse(storedUser));
       } catch {
-        localStorage.removeItem("auth_token");
-        localStorage.removeItem("auth_user");
+        s.removeItem("auth_token");
+        s.removeItem("auth_user");
+        window.sessionStorage.removeItem("auth_token");
+        window.sessionStorage.removeItem("auth_user");
       }
     }
     setLoading(false);
@@ -79,18 +88,23 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
 
     try {
       const data = await verifyCode(email, code);
-      localStorage.setItem("auth_token", data.token);
-      localStorage.setItem("auth_user", JSON.stringify(data.user));
+      const s = rememberMe ? localStorage : sessionStorage;
+      s.setItem("auth_token", data.token);
+      s.setItem("auth_user", JSON.stringify(data.user));
+      localStorage.setItem("auth_remember", String(rememberMe));
       setToken(data.token);
       setUser(data.user);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Codigo invalido");
     }
-  }, [email]);
+  }, [email, rememberMe]);
 
   const logout = useCallback(() => {
     localStorage.removeItem("auth_token");
     localStorage.removeItem("auth_user");
+    localStorage.removeItem("auth_remember");
+    sessionStorage.removeItem("auth_token");
+    sessionStorage.removeItem("auth_user");
     setToken(null);
     setUser(null);
     setStep("email");
@@ -127,7 +141,7 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
         </div>
 
         {step === "email" ? (
-          <EmailForm onSubmit={loginStep1} error={error} />
+          <EmailForm onSubmit={loginStep1} error={error} rememberMe={rememberMe} onRememberChange={setRememberMe} />
         ) : (
           <CodeForm email={email} onSubmit={loginStep2} onBack={() => { setStep("email"); setError(null); }} error={error} />
         )}
@@ -136,13 +150,13 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, token, loginStep1, loginStep2, logout, loading, error, step, email }}>
+    <AuthContext.Provider value={{ user, token, loginStep1, loginStep2, logout, loading, error, step, email, setUser }}>
       {children}
     </AuthContext.Provider>
   );
 }
 
-function EmailForm({ onSubmit, error }: { onSubmit: (email: string) => Promise<void>; error: string | null }) {
+function EmailForm({ onSubmit, error, rememberMe, onRememberChange }: { onSubmit: (email: string) => Promise<void>; error: string | null; rememberMe: boolean; onRememberChange: (v: boolean) => void; }) {
   const [email, setEmail] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
@@ -184,6 +198,16 @@ function EmailForm({ onSubmit, error }: { onSubmit: (email: string) => Promise<v
           className="w-full rounded-xl border border-slate-700 bg-slate-800/60 px-4 py-3 text-sm text-slate-100 placeholder-slate-600 backdrop-blur-sm transition focus:border-amber-500/50 focus:outline-none focus:ring-1 focus:ring-amber-500/30"
         />
       </div>
+
+      <label className="mb-4 flex cursor-pointer items-center gap-2 text-xs text-slate-400">
+        <input
+          type="checkbox"
+          checked={rememberMe}
+          onChange={(e) => onRememberChange(e.target.checked)}
+          className="h-4 w-4 rounded border-slate-600 bg-slate-800 text-amber-500 focus:ring-amber-500/50"
+        />
+        Recordar sesión
+      </label>
 
       <button
         type="submit"
