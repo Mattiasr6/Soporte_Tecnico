@@ -7,6 +7,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 {
     public DbSet<Usuario> Usuarios => Set<Usuario>();
     public DbSet<Atencion> Atenciones => Set<Atencion>();
+    public DbSet<Horario> Horarios => Set<Horario>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -99,6 +100,27 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
             entity.HasIndex(a => a.UsuarioId);
             entity.HasIndex(a => a.FechaRegistro);
+        });
+
+        modelBuilder.Entity<Horario>(entity =>
+        {
+            entity.ToTable("Horarios");
+
+            entity.Property(h => h.Label)
+                  .IsRequired()
+                  .HasMaxLength(100);
+
+            entity.Property(h => h.HoraInicio1).HasMaxLength(5);
+            entity.Property(h => h.HoraFin1).HasMaxLength(5);
+            entity.Property(h => h.HoraInicio2).HasMaxLength(5);
+            entity.Property(h => h.HoraFin2).HasMaxLength(5);
+
+            entity.HasOne(h => h.Usuario)
+                  .WithMany()
+                  .HasForeignKey(h => h.UsuarioId)
+                  .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasIndex(h => new { h.UsuarioId, h.Mes, h.Anio }).IsUnique();
         });
     }
 }
