@@ -59,6 +59,7 @@ export default function AtencionTable() {
   const [sugerencias, setSugerencias] = useState<Sugerencia[]>([]);
   const [mostrarSug, setMostrarSug] = useState<string | null>(null);
   const [indiceBusqueda, setIndiceBusqueda] = useState<{ keywords: string; sug: Sugerencia }[]>([]);
+  const [colabPickerRow, setColabPickerRow] = useState<string | null>(null);
   const sugRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
@@ -94,6 +95,7 @@ export default function AtencionTable() {
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (sugRef.current && !sugRef.current.contains(e.target as Node)) setMostrarSug(null);
+      setColabPickerRow(null);
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
@@ -334,38 +336,69 @@ export default function AtencionTable() {
                   </td>
                   <td className="p-1.5">
                     <div className="flex items-center justify-center gap-1">
-                      <button
-                        type="button"
+                      {/* Colaborador */}
+                      <div className="relative">
+                        <button type="button"
+                          onClick={() => setColabPickerRow(colabPickerRow === row.id ? null : row.id)}
+                          className={`flex h-8 w-8 items-center justify-center rounded-lg transition ${
+                            row.colaboradorId ? "bg-violet-600 text-white" : "bg-slate-700 text-slate-300 hover:bg-violet-600 hover:text-white"
+                          }`}
+                          title={row.colaboradorId ? "Colaborador asignado" : "Asignar colaborador"}>
+                          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/>
+                          </svg>
+                        </button>
+                        {colabPickerRow === row.id && (
+                          <div className="absolute right-0 top-full z-30 mt-1 w-52 rounded-xl border border-slate-700 bg-slate-900 p-2 shadow-2xl">
+                            <p className="mb-1.5 px-2 text-[10px] font-medium uppercase tracking-wider text-slate-500">Seleccionar colaborador</p>
+                            <div className="max-h-40 space-y-0.5 overflow-y-auto">
+                              <button onClick={() => { patch(row.id, { colaboradorId: null }); setColabPickerRow(null); }}
+                                className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-xs text-slate-400 transition hover:bg-slate-800">
+                                Ninguno
+                              </button>
+                              {tecnicos.filter((t) => t.id !== undefined).map((t) => (
+                                <button key={t.id}
+                                  onClick={() => { patch(row.id, { colaboradorId: t.id }); setColabPickerRow(null); }}
+                                  className={`flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-xs transition hover:bg-slate-800 ${
+                                    row.colaboradorId === t.id ? "text-violet-400 bg-violet-500/10" : "text-slate-300"
+                                  }`}>
+                                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-slate-700 text-[10px] font-bold text-slate-400">
+                                    {t.displayName.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase()}
+                                  </span>
+                                  {t.displayName}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                      {/* Observaciones */}
+                      <button type="button"
                         onClick={() => patch(row.id, { showObservaciones: !row.showObservaciones })}
                         className={`flex h-8 w-8 items-center justify-center rounded-lg transition ${
                           row.showObservaciones || row.requiereObservaciones
                             ? "bg-amber-600 text-white" : "bg-slate-700 text-slate-300 hover:bg-amber-600 hover:text-white"
                         }`}
-                        title="Observaciones"
-                      >
+                        title="Observaciones">
                         <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
                         </svg>
                       </button>
-                      <button
-                        type="button"
+                      {/* Enlace */}
+                      <button type="button"
                         onClick={() => patch(row.id, { showEnlaceApoyo: !row.showEnlaceApoyo })}
                         className={`flex h-8 w-8 items-center justify-center rounded-lg transition ${
                           row.enlaceApoyo ? "bg-sky-600 text-white" : "bg-slate-700 text-slate-300 hover:bg-sky-600 hover:text-white"
                         }`}
-                        title={row.enlaceApoyo ? "Enlace: " + row.enlaceApoyo : "Agregar enlace de apoyo"}
-                      >
+                        title={row.enlaceApoyo ? "Enlace: " + row.enlaceApoyo : "Agregar enlace de apoyo"}>
                         <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/>
                         </svg>
                       </button>
                       {rows.length > 1 && (
-                        <button
-                          type="button"
-                          onClick={() => removeRow(row.id)}
+                        <button type="button" onClick={() => removeRow(row.id)}
                           className="flex h-8 w-8 items-center justify-center rounded-lg text-lg text-slate-500 transition hover:bg-red-600 hover:text-white"
-                          title="Eliminar fila"
-                        >&times;</button>
+                          title="Eliminar fila">&times;</button>
                       )}
                     </div>
                   </td>
