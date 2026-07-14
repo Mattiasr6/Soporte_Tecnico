@@ -4,7 +4,11 @@ import { useState, useRef } from "react";
 import { importCsv } from "@/lib/api";
 import { useToast } from "./Toast";
 
-export default function CsvDropzone() {
+interface Props {
+  onImport?: () => void;
+}
+
+export default function CsvDropzone({ onImport }: Props) {
   const [dragging, setDragging] = useState(false);
   const [importing, setImporting] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -18,6 +22,7 @@ export default function CsvDropzone() {
     setImporting(true);
     try {
       const res = await importCsv(file);
+      onImport?.();
       toast(`Se importaron ${res.registrosInsertados} registros.`, "success");
       if (res.errores?.length) {
         toast(`${res.errores.length} líneas con errores.`, "info");
