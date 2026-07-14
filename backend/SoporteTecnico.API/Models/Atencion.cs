@@ -12,8 +12,10 @@ public class Atencion
     public string Solucion { get; set; } = string.Empty;
     public string? Observaciones { get; set; }
     public string? EnlaceApoyo { get; set; }
+    public int? ColaboradorId { get; set; }
     public DateOnly FechaRegistro { get; set; } = DateOnly.FromDateTime(DateTime.UtcNow);
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     public Usuario Usuario { get; set; } = null!;
+    public Usuario? Colaborador { get; set; }
 }

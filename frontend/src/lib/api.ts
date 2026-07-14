@@ -63,10 +63,17 @@ export async function getMe(): Promise<Usuario> {
   return fetchApi("/usuarios/me");
 }
 
-export async function updateEstado(estadoActual: boolean): Promise<void> {
+export async function updateEstado(
+  estadoActual: string,
+  motivo?: string,
+  colaboradorId?: number
+): Promise<void> {
+  const body: Record<string, any> = { estadoActual };
+  if (motivo) body.motivo = motivo;
+  if (colaboradorId) body.colaboradorId = colaboradorId;
   await fetchApi("/usuarios/estado", {
     method: "PATCH",
-    body: JSON.stringify({ estadoActual }),
+    body: JSON.stringify(body),
   });
 }
 

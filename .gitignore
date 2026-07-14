@@ -33,3 +33,8 @@ Thumbs.db
 
 
 
+
+# Herramientas / Cache
+*.tsbuildinfo
+.omo/
+.opencode/

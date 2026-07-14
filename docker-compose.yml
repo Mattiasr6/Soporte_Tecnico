@@ -1,4 +1,51 @@
 services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: soporte-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: soporte
+      POSTGRES_USER: soporte
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-soporte_segura_2025}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - soporte-postgres-data:/var/lib/postgresql/data
+    networks:
+      - soporte-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U soporte"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  pgbackup:
+    image: postgres:16-alpine
+    container_name: soporte-pgbackup
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGUSER: soporte
+      PGPASSWORD: ${DB_PASSWORD:-soporte_segura_2025}
+      PGHOST: postgres
+      PGDATABASE: soporte
+    volumes:
+      - soporte-pgbackups:/backups
+    command: >
+      sh -c "
+        echo 'Backup container started, waiting 60s for postgres...' &&
+        sleep 60 &&
+        while true; do
+          DATE=$$(date +%Y%m%d_%H%M%S) &&
+          pg_dump -Fc > /backups/soporte_$$DATE.dump &&
+          echo \"Backup created: soporte_$$DATE.dump\" &&
+          find /backups -name \"soporte_*.dump\" -type f -mtime +7 -delete &&
+          echo \"Cleaned up backups older than 7 days\" &&
+          sleep 86400;
+        done
+      "
+
   mail-service:
     build:
       context: ./mail-service
@@ -22,14 +69,15 @@ services:
     container_name: soporte-backend
     restart: unless-stopped
     depends_on:
-      - mail-service
+      postgres:
+        condition: service_healthy
+      mail-service:
+        condition: service_started
     environment:
       ASPNETCORE_ENVIRONMENT: Production
+      ConnectionStrings__DefaultConnection: "Server=postgres;Port=5432;Database=soporte;User Id=soporte;Password=${DB_PASSWORD:-soporte_segura_2025};"
       MailService__Url: http://mail-service:8080/send.php
       MailService__DirectSmtp: "false"
-      ConnectionStrings__DefaultConnection: Data Source=/data/soporte.db
-    volumes:
-      - soporte-db:/data
     ports:
       - "5000:5000"
     networks:
@@ -53,4 +101,5 @@ networks:
     driver: bridge
 
 volumes:
-  soporte-db:
+  soporte-postgres-data:
+  soporte-pgbackups:

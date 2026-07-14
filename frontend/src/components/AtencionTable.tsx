@@ -42,6 +42,7 @@ function blankRow(): AtencionRow {
     categoria: "",
     descripcion: "",
     solucion: "",
+    colaboradorId: null,
     showObservaciones: false,
     requiereObservaciones: false,
     observaciones: "",
@@ -54,6 +55,7 @@ export default function AtencionTable() {
   const [rows, setRows] = useState<AtencionRow[]>([blankRow()]);
   const [saving, setSaving] = useState(false);
   const [areas, setAreas] = useState<string[]>([]);
+  const [tecnicos, setTecnicos] = useState<{ id: number; displayName: string }[]>([]);
   const [sugerencias, setSugerencias] = useState<Sugerencia[]>([]);
   const [mostrarSug, setMostrarSug] = useState<string | null>(null);
   const [indiceBusqueda, setIndiceBusqueda] = useState<{ keywords: string; sug: Sugerencia }[]>([]);
@@ -62,6 +64,7 @@ export default function AtencionTable() {
 
   useEffect(() => {
     getAreas().then(setAreas).catch(() => {});
+    import("@/lib/api").then((api) => api.getUsuarios()).then(setTecnicos).catch(() => {});
     getAtenciones().then((data) => {
       const index: { keywords: string; sug: Sugerencia }[] = [];
       const unique = new Map<string, Sugerencia>();
@@ -186,6 +189,7 @@ export default function AtencionTable() {
           categoria: r.categoria,
           descripcion: r.descripcion,
           solucion: r.solucion,
+          colaboradorId: r.colaboradorId ?? undefined,
           enlaceApoyo: r.enlaceApoyo || undefined,
           observaciones: r.requiereObservaciones && r.observaciones ? r.observaciones : undefined,
           fechaRegistro: new Date().toISOString().slice(0, 10),

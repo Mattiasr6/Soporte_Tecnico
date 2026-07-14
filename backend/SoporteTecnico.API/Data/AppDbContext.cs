@@ -33,7 +33,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
             entity.Property(u => u.EstadoActual)
                   .IsRequired()
-                  .HasDefaultValue(false);
+                  .HasConversion<string>()
+                  .HasMaxLength(20)
+                  .HasDefaultValue(EstadoUsuario.Ausente);
 
             entity.Property(u => u.CanViewDashboard)
                   .HasDefaultValue(false);
@@ -44,12 +46,78 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                 new Usuario
                 {
                     Id = 1,
-                    Email = "riberarojasmattias6@gmail.com",
-                    DisplayName = "Mattias Ribera",
+                    Email = "Mattias.Ribera@upds.edu.bo",
+                    DisplayName = "Mattias Ribera Rojas",
                     Role = "Jefe",
-                    EstadoActual = false,
+                    EstadoActual = EstadoUsuario.Ausente,
                     CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc),
                     UpdatedAt = new DateTime(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc)
+                },
+                new Usuario
+                {
+                    Id = 2,
+                    Email = "Diego.Orihuela@upds.edu.bo",
+                    DisplayName = "Diego Orihuela Herrera",
+                    PasswordHash = "$2b$10$f.27ehfd5OYSj5fgfDqPDe0kmUkblxmpG4sM0LUotzOSDfaJNf6b.",
+                    Role = "Tecnico",
+                    EstadoActual = EstadoUsuario.Ausente,
+                    CreatedAt = new DateTime(2025, 6, 1, 0, 0, 0, DateTimeKind.Utc),
+                    UpdatedAt = new DateTime(2025, 6, 1, 0, 0, 0, DateTimeKind.Utc)
+                },
+                new Usuario
+                {
+                    Id = 3,
+                    Email = "Paul.Quispe@upds.edu.bo",
+                    DisplayName = "Paul Manuel Quispe Choque",
+                    PasswordHash = "$2b$10$f.27ehfd5OYSj5fgfDqPDe0kmUkblxmpG4sM0LUotzOSDfaJNf6b.",
+                    Role = "Tecnico",
+                    EstadoActual = EstadoUsuario.Ausente,
+                    CreatedAt = new DateTime(2025, 6, 1, 0, 0, 0, DateTimeKind.Utc),
+                    UpdatedAt = new DateTime(2025, 6, 1, 0, 0, 0, DateTimeKind.Utc)
+                },
+                new Usuario
+                {
+                    Id = 4,
+                    Email = "Jose.Orihuela@upds.edu.bo",
+                    DisplayName = "Jose Maria Orihuela Herrera",
+                    PasswordHash = "$2b$10$f.27ehfd5OYSj5fgfDqPDe0kmUkblxmpG4sM0LUotzOSDfaJNf6b.",
+                    Role = "Tecnico",
+                    EstadoActual = EstadoUsuario.Ausente,
+                    CreatedAt = new DateTime(2025, 6, 1, 0, 0, 0, DateTimeKind.Utc),
+                    UpdatedAt = new DateTime(2025, 6, 1, 0, 0, 0, DateTimeKind.Utc)
+                },
+                new Usuario
+                {
+                    Id = 5,
+                    Email = "Sally.Aparicio@upds.edu.bo",
+                    DisplayName = "Sally Aparicio",
+                    PasswordHash = "$2b$10$f.27ehfd5OYSj5fgfDqPDe0kmUkblxmpG4sM0LUotzOSDfaJNf6b.",
+                    Role = "Tecnico",
+                    EstadoActual = EstadoUsuario.Ausente,
+                    CreatedAt = new DateTime(2025, 6, 1, 0, 0, 0, DateTimeKind.Utc),
+                    UpdatedAt = new DateTime(2025, 6, 1, 0, 0, 0, DateTimeKind.Utc)
+                },
+                new Usuario
+                {
+                    Id = 6,
+                    Email = "Carolina.Ataides@upds.edu.bo",
+                    DisplayName = "Ana Carolina Ataides",
+                    PasswordHash = "$2b$10$f.27ehfd5OYSj5fgfDqPDe0kmUkblxmpG4sM0LUotzOSDfaJNf6b.",
+                    Role = "Tecnico",
+                    EstadoActual = EstadoUsuario.Ausente,
+                    CreatedAt = new DateTime(2025, 6, 1, 0, 0, 0, DateTimeKind.Utc),
+                    UpdatedAt = new DateTime(2025, 6, 1, 0, 0, 0, DateTimeKind.Utc)
+                },
+                new Usuario
+                {
+                    Id = 7,
+                    Email = "Samira.Barrientos@upds.edu.bo",
+                    DisplayName = "Samira Barrientos",
+                    PasswordHash = "$2b$10$f.27ehfd5OYSj5fgfDqPDe0kmUkblxmpG4sM0LUotzOSDfaJNf6b.",
+                    Role = "Tecnico",
+                    EstadoActual = EstadoUsuario.Ausente,
+                    CreatedAt = new DateTime(2025, 6, 1, 0, 0, 0, DateTimeKind.Utc),
+                    UpdatedAt = new DateTime(2025, 6, 1, 0, 0, 0, DateTimeKind.Utc)
                 }
             );
         });
@@ -97,6 +165,11 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                   .WithMany(u => u.Atenciones)
                   .HasForeignKey(a => a.UsuarioId)
                   .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(a => a.Colaborador)
+                  .WithMany()
+                  .HasForeignKey(a => a.ColaboradorId)
+                  .OnDelete(DeleteBehavior.SetNull);
 
             entity.HasIndex(a => a.UsuarioId);
             entity.HasIndex(a => a.FechaRegistro);

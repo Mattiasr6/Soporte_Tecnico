@@ -7,6 +7,7 @@ import { useAuth } from "@/components/AuthProvider";
 import type { DashboardStats } from "@/lib/api";
 
 const MONTHS = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+const MONTHS_FULL = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
 const COLORS = ["#f59e0b", "#10b981", "#3b82f6", "#8b5cf6", "#ec4899", "#14b8a6", "#f97316", "#e11d48"];
 
 export default function PerfilPage() {
@@ -15,6 +16,7 @@ export default function PerfilPage() {
   const router = useRouter();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [globalStats, setGlobalStats] = useState<DashboardStats | null>(null);
+  const [horario, setHorario] = useState<{ label: string; horaInicio1: string; horaFin1: string; horaInicio2?: string; horaFin2?: string } | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -22,9 +24,21 @@ export default function PerfilPage() {
     const uid = Number(id);
     if (isNaN(uid)) { router.replace("/dashboard"); return; }
 
+    const now = new Date();
+    const mes = now.getMonth() + 1;
+    const anio = now.getFullYear();
+    const token = localStorage.getItem("auth_token") || sessionStorage.getItem("auth_token");
+    const hostname = window.location.hostname;
+
     Promise.all([
       getDashboardStats({ usuarioId: uid }),
       getDashboardStats(),
+      token ? fetch(`http://${hostname}:5000/api/horarios?mes=${mes}&anio=${anio}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      }).then(r => r.json()).then(h => {
+        const miHorario = (h as any[]).find((x: any) => x.usuarioId === uid);
+        if (miHorario) setHorario(miHorario);
+      }) : Promise.resolve(),
     ]).then(([s, g]) => {
       setStats(s);
       setGlobalStats(g);
@@ -104,6 +118,12 @@ export default function PerfilPage() {
             Técnico de Soporte · {rankingPos === 1 ? "Líder del equipo" : `#${rankingPos} en el ranking`}
           </p>
         </div>
+        {horario && (
+          <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 px-4 py-2 text-center sm:text-left">
+            <p className="text-[10px] uppercase tracking-wider text-amber-400/70">Horario actual</p>
+            <p className="text-sm font-medium text-amber-300">{horario.label}</p>
+          </div>
+        )}
         <button
           onClick={() => router.back()}
           className="self-start rounded-lg border border-slate-700 px-4 py-2 text-sm text-slate-400 transition hover:bg-slate-800 hover:text-slate-200"

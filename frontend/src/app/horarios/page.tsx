@@ -46,7 +46,7 @@ export default function HorariosPage() {
   const [forms, setForms] = useState<Record<number, HorarioForm>>({});
   const [loading, setLoading] = useState(true);
   const [editando, setEditando] = useState<number | null>(null);
-
+  const [guardando, setGuardando] = useState(false);
   const canAccess = user?.role === "Jefe" || user?.canViewDashboard;
 
   useEffect(() => {
@@ -84,18 +84,48 @@ export default function HorariosPage() {
   const guardar = async (usuarioId: number) => {
     if (!token) return;
     const f = forms[usuarioId];
-    if (!f?.label) { toast("Completa el horario", "error"); return; }
+    // autogenerar label desde los bloques si no hay comentario
+    const label = f?.label?.trim() || [
+      f?.horaInicio1 && f?.horaFin1 ? `${f.horaInicio1}-${f.horaFin1}` : "",
+      f?.horaInicio2 && f?.horaFin2 ? `${f.horaInicio2}-${f.horaFin2}` : "",
+    ].filter(Boolean).join(" + ") || "Sin horario";
     try {
       await api("/horarios", token, {
         method: "POST",
-        body: JSON.stringify({ ...f, usuarioId, mes, anio }),
+        body: JSON.stringify({ ...f, label, usuarioId, mes, anio }),
       });
       toast("Horario guardado", "success");
       setEditando(null);
-      // Recargar solo cobertura, no los forms (evita sobreescribir)
       const c = await api(`/horarios/cobertura?mes=${mes}&anio=${anio}`, token).then((r) => r.json());
       setCobertura((c as any).cobertura ?? []);
     } catch { toast("Error al guardar", "error"); }
+  };
+
+  const guardarTodo = async () => {
+    if (!token) return;
+    setGuardando(true);
+    let ok = 0, err = 0;
+    for (const t of tecnicos) {
+      const f = forms[t.id];
+      if (!f) continue;
+      const label = f.label?.trim() || [
+        f.horaInicio1 && f.horaFin1 ? `${f.horaInicio1}-${f.horaFin1}` : "",
+        f.horaInicio2 && f.horaFin2 ? `${f.horaInicio2}-${f.horaFin2}` : "",
+      ].filter(Boolean).join(" + ") || "Sin horario";
+      try {
+        await api("/horarios", token, {
+          method: "POST",
+          body: JSON.stringify({ ...f, label, usuarioId: t.id, mes, anio }),
+        });
+        ok++;
+      } catch { err++; }
+    }
+    setGuardando(false);
+    setEditando(null);
+    if (err === 0) toast(`Todos los horarios guardados (${ok})`, "success");
+    else toast(`${ok} guardados, ${err} errores`, "error");
+    const c = await api(`/horarios/cobertura?mes=${mes}&anio=${anio}`, token).then((r) => r.json());
+    setCobertura((c as any).cobertura ?? []);
   };
 
   const aplicarPlantilla = (usuarioId: number, p: typeof PLANTILLAS[number]) => {
@@ -164,6 +194,16 @@ export default function HorariosPage() {
               <span className="self-center text-[10px] text-slate-500">(selecciona un técnico y aplica)</span>
             </div>
 
+            <div className="mb-4 flex items-center justify-between">
+              <span className="text-[10px] text-slate-500">
+                {tecnicos.filter((t) => forms[t.id]?.horaInicio1).length} de {tecnicos.length} técnicos con horario
+              </span>
+              <button onClick={guardarTodo} disabled={guardando}
+                className="rounded-lg bg-emerald-500 px-4 py-1.5 text-xs font-bold text-slate-900 transition hover:bg-emerald-400 disabled:opacity-50">
+                {guardando ? "Guardando..." : "Guardar todo"}
+              </button>
+            </div>
+
             <div className="space-y-2">
               {tecnicos.map((t) => {
                 const f = forms[t.id];
@@ -210,7 +250,7 @@ export default function HorariosPage() {
                         <div className="flex gap-2">
                           <input type="text" value={f?.label ?? ""}
                             onChange={(e) => setForms((p) => ({ ...p, [t.id]: { ...(p[t.id] ?? emptyForm()), label: e.target.value } }))}
-                            placeholder="Ej: 08:00 - 16:00"
+                            placeholder="Comentario (opcional)"
                             className="flex-1 rounded border border-slate-600 bg-slate-900 px-2 py-1 text-xs text-slate-100 placeholder-slate-600" />
                           <button onClick={() => guardar(t.id)}
                             className="rounded-lg bg-amber-500 px-4 py-1 text-xs font-bold text-slate-900 transition hover:bg-amber-400">Guardar</button>

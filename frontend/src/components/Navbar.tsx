@@ -5,12 +5,17 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "./AuthProvider";
 import BlocNotas from "./BlocNotas";
+import useNotifications from "@/lib/useNotifications";
+import useScheduleReminder from "@/lib/useScheduleReminder";
 
 export default function Navbar() {
   const { user, logout } = useAuth();
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
   const [notasOpen, setNotasOpen] = useState(false);
+
+  useNotifications();
+  useScheduleReminder();
 
   if (!user) return null;
 

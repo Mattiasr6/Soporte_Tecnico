@@ -55,6 +55,8 @@ public class AtencionesController : ControllerBase
                 a.Solucion,
                 a.Observaciones,
                 a.EnlaceApoyo,
+                a.ColaboradorId,
+                ColaboradorNombre = a.Colaborador != null ? a.Colaborador.DisplayName : null,
                 a.FechaRegistro,
                 a.CreatedAt
             })
@@ -138,13 +140,43 @@ public class AtencionesController : ControllerBase
             .Take(8)
             .ToListAsync();
 
+        var asistenciasQuery = _db.Atenciones.Where(a => a.ColaboradorId != null);
+
+        if (desdeAnio.HasValue && desdeMes.HasValue)
+        {
+            var desde = new DateOnly(desdeAnio.Value, desdeMes.Value, 1);
+            asistenciasQuery = asistenciasQuery.Where(a => a.FechaRegistro >= desde);
+        }
+
+        if (hastaAnio.HasValue && hastaMes.HasValue)
+        {
+            var hasta = new DateOnly(hastaAnio.Value, hastaMes.Value,
+                DateTime.DaysInMonth(hastaAnio.Value, hastaMes.Value));
+            asistenciasQuery = asistenciasQuery.Where(a => a.FechaRegistro <= hasta);
+        }
+
+        if (usuarioId.HasValue)
+            asistenciasQuery = asistenciasQuery.Where(a => a.ColaboradorId == usuarioId.Value);
+
+        var asistencias = await asistenciasQuery
+            .GroupBy(a => new { sid = a.ColaboradorId!.Value, a.Colaborador!.DisplayName })
+            .Select(g => new
+            {
+                usuarioId = g.Key.sid,
+                displayName = g.Key.DisplayName,
+                total = g.Count()
+            })
+            .OrderByDescending(g => g.total)
+            .ToListAsync();
+
         return Ok(new
         {
             total,
             porTecnico,
             porCategoria,
             porMes,
-            porArea
+            porArea,
+            asistencias
         });
     }
 
@@ -214,6 +246,7 @@ public class AtencionesController : ControllerBase
             Solucion = a.Solucion,
             Observaciones = a.Observaciones,
             EnlaceApoyo = a.EnlaceApoyo,
+            ColaboradorId = a.ColaboradorId,
             FechaRegistro = a.FechaRegistro
         }).ToList();
 

@@ -3,7 +3,9 @@ import { DM_Sans, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import AuthProvider from "@/components/AuthProvider";
 import { ToastProvider } from "@/components/Toast";
+import { SignalRProvider } from "@/lib/SignalRProvider";
 import Navbar from "@/components/Navbar";
+import ChatWidget from "@/components/ChatWidget";
 
 const dmSans = DM_Sans({
   subsets: ["latin"],
@@ -31,10 +33,13 @@ export default function RootLayout({
       <body className="min-h-screen bg-slate-950 font-body text-slate-100 antialiased">
         <AuthProvider>
           <ToastProvider>
-            <div className="lg:flex">
-              <Navbar />
-              <main className="flex-1 pt-14 lg:pt-0">{children}</main>
-            </div>
+            <SignalRProvider>
+              <div className="lg:flex">
+                <Navbar />
+                <main className="flex-1 pt-14 lg:pt-0">{children}</main>
+              </div>
+              <ChatWidget />
+            </SignalRProvider>
           </ToastProvider>
         </AuthProvider>
       </body>

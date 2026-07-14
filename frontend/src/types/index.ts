@@ -1,8 +1,9 @@
 export interface Usuario {
   id: number;
   displayName: string;
+  especialidad?: string;
   role: "Tecnico" | "Jefe";
-  estadoActual: boolean;
+  estadoActual: "disponible" | "ocupado" | "ausente" | "extraturno";
   canViewDashboard: boolean;
 }
 
@@ -15,6 +16,7 @@ export interface AtencionCreate {
   solucion: string;
   observaciones?: string;
   enlaceApoyo?: string;
+  colaboradorId?: number;
   fechaRegistro: string;
 }
 
@@ -31,6 +33,7 @@ export interface AtencionRow {
   observaciones: string;
   showEnlaceApoyo: boolean;
   enlaceApoyo: string;
+  colaboradorId: number | null;
 }
 
 export interface AtencionItem {
@@ -45,6 +48,8 @@ export interface AtencionItem {
   solucion: string;
   observaciones: string | null;
   enlaceApoyo: string | null;
+  colaboradorId: number | null;
+  colaboradorNombre: string | null;
   fechaRegistro: string;
   createdAt: string;
 }

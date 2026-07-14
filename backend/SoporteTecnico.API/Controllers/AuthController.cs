@@ -86,7 +86,7 @@ public class AuthController : ControllerBase
                 Email = email,
                 DisplayName = displayName,
                 Role = "Tecnico",
-                EstadoActual = false,
+                EstadoActual = EstadoUsuario.Ausente,
                 CanViewDashboard = canViewDashboard,
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow

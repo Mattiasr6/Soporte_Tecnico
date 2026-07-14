@@ -8,7 +8,7 @@ interface User {
   displayName: string;
   role: string;
   email: string;
-  estadoActual: boolean;
+  estadoActual: string;
   canViewDashboard: boolean;
 }
 
