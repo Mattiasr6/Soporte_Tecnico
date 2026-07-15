@@ -61,17 +61,8 @@ export default function AtencionTable() {
   const [indiceBusqueda, setIndiceBusqueda] = useState<{ keywords: string; sug: Sugerencia }[]>([]);
   const [colabPickerRow, setColabPickerRow] = useState<string | null>(null);
   const [activeIndex, setActiveIndex] = useState(0);
-  const [isMobile, setIsMobile] = useState(false);
   const sugRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
-
-  useEffect(() => {
-    const mq = window.matchMedia("(max-width: 768px)");
-    setIsMobile(mq.matches);
-    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
-    mq.addEventListener("change", handler);
-    return () => mq.removeEventListener("change", handler);
-  }, []);
 
   useEffect(() => {
     getAreas().then(setAreas).catch(() => {});
@@ -231,145 +222,142 @@ export default function AtencionTable() {
   const activeRow = rows[activeIndex];
 
   // ---- MOBILE CARD VIEW ----
-  function MobileCard({ row }: { row: AtencionRow }) {
-    return (
-      <div className="space-y-3 rounded-xl border border-slate-700/50 bg-slate-800/60 p-4">
-        <AreaAutocomplete
-          value={row.areaSolicitante}
-          onChange={(v) => patch(row.id, { areaSolicitante: v })}
-          areas={areas}
-          placeholder="Área solicitante..."
-        />
+  const MobileCard = ({ row }: { row: AtencionRow }) => (
+    <div className="space-y-3 rounded-xl border border-slate-700/50 bg-slate-800/60 p-4">
+      <AreaAutocomplete
+        value={row.areaSolicitante}
+        onChange={(v) => patch(row.id, { areaSolicitante: v })}
+        areas={areas}
+        placeholder="Área solicitante..."
+      />
 
-        <div className="grid grid-cols-2 gap-2">
-          <select value={row.medioSolicitud} onChange={(e) => patch(row.id, { medioSolicitud: e.target.value })}
-            className="rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-sm text-slate-100">
-            {MEDIOS.map((m) => (<option key={m} value={m}>{m}</option>))}
-          </select>
-          <select value={row.usuarioSolicitante} onChange={(e) => patch(row.id, { usuarioSolicitante: e.target.value })}
-            className="rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-sm text-slate-100">
-            {USUARIOS_SOL.map((u) => (<option key={u} value={u}>{u}</option>))}
-          </select>
-        </div>
-
-        <select value={row.categoria} onChange={(e) => patch(row.id, { categoria: e.target.value })}
-          className="w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-sm text-slate-100">
-          <option value="">Categoría...</option>
-          {CATEGORIAS.map((c) => (<option key={c} value={c}>{c}</option>))}
+      <div className="grid grid-cols-2 gap-2">
+        <select value={row.medioSolicitud} onChange={(e) => patch(row.id, { medioSolicitud: e.target.value })}
+          className="rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-sm text-slate-100">
+          {MEDIOS.map((m) => (<option key={m} value={m}>{m}</option>))}
         </select>
+        <select value={row.usuarioSolicitante} onChange={(e) => patch(row.id, { usuarioSolicitante: e.target.value })}
+          className="rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-sm text-slate-100">
+          {USUARIOS_SOL.map((u) => (<option key={u} value={u}>{u}</option>))}
+        </select>
+      </div>
 
-        <div className="relative">
-          <input type="text" value={row.descripcion}
-            onChange={(e) => onDescripcionChange(row.id, e.target.value)}
-            onFocus={() => {
-              const sug = buscarSugerencias(row.descripcion);
-              if (sug.length > 0) { setMostrarSug(row.id); setSugerencias(sug); }
+      <select value={row.categoria} onChange={(e) => patch(row.id, { categoria: e.target.value })}
+        className="w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-sm text-slate-100">
+        <option value="">Categoría...</option>
+        {CATEGORIAS.map((c) => (<option key={c} value={c}>{c}</option>))}
+      </select>
+
+      <div className="relative">
+        <input type="text" value={row.descripcion}
+          onChange={(e) => onDescripcionChange(row.id, e.target.value)}
+          onFocus={() => {
+            const sug = buscarSugerencias(row.descripcion);
+            if (sug.length > 0) { setMostrarSug(row.id); setSugerencias(sug); }
+          }}
+          className="w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-sm text-slate-100 placeholder-slate-500"
+          placeholder="Descripción del problema" autoComplete="off" />
+        {mostrarSug === row.id && sugerencias.length > 0 && (
+          <div ref={sugRef} className="absolute left-0 right-0 top-full z-20 mt-1 max-h-48 overflow-auto rounded-lg border border-slate-700 bg-slate-900 shadow-2xl">
+            {sugerencias.map((s, i) => (
+              <button key={i} onClick={() => aplicarSugerencia(row.id, s)}
+                className="w-full px-3 py-2 text-left text-xs text-slate-300 transition hover:bg-amber-600/20 hover:text-amber-400">
+                <span className="font-medium">{s.descripcion}</span>
+                <span className="ml-2 text-slate-500">→ {s.solucion}</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <input type="text" value={row.solucion} onChange={(e) => patch(row.id, { solucion: e.target.value })}
+        className="w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-sm text-slate-100 placeholder-slate-500"
+        placeholder="Solución aplicada" />
+
+      {/* Acciones en fila */}
+      <div className="flex flex-wrap items-center gap-2 pt-1">
+        <label className="flex items-center gap-2 text-xs text-slate-400">
+          <input type="checkbox" checked={row.requiereObservaciones}
+            onChange={(e) => {
+              const checked = e.target.checked;
+              patch(row.id, { requiereObservaciones: checked, showObservaciones: checked || row.showObservaciones });
             }}
-            className="w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-sm text-slate-100 placeholder-slate-500"
-            placeholder="Descripción del problema" autoComplete="off" />
-          {mostrarSug === row.id && sugerencias.length > 0 && (
-            <div ref={sugRef} className="absolute left-0 right-0 top-full z-20 mt-1 max-h-48 overflow-auto rounded-lg border border-slate-700 bg-slate-900 shadow-2xl">
-              {sugerencias.map((s, i) => (
-                <button key={i} onClick={() => aplicarSugerencia(row.id, s)}
-                  className="w-full px-3 py-2 text-left text-xs text-slate-300 transition hover:bg-amber-600/20 hover:text-amber-400">
-                  <span className="font-medium">{s.descripcion}</span>
-                  <span className="ml-2 text-slate-500">→ {s.solucion}</span>
-                </button>
-              ))}
+            className="h-4 w-4 rounded border-slate-600 bg-slate-900 text-amber-500" />
+          +1h
+        </label>
+
+        {/* Colaborador */}
+        <div className="relative">
+          <button type="button" onClick={() => setColabPickerRow(colabPickerRow === row.id ? null : row.id)}
+            className={`flex h-8 items-center gap-1 rounded-lg px-2 text-xs transition ${row.colaboradorId ? "bg-violet-600 text-white" : "bg-slate-700 text-slate-300 hover:bg-violet-600 hover:text-white"}`}>
+            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/>
+            </svg>
+            {row.colaboradorId ? "Colab" : "Colab"}
+          </button>
+          {colabPickerRow === row.id && (
+            <div className="absolute bottom-full left-0 z-30 mb-1 w-48 rounded-xl border border-slate-700 bg-slate-900 p-2 shadow-2xl">
+              <p className="mb-1 px-2 text-[10px] font-medium uppercase tracking-wider text-slate-500">Colaborador</p>
+              <div className="max-h-32 space-y-0.5 overflow-y-auto">
+                <button onClick={() => { patch(row.id, { colaboradorId: null }); setColabPickerRow(null); }}
+                  className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-xs text-slate-400 transition hover:bg-slate-800">Ninguno</button>
+                {tecnicos.map((t) => (
+                  <button key={t.id} onClick={() => { patch(row.id, { colaboradorId: t.id }); setColabPickerRow(null); }}
+                    className={`flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-xs transition hover:bg-slate-800 ${row.colaboradorId === t.id ? "text-violet-400 bg-violet-500/10" : "text-slate-300"}`}>
+                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-slate-700 text-[9px] font-bold text-slate-400">
+                      {t.displayName.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase()}
+                    </span>
+                    {t.displayName}
+                  </button>
+                ))}
+              </div>
             </div>
           )}
         </div>
 
-        <input type="text" value={row.solucion} onChange={(e) => patch(row.id, { solucion: e.target.value })}
-          className="w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-sm text-slate-100 placeholder-slate-500"
-          placeholder="Solución aplicada" />
+        <button type="button" onClick={() => patch(row.id, { showObservaciones: !row.showObservaciones })}
+          className={`flex h-8 items-center gap-1 rounded-lg px-2 text-xs transition ${row.showObservaciones || row.requiereObservaciones ? "bg-amber-600 text-white" : "bg-slate-700 text-slate-300 hover:bg-amber-600 hover:text-white"}`}>
+          <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+          </svg>
+          Obs
+        </button>
 
-        {/* Acciones en fila */}
-        <div className="flex flex-wrap items-center gap-2 pt-1">
-          <label className="flex items-center gap-2 text-xs text-slate-400">
-            <input type="checkbox" checked={row.requiereObservaciones}
-              onChange={(e) => {
-                const checked = e.target.checked;
-                patch(row.id, { requiereObservaciones: checked, showObservaciones: checked || row.showObservaciones });
-              }}
-              className="h-4 w-4 rounded border-slate-600 bg-slate-900 text-amber-500" />
-            +1h
-          </label>
+        <button type="button" onClick={() => patch(row.id, { showEnlaceApoyo: !row.showEnlaceApoyo })}
+          className={`flex h-8 items-center gap-1 rounded-lg px-2 text-xs transition ${row.enlaceApoyo ? "bg-sky-600 text-white" : "bg-slate-700 text-slate-300 hover:bg-sky-600 hover:text-white"}`}>
+          <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/>
+          </svg>
+          Link
+        </button>
 
-          {/* Colaborador */}
-          <div className="relative">
-            <button type="button" onClick={() => setColabPickerRow(colabPickerRow === row.id ? null : row.id)}
-              className={`flex h-8 items-center gap-1 rounded-lg px-2 text-xs transition ${row.colaboradorId ? "bg-violet-600 text-white" : "bg-slate-700 text-slate-300 hover:bg-violet-600 hover:text-white"}`}>
-              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/>
-              </svg>
-              {row.colaboradorId ? "Colab" : "Colab"}
-            </button>
-            {colabPickerRow === row.id && (
-              <div className="absolute bottom-full left-0 z-30 mb-1 w-48 rounded-xl border border-slate-700 bg-slate-900 p-2 shadow-2xl">
-                <p className="mb-1 px-2 text-[10px] font-medium uppercase tracking-wider text-slate-500">Colaborador</p>
-                <div className="max-h-32 space-y-0.5 overflow-y-auto">
-                  <button onClick={() => { patch(row.id, { colaboradorId: null }); setColabPickerRow(null); }}
-                    className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-xs text-slate-400 transition hover:bg-slate-800">Ninguno</button>
-                  {tecnicos.map((t) => (
-                    <button key={t.id} onClick={() => { patch(row.id, { colaboradorId: t.id }); setColabPickerRow(null); }}
-                      className={`flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-xs transition hover:bg-slate-800 ${row.colaboradorId === t.id ? "text-violet-400 bg-violet-500/10" : "text-slate-300"}`}>
-                      <span className="flex h-5 w-5 items-center justify-center rounded-full bg-slate-700 text-[9px] font-bold text-slate-400">
-                        {t.displayName.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase()}
-                      </span>
-                      {t.displayName}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-
-          <button type="button" onClick={() => patch(row.id, { showObservaciones: !row.showObservaciones })}
-            className={`flex h-8 items-center gap-1 rounded-lg px-2 text-xs transition ${row.showObservaciones || row.requiereObservaciones ? "bg-amber-600 text-white" : "bg-slate-700 text-slate-300 hover:bg-amber-600 hover:text-white"}`}>
-            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-            </svg>
-            Obs
+        {rows.length > 1 && (
+          <button type="button" onClick={() => removeRow(row.id)}
+            className="flex h-8 items-center rounded-lg bg-slate-700 px-2 text-xs text-slate-400 transition hover:bg-red-600 hover:text-white">
+            Eliminar
           </button>
-
-          <button type="button" onClick={() => patch(row.id, { showEnlaceApoyo: !row.showEnlaceApoyo })}
-            className={`flex h-8 items-center gap-1 rounded-lg px-2 text-xs transition ${row.enlaceApoyo ? "bg-sky-600 text-white" : "bg-slate-700 text-slate-300 hover:bg-sky-600 hover:text-white"}`}>
-            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/>
-            </svg>
-            Link
-          </button>
-
-          {rows.length > 1 && (
-            <button type="button" onClick={() => removeRow(row.id)}
-              className="flex h-8 items-center rounded-lg bg-slate-700 px-2 text-xs text-slate-400 transition hover:bg-red-600 hover:text-white">
-              Eliminar
-            </button>
-          )}
-        </div>
-
-        {/* Expandibles */}
-        {(row.showObservaciones || row.requiereObservaciones) && (
-          <textarea value={row.observaciones} onChange={(e) => patch(row.id, { observaciones: e.target.value })}
-            className="w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-sm text-slate-100 placeholder-slate-500"
-            rows={2} placeholder="Observaciones..." />
-        )}
-        {row.showEnlaceApoyo && (
-          <div className="flex gap-2">
-            <input type="text" value={row.enlaceApoyo} onChange={(e) => patch(row.id, { enlaceApoyo: e.target.value })}
-              className="flex-1 rounded-lg border border-sky-600 bg-slate-900 px-3 py-2 text-sm text-slate-100 placeholder-slate-500"
-              placeholder="URL de apoyo" />
-            {row.enlaceApoyo && (
-              <button type="button" onClick={() => patch(row.id, { showEnlaceApoyo: false })}
-                className="rounded-lg px-2 py-1 text-xs text-slate-400 transition hover:bg-slate-700">Cerrar</button>
-            )}
-          </div>
         )}
       </div>
-    );
-  }
 
+      {/* Expandibles */}
+      {(row.showObservaciones || row.requiereObservaciones) && (
+        <textarea value={row.observaciones} onChange={(e) => patch(row.id, { observaciones: e.target.value })}
+          className="w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-sm text-slate-100 placeholder-slate-500"
+          rows={2} placeholder="Observaciones..." />
+      )}
+      {row.showEnlaceApoyo && (
+        <div className="flex gap-2">
+          <input type="text" value={row.enlaceApoyo} onChange={(e) => patch(row.id, { enlaceApoyo: e.target.value })}
+            className="flex-1 rounded-lg border border-sky-600 bg-slate-900 px-3 py-2 text-sm text-slate-100 placeholder-slate-500"
+            placeholder="URL de apoyo" />
+          {row.enlaceApoyo && (
+            <button type="button" onClick={() => patch(row.id, { showEnlaceApoyo: false })}
+              className="rounded-lg px-2 py-1 text-xs text-slate-400 transition hover:bg-slate-700">Cerrar</button>
+          )}
+        </div>
+      )}
+    </div>
+  );
   return (
     <div className="space-y-4">
       {/* Plantillas rapidas */}
@@ -386,48 +374,41 @@ export default function AtencionTable() {
         <span className="self-center text-[10px] text-slate-600">Plantillas rápidas</span>
       </div>
 
-      {/* Vista Mobile */}
-      {isMobile && (
-        <div className="space-y-3">
-          {/* Dots de navegación */}
-          {rows.length > 1 && (
-            <div className="flex items-center justify-center gap-2">
-              {rows.map((_, i) => (
-                <button key={i} onClick={() => setActiveIndex(i)}
-                  className={`h-2 rounded-full transition-all ${i === activeIndex ? "w-6 bg-amber-500" : "w-2 bg-slate-600"}`} />
-              ))}
-            </div>
-          )}
+      <div className="block md:hidden space-y-3">
+        {/* Dots de navegación */}
+        {rows.length > 1 && (
+          <div className="flex items-center justify-center gap-2">
+            {rows.map((_, i) => (
+              <button key={i} onClick={() => setActiveIndex(i)}
+                className={`h-2 rounded-full transition-all ${i === activeIndex ? "w-6 bg-amber-500" : "w-2 bg-slate-600"}`} />
+            ))}
+          </div>
+        )}
 
-          {rows.length > 1 && (
-            <p className="text-center text-xs text-slate-500">
-              Ticket {activeIndex + 1} de {rows.length}
-            </p>
-          )}
+        {rows.length > 1 && (
+          <p className="text-center text-xs text-slate-500">Ticket {activeIndex + 1} de {rows.length}</p>
+        )}
 
-          {activeRow && <MobileCard row={activeRow} />}
+        {activeRow && <MobileCard row={activeRow} />}
 
-          {/* Nav entre tickets */}
-          {rows.length > 1 && (
-            <div className="flex justify-between gap-2">
-              <button type="button" disabled={activeIndex === 0}
-                onClick={() => setActiveIndex((p) => Math.max(0, p - 1))}
-                className="rounded-lg bg-slate-700 px-4 py-2 text-xs text-slate-300 transition hover:bg-slate-600 disabled:opacity-30">
-                ← Anterior
-              </button>
-              <button type="button" disabled={activeIndex >= rows.length - 1}
-                onClick={() => setActiveIndex((p) => Math.min(rows.length - 1, p + 1))}
-                className="rounded-lg bg-slate-700 px-4 py-2 text-xs text-slate-300 transition hover:bg-slate-600 disabled:opacity-30">
-                Siguiente →
-              </button>
-            </div>
-          )}
-        </div>
-      )}
+        {rows.length > 1 && (
+          <div className="flex justify-between gap-2">
+            <button type="button" disabled={activeIndex === 0}
+              onClick={() => setActiveIndex((p) => Math.max(0, p - 1))}
+              className="rounded-lg bg-slate-700 px-4 py-2 text-xs text-slate-300 transition hover:bg-slate-600 disabled:opacity-30">
+              ← Anterior
+            </button>
+            <button type="button" disabled={activeIndex >= rows.length - 1}
+              onClick={() => setActiveIndex((p) => Math.min(rows.length - 1, p + 1))}
+              className="rounded-lg bg-slate-700 px-4 py-2 text-xs text-slate-300 transition hover:bg-slate-600 disabled:opacity-30">
+              Siguiente →
+            </button>
+          </div>
+        )}
+      </div>
 
       {/* Vista Desktop (tabla) */}
-      {!isMobile && (
-        <div className="overflow-x-auto rounded-xl border border-slate-700/50 bg-slate-800/60 shadow-lg backdrop-blur-sm">
+      <div className="hidden md:block overflow-x-auto rounded-xl border border-slate-700/50 bg-slate-800/60 shadow-lg backdrop-blur-sm">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-slate-700 bg-slate-800 text-slate-300">
@@ -531,7 +512,6 @@ export default function AtencionTable() {
             </tbody>
           </table>
         </div>
-      )}
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <button type="button" onClick={addRow}
