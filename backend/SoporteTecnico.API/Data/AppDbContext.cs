@@ -46,7 +46,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                 new Usuario
                 {
                     Id = 1,
-                    Email = "Mattias.Ribera@upds.edu.bo",
+                    Email = "mattias.ribera@upds.edu.bo",
                     DisplayName = "Mattias Ribera Rojas",
                     Role = "Jefe",
                     EstadoActual = EstadoUsuario.Ausente,
@@ -56,7 +56,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                 new Usuario
                 {
                     Id = 2,
-                    Email = "Diego.Orihuela@upds.edu.bo",
+                    Email = "diego.orihuela@upds.edu.bo",
                     DisplayName = "Diego Orihuela Herrera",
                     PasswordHash = "$2b$10$f.27ehfd5OYSj5fgfDqPDe0kmUkblxmpG4sM0LUotzOSDfaJNf6b.",
                     Role = "Tecnico",
@@ -67,7 +67,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                 new Usuario
                 {
                     Id = 3,
-                    Email = "Paul.Quispe@upds.edu.bo",
+                    Email = "paul.quispe@upds.edu.bo",
                     DisplayName = "Paul Manuel Quispe Choque",
                     PasswordHash = "$2b$10$f.27ehfd5OYSj5fgfDqPDe0kmUkblxmpG4sM0LUotzOSDfaJNf6b.",
                     Role = "Tecnico",
@@ -78,7 +78,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                 new Usuario
                 {
                     Id = 4,
-                    Email = "Jose.Orihuela@upds.edu.bo",
+                    Email = "jose.orihuela@upds.edu.bo",
                     DisplayName = "Jose Maria Orihuela Herrera",
                     PasswordHash = "$2b$10$f.27ehfd5OYSj5fgfDqPDe0kmUkblxmpG4sM0LUotzOSDfaJNf6b.",
                     Role = "Tecnico",
@@ -89,7 +89,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                 new Usuario
                 {
                     Id = 5,
-                    Email = "Sally.Aparicio@upds.edu.bo",
+                    Email = "sally.aparicio@upds.edu.bo",
                     DisplayName = "Sally Aparicio",
                     PasswordHash = "$2b$10$f.27ehfd5OYSj5fgfDqPDe0kmUkblxmpG4sM0LUotzOSDfaJNf6b.",
                     Role = "Tecnico",
@@ -100,7 +100,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                 new Usuario
                 {
                     Id = 6,
-                    Email = "Carolina.Ataides@upds.edu.bo",
+                    Email = "carolina.ataides@upds.edu.bo",
                     DisplayName = "Ana Carolina Ataides",
                     PasswordHash = "$2b$10$f.27ehfd5OYSj5fgfDqPDe0kmUkblxmpG4sM0LUotzOSDfaJNf6b.",
                     Role = "Tecnico",
@@ -111,7 +111,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                 new Usuario
                 {
                     Id = 7,
-                    Email = "Samira.Barrientos@upds.edu.bo",
+                    Email = "samira.barrientos@upds.edu.bo",
                     DisplayName = "Samira Barrientos",
                     PasswordHash = "$2b$10$f.27ehfd5OYSj5fgfDqPDe0kmUkblxmpG4sM0LUotzOSDfaJNf6b.",
                     Role = "Tecnico",

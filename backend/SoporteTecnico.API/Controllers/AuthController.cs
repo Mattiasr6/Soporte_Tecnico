@@ -72,7 +72,7 @@ public class AuthController : ControllerBase
 
         _codeStore.Remove(email);
 
-        var usuario = await _db.Usuarios.FirstOrDefaultAsync(u => u.Email == email);
+        var usuario = await _db.Usuarios.FirstOrDefaultAsync(u => EF.Functions.ILike(u.Email, email));
 
         if (usuario is null)
         {

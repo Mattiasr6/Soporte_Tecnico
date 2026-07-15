@@ -12,7 +12,7 @@ using SoporteTecnico.API.Data;
 namespace SoporteTecnico.API.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260708154845_InitialPostgres")]
+    [Migration("20260715223424_InitialPostgres")]
     partial class InitialPostgres
     {
         /// <inheritdoc />
@@ -209,7 +209,7 @@ namespace SoporteTecnico.API.Migrations
                             CanViewDashboard = false,
                             CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             DisplayName = "Mattias Ribera Rojas",
-                            Email = "Mattias.Ribera@upds.edu.bo",
+                            Email = "mattias.ribera@upds.edu.bo",
                             EstadoActual = "Ausente",
                             Role = "Jefe",
                             UpdatedAt = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
@@ -220,7 +220,7 @@ namespace SoporteTecnico.API.Migrations
                             CanViewDashboard = false,
                             CreatedAt = new DateTime(2025, 6, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             DisplayName = "Diego Orihuela Herrera",
-                            Email = "Diego.Orihuela@upds.edu.bo",
+                            Email = "diego.orihuela@upds.edu.bo",
                             EstadoActual = "Ausente",
                             PasswordHash = "$2b$10$f.27ehfd5OYSj5fgfDqPDe0kmUkblxmpG4sM0LUotzOSDfaJNf6b.",
                             Role = "Tecnico",
@@ -232,7 +232,7 @@ namespace SoporteTecnico.API.Migrations
                             CanViewDashboard = false,
                             CreatedAt = new DateTime(2025, 6, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             DisplayName = "Paul Manuel Quispe Choque",
-                            Email = "Paul.Quispe@upds.edu.bo",
+                            Email = "paul.quispe@upds.edu.bo",
                             EstadoActual = "Ausente",
                             PasswordHash = "$2b$10$f.27ehfd5OYSj5fgfDqPDe0kmUkblxmpG4sM0LUotzOSDfaJNf6b.",
                             Role = "Tecnico",
@@ -244,7 +244,7 @@ namespace SoporteTecnico.API.Migrations
                             CanViewDashboard = false,
                             CreatedAt = new DateTime(2025, 6, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             DisplayName = "Jose Maria Orihuela Herrera",
-                            Email = "Jose.Orihuela@upds.edu.bo",
+                            Email = "jose.orihuela@upds.edu.bo",
                             EstadoActual = "Ausente",
                             PasswordHash = "$2b$10$f.27ehfd5OYSj5fgfDqPDe0kmUkblxmpG4sM0LUotzOSDfaJNf6b.",
                             Role = "Tecnico",
@@ -256,7 +256,7 @@ namespace SoporteTecnico.API.Migrations
                             CanViewDashboard = false,
                             CreatedAt = new DateTime(2025, 6, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             DisplayName = "Sally Aparicio",
-                            Email = "Sally.Aparicio@upds.edu.bo",
+                            Email = "sally.aparicio@upds.edu.bo",
                             EstadoActual = "Ausente",
                             PasswordHash = "$2b$10$f.27ehfd5OYSj5fgfDqPDe0kmUkblxmpG4sM0LUotzOSDfaJNf6b.",
                             Role = "Tecnico",
@@ -268,7 +268,7 @@ namespace SoporteTecnico.API.Migrations
                             CanViewDashboard = false,
                             CreatedAt = new DateTime(2025, 6, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             DisplayName = "Ana Carolina Ataides",
-                            Email = "Carolina.Ataides@upds.edu.bo",
+                            Email = "carolina.ataides@upds.edu.bo",
                             EstadoActual = "Ausente",
                             PasswordHash = "$2b$10$f.27ehfd5OYSj5fgfDqPDe0kmUkblxmpG4sM0LUotzOSDfaJNf6b.",
                             Role = "Tecnico",
@@ -280,7 +280,7 @@ namespace SoporteTecnico.API.Migrations
                             CanViewDashboard = false,
                             CreatedAt = new DateTime(2025, 6, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             DisplayName = "Samira Barrientos",
-                            Email = "Samira.Barrientos@upds.edu.bo",
+                            Email = "samira.barrientos@upds.edu.bo",
                             EstadoActual = "Ausente",
                             PasswordHash = "$2b$10$f.27ehfd5OYSj5fgfDqPDe0kmUkblxmpG4sM0LUotzOSDfaJNf6b.",
                             Role = "Tecnico",

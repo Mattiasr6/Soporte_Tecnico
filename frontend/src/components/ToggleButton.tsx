@@ -3,16 +3,19 @@
 import { useState, useEffect } from "react";
 import { updateEstado, getUsuarios } from "@/lib/api";
 import { useAuth } from "./AuthProvider";
+import { useSignalR } from "@/lib/SignalRProvider";
 import type { Usuario } from "@/types";
 
 export default function ToggleButton() {
   const { user, setUser } = useAuth();
+  const { lastStatus } = useSignalR();
   const [loading, setLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [showColabPicker, setShowColabPicker] = useState(false);
   const [colegas, setColegas] = useState<Usuario[]>([]);
 
-  const estado = user?.estadoActual ?? "ausente";
+  // Priorizar estado en tiempo real desde SignalR
+  const estado = user?.id && lastStatus?.usuarioId === user.id ? lastStatus.estado : (user?.estadoActual ?? "ausente");
 
   useEffect(() => {
     if (showColabPicker) {
