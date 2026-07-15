@@ -96,7 +96,6 @@ export default function AtencionTable() {
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (sugRef.current && !sugRef.current.contains(e.target as Node)) setMostrarSug(null);
-      setColabPickerRow(null);
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
