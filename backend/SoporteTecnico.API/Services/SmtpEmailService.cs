@@ -16,6 +16,9 @@ public class SmtpEmailService : IEmailService
 
     public async Task SendVerificationCodeAsync(string toEmail, string code)
     {
+        // Mostrar en consola para pruebas locales
+        Console.WriteLine($"[VERIFICATION CODE] {toEmail} -> {code}");
+
         var mailServiceUrl = _config["MailService:Url"] ?? "http://mail-service:8080/send.php";
         var directSmtp = bool.Parse(_config["MailService:DirectSmtp"] ?? "false");
 
@@ -25,7 +28,6 @@ public class SmtpEmailService : IEmailService
             return;
         }
 
-        // Intentar via PHP mail service
         try
         {
             var client = _httpClientFactory.CreateClient();
@@ -36,7 +38,6 @@ public class SmtpEmailService : IEmailService
         }
         catch
         {
-            // Fallback a SMTP directo si el PHP service no esta disponible
             await SendDirectSmtp(toEmail, code);
         }
     }
