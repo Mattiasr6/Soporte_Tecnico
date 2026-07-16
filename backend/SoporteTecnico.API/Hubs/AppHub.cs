@@ -23,27 +23,37 @@ public class AppHub : Hub
     public override async Task OnConnectedAsync()
     {
         var userIdClaim = Context.User?.FindFirstValue(ClaimTypes.NameIdentifier);
+        Console.WriteLine($"[SignalR] Connect: connectionId={Context.ConnectionId}, userIdClaim={userIdClaim}");
         await Groups.AddToGroupAsync(Context.ConnectionId, "all");
 
         if (userIdClaim is not null && int.TryParse(userIdClaim, out var usuarioId))
         {
+            Console.WriteLine($"[SignalR] User {usuarioId} parsed OK");
             ConnectedUsers.TryAdd(Context.ConnectionId, usuarioId);
 
             using var scope = _scopeFactory.CreateScope();
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
             var user = await db.Usuarios.FindAsync(usuarioId);
-            if (user is not null && user.EstadoActual == EstadoUsuario.Ausente)
-            {
-                user.EstadoActual = EstadoUsuario.Disponible;
-                user.UpdatedAt = DateTime.UtcNow;
-                await db.SaveChangesAsync();
-            }
 
-            if (user is not null)
+            if (user is null)
             {
+                Console.WriteLine($"[SignalR] User {usuarioId} NOT FOUND in DB");
+            }
+            else
+            {
+                Console.WriteLine($"[SignalR] User {user.DisplayName} estado={user.EstadoActual}");
+                if (user.EstadoActual == EstadoUsuario.Ausente)
+                {
+                    user.EstadoActual = EstadoUsuario.Disponible;
+                    user.UpdatedAt = DateTime.UtcNow;
+                    await db.SaveChangesAsync();
+                    Console.WriteLine($"[SignalR] {user.DisplayName} changed Ausente → Disponible");
+                }
+
                 var horario = await db.Horarios
                     .FirstOrDefaultAsync(h => h.UsuarioId == usuarioId && h.Mes == DateTime.UtcNow.Month && h.Anio == DateTime.UtcNow.Year);
                 var estado = HorarioHelper.EstadoEfectivo(user.EstadoActual, horario);
+                Console.WriteLine($"[SignalR] Broadcasting StatusChanged: {user.DisplayName} → {estado}");
 
                 await Clients.Group("all").SendAsync("StatusChanged", new
                 {
@@ -55,6 +65,10 @@ public class AppHub : Hub
                     timestamp = DateTime.UtcNow.ToString("HH:mm")
                 });
             }
+        }
+        else
+        {
+            Console.WriteLine($"[SignalR] No valid userIdClaim found in token");
         }
 
         await base.OnConnectedAsync();

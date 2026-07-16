@@ -6,6 +6,7 @@ import { useAuth } from "@/components/AuthProvider";
 import DashboardCards from "@/components/DashboardCards";
 import DashboardStats from "@/components/DashboardStats";
 import CompareTecnicos from "@/components/CompareTecnicos";
+import ErrorBoundary from "@/components/ErrorBoundary";
 
 export default function DashboardPage() {
   const { user } = useAuth();
@@ -32,17 +33,17 @@ export default function DashboardPage() {
         </p>
       </div>
 
-      <section>
-        <DashboardCards />
-      </section>
+      <ErrorBoundary fallback={<p className="text-sm text-red-400">Error al cargar tarjetas</p>}>
+        <section><DashboardCards /></section>
+      </ErrorBoundary>
 
-      <section>
-        <DashboardStats />
-      </section>
+      <ErrorBoundary fallback={<p className="text-sm text-red-400">Error al cargar estadísticas</p>}>
+        <section><DashboardStats /></section>
+      </ErrorBoundary>
 
-      <section>
-        <CompareTecnicos />
-      </section>
+      <ErrorBoundary fallback={<p className="text-sm text-red-400">Error al cargar comparación</p>}>
+        <section><CompareTecnicos /></section>
+      </ErrorBoundary>
     </main>
   );
 }
