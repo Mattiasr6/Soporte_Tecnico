@@ -23,6 +23,12 @@ public class AtencionesController : ControllerBase
         _db = db;
     }
 
+    private static readonly HashSet<string> CategoriasValidas = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "Audio/Video", "Cuentas/Accesos", "Hardware", "Impresión",
+        "Otros", "Redes/Conectividad", "Sistemas académicos", "Software",
+    };
+
     private int GetUserId() =>
         int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
@@ -236,6 +242,10 @@ public class AtencionesController : ControllerBase
 
         if (dto.Atenciones.Count == 0)
             return BadRequest("La lista de atenciones está vacía.");
+        var invalidas = dto.Atenciones.Select(a => NormalizarCategoria(a.Categoria))
+            .Where(c => !CategoriasValidas.Contains(c)).Distinct().ToList();
+        if (invalidas.Count > 0)
+            return BadRequest($"Categorías inválidas: {string.Join(", ", invalidas)}. Use: {string.Join(", ", CategoriasValidas)}");
 
         var now = DateTime.UtcNow;
         var horariosDelMes = await _db.Horarios
@@ -333,13 +343,20 @@ public class AtencionesController : ControllerBase
             if (!DateOnly.TryParseExact(fechaStr, "dd/MM/yyyy", CultureInfo.InvariantCulture, DateTimeStyles.None, out fecha))
                 fecha = DateOnly.FromDateTime(DateTime.UtcNow);
 
+            var catNorm = NormalizarCategoria(categoria);
+            if (!CategoriasValidas.Contains(catNorm))
+            {
+                errores.Add($"Línea {lineNumber}: categoría inválida '{categoria}', se usará 'Otros'");
+                catNorm = "Otros";
+            }
+
             atenciones.Add(new Atencion
             {
                 UsuarioId = usuario.Id,
                 AreaSolicitante = area,
                 MedioSolicitud = medio is "Presencial" or "Interno" or "WhatsApp" or "E-ticket" ? medio : "Interno",
                 UsuarioSolicitante = usuarioSol is "ADM" or "BEC" or "DOC" ? usuarioSol : "ADM",
-                Categoria = NormalizarCategoria(categoria),
+                Categoria = catNorm,
                 Descripcion = descripcion,
                 Solucion = solucion,
                 Observaciones = observaciones is "N/A" or "" ? null : observaciones,
@@ -369,7 +386,7 @@ public class AtencionesController : ControllerBase
             ["impresion"] = "Impresión",
             ["cuentas"] = "Cuentas/Accesos",
             ["sistemas academicos"] = "Sistemas académicos",
-        };
+            ["otros"] = "Otros",
         return map.TryGetValue(cat.Trim(), out var norm) ? norm : cat;
     }
 }

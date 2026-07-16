@@ -9,7 +9,7 @@ import { SkeletonCard, SkeletonRow } from "./Skeleton";
 
 const MONTHS = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
 const MONTH_OPTIONS = MONTHS.map((m, i) => ({ value: i + 1, label: m }));
-const YEAR_OPTIONS = [2026];
+const YEAR_OPTIONS = [new Date().getFullYear()];
 
 export default function DashboardStats() {
   const router = useRouter();
@@ -18,8 +18,8 @@ export default function DashboardStats() {
   const [selectedUserId, setSelectedUserId] = useState<number | undefined>(undefined);
   const [loading, setLoading] = useState(true);
   const [desdeMes, setDesdeMes] = useState(1);
-  const [desdeAnio] = useState(2026);
-  const [hastaMes, setHastaMes] = useState(6);
+  const [desdeAnio] = useState(new Date().getFullYear());
+  const [hastaMes, setHastaMes] = useState(new Date().getMonth() + 1);
 
   const fetch = useCallback(async (uid?: number, dm?: number, hm?: number) => {
     try {
@@ -27,9 +27,9 @@ export default function DashboardStats() {
         getDashboardStats({
           usuarioId: uid,
           desdeMes: dm,
-          desdeAnio: 2026,
+          desdeAnio: new Date().getFullYear(),
           hastaMes: hm,
-          hastaAnio: 2026,
+          hastaAnio: new Date().getFullYear(),
         }),
         getUsuarios(),
       ]);
