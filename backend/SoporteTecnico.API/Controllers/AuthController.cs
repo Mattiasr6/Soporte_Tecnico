@@ -115,6 +115,41 @@ public class AuthController : ControllerBase
         });
     }
 
+    public record LoginRequest(string Email, string Password);
+
+    [HttpPost("login")]
+    public async Task<ActionResult> Login([FromBody] LoginRequest request)
+    {
+        var email = request.Email.Trim().ToLowerInvariant();
+
+        var usuario = await _db.Usuarios.FirstOrDefaultAsync(u => EF.Functions.ILike(u.Email, email));
+        if (usuario is null)
+            return Unauthorized(new { error = "Correo no registrado" });
+
+        if (string.IsNullOrEmpty(usuario.PasswordHash))
+            return Unauthorized(new { error = "Este usuario no tiene contraseña asignada. Contacta al administrador." });
+
+        if (!BCrypt.Net.BCrypt.Verify(request.Password, usuario.PasswordHash))
+            return Unauthorized(new { error = "Contraseña incorrecta" });
+
+        var token = GenerateJwt(usuario);
+        var canView = usuario.CanViewDashboard || usuario.Role == "Jefe";
+
+        return Ok(new
+        {
+            token,
+            user = new
+            {
+                usuario.Id,
+                usuario.DisplayName,
+                usuario.Role,
+                usuario.Email,
+                usuario.EstadoActual,
+                canViewDashboard = canView
+            }
+        });
+    }
+
     private string GenerateJwt(Usuario usuario)
     {
         var key = new SymmetricSecurityKey(
