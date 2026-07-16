@@ -203,12 +203,12 @@ namespace SoporteTecnico.API.Migrations
                         new
                         {
                             Id = 1,
-                            CanViewDashboard = false,
+                            CanViewDashboard = true,
                             CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             DisplayName = "Mattias Ribera Rojas",
                             Email = "mattias.ribera@upds.edu.bo",
                             EstadoActual = "Ausente",
-                            Role = "Jefe",
+                            Role = "Tecnico",
                             UpdatedAt = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
                         },
                         new
@@ -282,6 +282,28 @@ namespace SoporteTecnico.API.Migrations
                             PasswordHash = "$2b$10$f.27ehfd5OYSj5fgfDqPDe0kmUkblxmpG4sM0LUotzOSDfaJNf6b.",
                             Role = "Tecnico",
                             UpdatedAt = new DateTime(2025, 6, 1, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            Id = 8,
+                            CanViewDashboard = false,
+                            CreatedAt = new DateTime(2025, 7, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DisplayName = "Josue Huayllas",
+                            Email = "josue.huayllas@upds.edu.bo",
+                            EstadoActual = "Ausente",
+                            Role = "Jefe",
+                            UpdatedAt = new DateTime(2025, 7, 1, 0, 0, 0, 0, DateTimeKind.Utc)
+                        },
+                        new
+                        {
+                            Id = 9,
+                            CanViewDashboard = false,
+                            CreatedAt = new DateTime(2025, 7, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DisplayName = "Wilmer Cerruto",
+                            Email = "wilmer.cerruto@upds.edu.bo",
+                            EstadoActual = "Ausente",
+                            Role = "Jefe",
+                            UpdatedAt = new DateTime(2025, 7, 1, 0, 0, 0, 0, DateTimeKind.Utc)
                         });
                 });
 

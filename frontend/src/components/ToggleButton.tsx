@@ -15,7 +15,8 @@ export default function ToggleButton() {
   const [colegas, setColegas] = useState<Usuario[]>([]);
 
   // Priorizar estado en tiempo real desde SignalR
-  const estado = user?.id && lastStatus?.usuarioId === user.id ? lastStatus.estado : (user?.estadoActual ?? "ausente");
+  // Si no hay señal aun, vos estas conectado (nunca te ves Ausente a vos mismo)
+  const estado = user?.id && lastStatus?.usuarioId === user.id ? lastStatus.estado : (user?.estadoActual ?? "disponible");
 
   useEffect(() => {
     if (showColabPicker) {

@@ -48,7 +48,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                     Id = 1,
                     Email = "mattias.ribera@upds.edu.bo",
                     DisplayName = "Mattias Ribera Rojas",
-                    Role = "Jefe",
+                    Role = "Tecnico",
+                    CanViewDashboard = true,
                     EstadoActual = EstadoUsuario.Ausente,
                     CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc),
                     UpdatedAt = new DateTime(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc)
@@ -118,6 +119,26 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                     EstadoActual = EstadoUsuario.Ausente,
                     CreatedAt = new DateTime(2025, 6, 1, 0, 0, 0, DateTimeKind.Utc),
                     UpdatedAt = new DateTime(2025, 6, 1, 0, 0, 0, DateTimeKind.Utc)
+                },
+                new Usuario
+                {
+                    Id = 8,
+                    Email = "josue.huayllas@upds.edu.bo",
+                    DisplayName = "Josue Huayllas",
+                    Role = "Jefe",
+                    EstadoActual = EstadoUsuario.Ausente,
+                    CreatedAt = new DateTime(2025, 7, 1, 0, 0, 0, DateTimeKind.Utc),
+                    UpdatedAt = new DateTime(2025, 7, 1, 0, 0, 0, DateTimeKind.Utc)
+                },
+                new Usuario
+                {
+                    Id = 9,
+                    Email = "wilmer.cerruto@upds.edu.bo",
+                    DisplayName = "Wilmer Cerruto",
+                    Role = "Jefe",
+                    EstadoActual = EstadoUsuario.Ausente,
+                    CreatedAt = new DateTime(2025, 7, 1, 0, 0, 0, DateTimeKind.Utc),
+                    UpdatedAt = new DateTime(2025, 7, 1, 0, 0, 0, DateTimeKind.Utc)
                 }
             );
         });

@@ -59,7 +59,6 @@ export default function AtencionTable() {
   const [sugerencias, setSugerencias] = useState<Sugerencia[]>([]);
   const [mostrarSug, setMostrarSug] = useState<string | null>(null);
   const [indiceBusqueda, setIndiceBusqueda] = useState<{ keywords: string; sug: Sugerencia }[]>([]);
-  const [colabPickerRow, setColabPickerRow] = useState<string | null>(null);
   const [activeIndex, setActiveIndex] = useState(0);
   const sugRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
@@ -286,33 +285,13 @@ export default function AtencionTable() {
         </label>
 
         {/* Colaborador */}
-        <div className="relative">
-          <button type="button" onClick={() => setColabPickerRow(colabPickerRow === row.id ? null : row.id)}
-            className={`flex h-8 items-center gap-1 rounded-lg px-2 text-xs transition ${row.colaboradorId ? "bg-violet-600 text-white" : "bg-slate-700 text-slate-300 hover:bg-violet-600 hover:text-white"}`}>
-            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/>
-            </svg>
-            {row.colaboradorId ? "Colab" : "Colab"}
-          </button>
-          {colabPickerRow === row.id && (
-            <div className="absolute bottom-full left-0 z-30 mb-1 w-48 rounded-xl border border-slate-700 bg-slate-900 p-2 shadow-2xl">
-              <p className="mb-1 px-2 text-[10px] font-medium uppercase tracking-wider text-slate-500">Colaborador</p>
-              <div className="max-h-32 space-y-0.5 overflow-y-auto">
-                <button onClick={() => { patch(row.id, { colaboradorId: null }); setColabPickerRow(null); }}
-                  className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-xs text-slate-400 transition hover:bg-slate-800">Ninguno</button>
-                {tecnicos.map((t) => (
-                  <button key={t.id} onClick={() => { patch(row.id, { colaboradorId: t.id }); setColabPickerRow(null); }}
-                    className={`flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-xs transition hover:bg-slate-800 ${row.colaboradorId === t.id ? "text-violet-400 bg-violet-500/10" : "text-slate-300"}`}>
-                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-slate-700 text-[9px] font-bold text-slate-400">
-                      {t.displayName.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase()}
-                    </span>
-                    {t.displayName}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
+        <select value={row.colaboradorId ?? ""} onChange={(e) => patch(row.id, { colaboradorId: e.target.value ? Number(e.target.value) : null })}
+          className="rounded-lg border border-slate-600 bg-slate-900 px-2 py-1 text-xs text-slate-100">
+          <option value="">Ninguno</option>
+          {tecnicos.map((t) => (
+            <option key={t.id} value={t.id}>{t.displayName}</option>
+          ))}
+        </select>
 
         <button type="button" onClick={() => patch(row.id, { showObservaciones: !row.showObservaciones })}
           className={`flex h-8 items-center gap-1 rounded-lg px-2 text-xs transition ${row.showObservaciones || row.requiereObservaciones ? "bg-amber-600 text-white" : "bg-slate-700 text-slate-300 hover:bg-amber-600 hover:text-white"}`}>
@@ -388,7 +367,7 @@ export default function AtencionTable() {
           <p className="text-center text-xs text-slate-500">Ticket {activeIndex + 1} de {rows.length}</p>
         )}
 
-        {activeRow && <MobileCard row={activeRow} />}
+        {activeRow && MobileCard({ row: activeRow })}
 
         {rows.length > 1 && (
           <div className="flex justify-between gap-2">
@@ -452,30 +431,13 @@ export default function AtencionTable() {
                         className="h-5 w-5 rounded border-slate-600 bg-slate-900 text-amber-500 focus:ring-amber-500/50" /></label></td>
                     <td className="p-1.5">
                       <div className="flex items-center justify-center gap-1">
-                        <div className="relative">
-                          <button type="button" onClick={() => setColabPickerRow(colabPickerRow === row.id ? null : row.id)}
-                            className={`flex h-8 w-8 items-center justify-center rounded-lg transition ${row.colaboradorId ? "bg-violet-600 text-white" : "bg-slate-700 text-slate-300 hover:bg-violet-600 hover:text-white"}`}
-                            title={row.colaboradorId ? "Colaborador asignado" : "Asignar colaborador"}>
-                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/>
-                            </svg>
-                          </button>
-                          {colabPickerRow === row.id && (
-                            <div className="absolute right-0 top-full z-30 mt-1 w-52 rounded-xl border border-slate-700 bg-slate-900 p-2 shadow-2xl">
-                              <p className="mb-1.5 px-2 text-[10px] font-medium uppercase tracking-wider text-slate-500">Seleccionar colaborador</p>
-                              <div className="max-h-40 space-y-0.5 overflow-y-auto">
-                                <button onClick={() => { patch(row.id, { colaboradorId: null }); setColabPickerRow(null); }}
-                                  className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-xs text-slate-400 transition hover:bg-slate-800">Ninguno</button>
-                                {tecnicos.map((t) => (
-                                  <button key={t.id} onClick={() => { patch(row.id, { colaboradorId: t.id }); setColabPickerRow(null); }}
-                                    className={`flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-xs transition hover:bg-slate-800 ${row.colaboradorId === t.id ? "text-violet-400 bg-violet-500/10" : "text-slate-300"}`}>
-                                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-slate-700 text-[10px] font-bold text-slate-400">
-                                      {t.displayName.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase()}</span>
-                                    {t.displayName}</button>))}
-                              </div>
-                            </div>
-                          )}
-                        </div>
+                        <select value={row.colaboradorId ?? ""} onChange={(e) => patch(row.id, { colaboradorId: e.target.value ? Number(e.target.value) : null })}
+                          className="rounded-lg border border-slate-600 bg-slate-900 px-2 py-2 text-xs text-slate-100">
+                          <option value="">Ninguno</option>
+                          {tecnicos.map((t) => (
+                            <option key={t.id} value={t.id}>{t.displayName}</option>
+                          ))}
+                        </select>
                         <button type="button" onClick={() => patch(row.id, { showObservaciones: !row.showObservaciones })}
                           className={`flex h-8 w-8 items-center justify-center rounded-lg transition ${row.showObservaciones || row.requiereObservaciones ? "bg-amber-600 text-white" : "bg-slate-700 text-slate-300 hover:bg-amber-600 hover:text-white"}`} title="Observaciones">
                           <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg></button>

@@ -32,7 +32,7 @@ public class UsuariosController : ControllerBase
     public async Task<ActionResult<List<UsuarioDto>>> GetAll()
     {
         var now = DateTime.UtcNow;
-        var usuarios = await _db.Usuarios.Where(u => u.Role == "Tecnico").ToListAsync();
+        var usuarios = await _db.Usuarios.Where(u => u.Role == "Tecnico" || u.Role == "Jefe").ToListAsync();
         var horarios = await _db.Horarios
             .Where(h => h.Mes == now.Month && h.Anio == now.Year).ToListAsync();
 
