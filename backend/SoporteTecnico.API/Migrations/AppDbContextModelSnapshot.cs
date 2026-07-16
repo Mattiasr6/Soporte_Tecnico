@@ -211,6 +211,7 @@ namespace SoporteTecnico.API.Migrations
                             DisplayName = "Mattias Ribera Rojas",
                             Email = "mattias.ribera@upds.edu.bo",
                             EstadoActual = "Ausente",
+                            PasswordHash = "$2b$10$f.27ehfd5OYSj5fgfDqPDe0kmUkblxmpG4sM0LUotzOSDfaJNf6b.",
                             Role = "Tecnico",
                             UpdatedAt = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
                         },
@@ -294,6 +295,7 @@ namespace SoporteTecnico.API.Migrations
                             DisplayName = "Josue Huayllas",
                             Email = "josue.huayllas@upds.edu.bo",
                             EstadoActual = "Ausente",
+                            PasswordHash = "$2b$10$f.27ehfd5OYSj5fgfDqPDe0kmUkblxmpG4sM0LUotzOSDfaJNf6b.",
                             Role = "Jefe",
                             UpdatedAt = new DateTime(2025, 7, 1, 0, 0, 0, 0, DateTimeKind.Utc)
                         },
@@ -305,6 +307,7 @@ namespace SoporteTecnico.API.Migrations
                             DisplayName = "Wilmer Cerruto",
                             Email = "wilmer.cerruto@upds.edu.bo",
                             EstadoActual = "Ausente",
+                            PasswordHash = "$2b$10$f.27ehfd5OYSj5fgfDqPDe0kmUkblxmpG4sM0LUotzOSDfaJNf6b.",
                             Role = "Jefe",
                             UpdatedAt = new DateTime(2025, 7, 1, 0, 0, 0, 0, DateTimeKind.Utc)
                         });

@@ -103,7 +103,7 @@ namespace SoporteTecnico.API.Migrations
             migrationBuilder.InsertData(
                 table: "Usuarios",
                 columns: new[] { "Id", "CanViewDashboard", "CreatedAt", "DisplayName", "Email", "Especialidad", "EstadoActual", "Notas", "PasswordHash", "Role", "UpdatedAt" },
-                values: new object[] { 1, true, new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "Mattias Ribera Rojas", "mattias.ribera@upds.edu.bo", null, "Ausente", null, null, "Tecnico", new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc) });
+                values: new object[] { 1, true, new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "Mattias Ribera Rojas", "mattias.ribera@upds.edu.bo", null, "Ausente", null, "$2b$10$f.27ehfd5OYSj5fgfDqPDe0kmUkblxmpG4sM0LUotzOSDfaJNf6b.", "Tecnico", new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc) });
 
             migrationBuilder.InsertData(
                 table: "Usuarios",
@@ -116,8 +116,8 @@ namespace SoporteTecnico.API.Migrations
                     { 5, new DateTime(2025, 6, 1, 0, 0, 0, 0, DateTimeKind.Utc), "Sally Aparicio", "sally.aparicio@upds.edu.bo", null, "Ausente", null, "$2b$10$f.27ehfd5OYSj5fgfDqPDe0kmUkblxmpG4sM0LUotzOSDfaJNf6b.", "Tecnico", new DateTime(2025, 6, 1, 0, 0, 0, 0, DateTimeKind.Utc) },
                     { 6, new DateTime(2025, 6, 1, 0, 0, 0, 0, DateTimeKind.Utc), "Ana Carolina Ataides", "carolina.ataides@upds.edu.bo", null, "Ausente", null, "$2b$10$f.27ehfd5OYSj5fgfDqPDe0kmUkblxmpG4sM0LUotzOSDfaJNf6b.", "Tecnico", new DateTime(2025, 6, 1, 0, 0, 0, 0, DateTimeKind.Utc) },
                     { 7, new DateTime(2025, 6, 1, 0, 0, 0, 0, DateTimeKind.Utc), "Samira Barrientos", "samira.barrientos@upds.edu.bo", null, "Ausente", null, "$2b$10$f.27ehfd5OYSj5fgfDqPDe0kmUkblxmpG4sM0LUotzOSDfaJNf6b.", "Tecnico", new DateTime(2025, 6, 1, 0, 0, 0, 0, DateTimeKind.Utc) },
-                    { 8, new DateTime(2025, 7, 1, 0, 0, 0, 0, DateTimeKind.Utc), "Josue Huayllas", "josue.huayllas@upds.edu.bo", null, "Ausente", null, null, "Jefe", new DateTime(2025, 7, 1, 0, 0, 0, 0, DateTimeKind.Utc) },
-                    { 9, new DateTime(2025, 7, 1, 0, 0, 0, 0, DateTimeKind.Utc), "Wilmer Cerruto", "wilmer.cerruto@upds.edu.bo", null, "Ausente", null, null, "Jefe", new DateTime(2025, 7, 1, 0, 0, 0, 0, DateTimeKind.Utc) }
+                    { 8, new DateTime(2025, 7, 1, 0, 0, 0, 0, DateTimeKind.Utc), "Josue Huayllas", "josue.huayllas@upds.edu.bo", null, "Ausente", null, "$2b$10$f.27ehfd5OYSj5fgfDqPDe0kmUkblxmpG4sM0LUotzOSDfaJNf6b.", "Jefe", new DateTime(2025, 7, 1, 0, 0, 0, 0, DateTimeKind.Utc) },
+                    { 9, new DateTime(2025, 7, 1, 0, 0, 0, 0, DateTimeKind.Utc), "Wilmer Cerruto", "wilmer.cerruto@upds.edu.bo", null, "Ausente", null, "$2b$10$f.27ehfd5OYSj5fgfDqPDe0kmUkblxmpG4sM0LUotzOSDfaJNf6b.", "Jefe", new DateTime(2025, 7, 1, 0, 0, 0, 0, DateTimeKind.Utc) }
                 });
 
             migrationBuilder.CreateIndex(

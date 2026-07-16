@@ -5,7 +5,6 @@ import { useSearchParams } from "next/navigation";
 import ToggleButton from "@/components/ToggleButton";
 import AtencionTable from "@/components/AtencionTable";
 import HistorialModal from "@/components/HistorialModal";
-import CsvDropzone from "@/components/CsvDropzone";
 import { useAuth } from "@/components/AuthProvider";
 
 export default function SoportePage() {
@@ -13,8 +12,6 @@ export default function SoportePage() {
   const searchParams = useSearchParams();
   const [showHistorial, setShowHistorial] = useState(false);
   const [historialUserId, setHistorialUserId] = useState<number | undefined>(undefined);
-  const [csvDone, setCsvDone] = useState(false);
-  const [checkingCsv, setCheckingCsv] = useState(true);
 
   const tecnicoId = searchParams.get("tecnicoId");
 
@@ -25,13 +22,6 @@ export default function SoportePage() {
     }
   }, [tecnicoId]);
 
-  useEffect(() => {
-    fetch(`http://${window.location.hostname}:5000/api/atenciones`)
-      .then(r => r.json())
-      .then(arr => { if (Array.isArray(arr) && arr.length > 0) setCsvDone(true); })
-      .catch(() => {})
-      .finally(() => setCheckingCsv(false));
-  }, []);
   return (
     <main className="mx-auto max-w-6xl space-y-4 px-3 py-4 lg:px-6 lg:py-6">
       <section className="flex flex-col items-center py-2">
@@ -43,24 +33,6 @@ export default function SoportePage() {
           <ToggleButton />
         </div>
       </section>
-
-      {/* CSV Import */}
-      {!csvDone && !checkingCsv && (
-        <section>
-          <h2 className="mb-1 text-sm font-semibold text-slate-200">Importar desde CSV</h2>
-          <p className="mb-3 text-xs text-slate-500">
-            Arrastra tu archivo .csv o haz clic para seleccionar
-          </p>
-          <CsvDropzone onImport={() => setCsvDone(true)} />
-        </section>
-      )}
-      {csvDone && (
-        <section className="rounded-xl border border-emerald-700/30 bg-emerald-900/10 px-4 py-3">
-          <p className="text-xs text-emerald-400">
-            ✓ CSV importado — los registros ya están cargados en el sistema.
-          </p>
-        </section>
-      )}
 
       {/* Historial */}
       <section className="rounded-xl border border-slate-700/50 bg-slate-800/30 px-4 py-3 lg:px-5">
