@@ -76,26 +76,38 @@ public class AppHub : Hub
 
     public override async Task OnDisconnectedAsync(Exception? exception)
     {
+        Console.WriteLine($"[SignalR] Disconnect: connectionId={Context.ConnectionId}");
         if (ConnectedUsers.TryRemove(Context.ConnectionId, out var usuarioId))
         {
-            using var scope = _scopeFactory.CreateScope();
-            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-            var user = await db.Usuarios.FindAsync(usuarioId);
-            if (user is not null && user.EstadoActual == EstadoUsuario.Disponible)
-            {
-                user.EstadoActual = EstadoUsuario.Ausente;
-                user.UpdatedAt = DateTime.UtcNow;
-                await db.SaveChangesAsync();
+            // Solo marcar Ausente si es la ULTIMA conexion de este usuario
+            bool tieneOtraConexion = ConnectedUsers.Values.Any(id => id == usuarioId);
 
-                await Clients.Group("all").SendAsync("StatusChanged", new
+            if (tieneOtraConexion)
+            {
+                Console.WriteLine($"[SignalR] User {usuarioId} aun tiene otra conexion activa, no se marca Ausente");
+            }
+            else
+            {
+                using var scope = _scopeFactory.CreateScope();
+                var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                var user = await db.Usuarios.FindAsync(usuarioId);
+                if (user is not null && user.EstadoActual == EstadoUsuario.Disponible)
                 {
-                    usuarioId = user.Id,
-                    nombre = user.DisplayName,
-                    estado = "ausente",
-                    motivo = (string?)null,
-                    colaboradorNombre = (string?)null,
-                    timestamp = DateTime.UtcNow.ToString("HH:mm")
-                });
+                    user.EstadoActual = EstadoUsuario.Ausente;
+                    user.UpdatedAt = DateTime.UtcNow;
+                    await db.SaveChangesAsync();
+                    Console.WriteLine($"[SignalR] {user.DisplayName} → Ausente (ultima conexion cerrada)");
+
+                    await Clients.Group("all").SendAsync("StatusChanged", new
+                    {
+                        usuarioId = user.Id,
+                        nombre = user.DisplayName,
+                        estado = "ausente",
+                        motivo = (string?)null,
+                        colaboradorNombre = (string?)null,
+                        timestamp = DateTime.UtcNow.ToString("HH:mm")
+                    });
+                }
             }
         }
 
