@@ -50,6 +50,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                     DisplayName = "Mattias Ribera Rojas",
                     Role = "Tecnico",
                     CanViewDashboard = true,
+                    PasswordHash = "$2b$10$f.27ehfd5OYSj5fgfDqPDe0kmUkblxmpG4sM0LUotzOSDfaJNf6b.",
                     EstadoActual = EstadoUsuario.Ausente,
                     CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc),
                     UpdatedAt = new DateTime(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc)
@@ -126,6 +127,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                     Email = "josue.huayllas@upds.edu.bo",
                     DisplayName = "Josue Huayllas",
                     Role = "Jefe",
+                    PasswordHash = "$2b$10$f.27ehfd5OYSj5fgfDqPDe0kmUkblxmpG4sM0LUotzOSDfaJNf6b.",
                     EstadoActual = EstadoUsuario.Ausente,
                     CreatedAt = new DateTime(2025, 7, 1, 0, 0, 0, DateTimeKind.Utc),
                     UpdatedAt = new DateTime(2025, 7, 1, 0, 0, 0, DateTimeKind.Utc)
@@ -136,6 +138,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                     Email = "wilmer.cerruto@upds.edu.bo",
                     DisplayName = "Wilmer Cerruto",
                     Role = "Jefe",
+                    PasswordHash = "$2b$10$f.27ehfd5OYSj5fgfDqPDe0kmUkblxmpG4sM0LUotzOSDfaJNf6b.",
                     EstadoActual = EstadoUsuario.Ausente,
                     CreatedAt = new DateTime(2025, 7, 1, 0, 0, 0, DateTimeKind.Utc),
                     UpdatedAt = new DateTime(2025, 7, 1, 0, 0, 0, DateTimeKind.Utc)
