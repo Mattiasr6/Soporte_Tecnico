@@ -5,6 +5,7 @@ import { AtencionRow } from "@/types";
 import { createAtenciones, getAreas, getAtenciones } from "@/lib/api";
 import { useToast } from "./Toast";
 import AreaAutocomplete from "./AreaAutocomplete";
+import { useAuth } from "./AuthProvider";
 
 const MEDIOS = ["Interno", "Presencial", "WhatsApp", "E-ticket"];
 const USUARIOS_SOL = ["ADM", "BEC", "DOC"];
@@ -60,6 +61,7 @@ export default function AtencionTable() {
   const [mostrarSug, setMostrarSug] = useState<string | null>(null);
   const [indiceBusqueda, setIndiceBusqueda] = useState<{ keywords: string; sug: Sugerencia }[]>([]);
   const [activeIndex, setActiveIndex] = useState(0);
+  const { user } = useAuth();
   const sugRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
@@ -288,7 +290,7 @@ export default function AtencionTable() {
         <select value={row.colaboradorId ?? ""} onChange={(e) => patch(row.id, { colaboradorId: e.target.value ? Number(e.target.value) : null })}
           className="rounded-lg border border-slate-600 bg-slate-900 px-2 py-1 text-xs text-slate-100">
           <option value="">Ninguno</option>
-          {tecnicos.map((t) => (
+          {tecnicos.filter((t) => t.id !== user?.id).map((t) => (
             <option key={t.id} value={t.id}>{t.displayName}</option>
           ))}
         </select>
@@ -434,7 +436,7 @@ export default function AtencionTable() {
                         <select value={row.colaboradorId ?? ""} onChange={(e) => patch(row.id, { colaboradorId: e.target.value ? Number(e.target.value) : null })}
                           className="rounded-lg border border-slate-600 bg-slate-900 px-2 py-2 text-xs text-slate-100">
                           <option value="">Ninguno</option>
-                          {tecnicos.map((t) => (
+                          {tecnicos.filter((t) => t.id !== user?.id).map((t) => (
                             <option key={t.id} value={t.id}>{t.displayName}</option>
                           ))}
                         </select>
