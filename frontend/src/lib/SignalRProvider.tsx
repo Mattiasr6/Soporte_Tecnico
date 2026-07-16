@@ -33,7 +33,11 @@ export const useSignalR = () => useContext(SignalRCtx);
 export function SignalRProvider({ children }: { children: ReactNode }) {
   const { token, user } = useAuth();
   const [connected, setConnected] = useState(false);
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>(() => {
+    if (typeof window === "undefined") return [];
+    const saved = localStorage.getItem("chat_messages");
+    return saved ? JSON.parse(saved) : [];
+  });
   const [lastStatus, setLastStatus] = useState<StatusEvent | null>(null);
   const connRef = useRef<signalR.HubConnection | null>(null);
 
@@ -49,7 +53,12 @@ export function SignalRProvider({ children }: { children: ReactNode }) {
       .build();
 
     conn.on("ReceiveMessage", (msg: ChatMessage) => {
-      setMessages((prev) => [...prev.slice(-49), msg]);
+      setMessages((prev) => {
+        const next = [...prev, msg];
+        if (next.length > 500) next.splice(0, next.length - 500);
+        localStorage.setItem("chat_messages", JSON.stringify(next));
+        return next;
+      });
     });
 
     conn.on("StatusChanged", (ev: StatusEvent) => {
