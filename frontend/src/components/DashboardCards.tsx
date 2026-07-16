@@ -17,7 +17,7 @@ const estadoColor = (estado: string) => {
 const estadoLabel = (u: Usuario) => {
   if (u.estadoActual === "ocupado") return "Ocupado";
   if (u.estadoActual === "disponible") return "Disponible";
-  if (u.estadoActual === "extraturno") return "Extraturno";
+  if (u.estadoActual === "extraturno") return "Fuera de Turno";
   return "Ausente";
 };
 
@@ -75,7 +75,7 @@ export default function DashboardCards() {
         </span>
         <span className="flex items-center gap-2 text-amber-400">
           <span className="inline-block h-2.5 w-2.5 rounded-full bg-amber-400" />
-          {extraturno.length} extraturno{extraturno.length !== 1 ? "s" : ""}
+          {extraturno.length} fuera de turno
         </span>
         <span className="flex items-center gap-2 text-slate-400">
           <span className="inline-block h-2.5 w-2.5 rounded-full bg-slate-400" />

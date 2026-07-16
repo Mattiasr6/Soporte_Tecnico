@@ -117,6 +117,7 @@ export async function importCsv(file: File): Promise<{ registrosInsertados: numb
 
 export interface DashboardStats {
   total: number;
+  fueraDeTurno: number;
   porTecnico: { usuarioId: number; displayName: string; total: number }[];
   porCategoria: { categoria: string; total: number }[];
   porMes: { anio: number; mes: number; total: number }[];

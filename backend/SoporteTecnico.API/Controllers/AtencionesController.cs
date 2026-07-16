@@ -7,7 +7,8 @@ using Microsoft.EntityFrameworkCore;
 using SoporteTecnico.API.Data;
 using SoporteTecnico.API.DTOs;
 using SoporteTecnico.API.Models;
-
+using SoporteTecnico.API.Models;
+using SoporteTecnico.API.Services;
 namespace SoporteTecnico.API.Controllers;
 
 [ApiController]
@@ -58,10 +59,10 @@ public class AtencionesController : ControllerBase
                 a.ColaboradorId,
                 ColaboradorNombre = a.Colaborador != null ? a.Colaborador.DisplayName : null,
                 a.FechaRegistro,
+                a.FueraDeTurno,
                 a.CreatedAt
             })
             .ToListAsync();
-
         return Ok(atenciones);
     }
 
@@ -95,6 +96,7 @@ public class AtencionesController : ControllerBase
         }
 
         var total = await query.CountAsync();
+        var fueraDeTurno = await query.CountAsync(a => a.FueraDeTurno);
 
         var porTecnico = await query
             .GroupBy(a => new { a.UsuarioId, a.Usuario.DisplayName })
@@ -172,6 +174,7 @@ public class AtencionesController : ControllerBase
         return Ok(new
         {
             total,
+            fueraDeTurno,
             porTecnico,
             porCategoria,
             porMes,
@@ -235,6 +238,12 @@ public class AtencionesController : ControllerBase
         if (dto.Atenciones.Count == 0)
             return BadRequest("La lista de atenciones está vacía.");
 
+        var now = DateTime.UtcNow;
+        var horariosDelMes = await _db.Horarios
+            .Where(h => h.UsuarioId == usuario.Id && h.Mes == now.Month && h.Anio == now.Year)
+            .ToListAsync();
+        var horarioUsuario = horariosDelMes.FirstOrDefault();
+
         var atenciones = dto.Atenciones.Select(a => new Atencion
         {
             UsuarioId = usuario.Id,
@@ -247,7 +256,8 @@ public class AtencionesController : ControllerBase
             Observaciones = a.Observaciones,
             EnlaceApoyo = a.EnlaceApoyo,
             ColaboradorId = a.ColaboradorId,
-            FechaRegistro = a.FechaRegistro
+            FechaRegistro = a.FechaRegistro,
+            FueraDeTurno = HorarioHelper.EstaFueraDeHorario(horarioUsuario, DateTime.UtcNow)
         }).ToList();
 
         _db.Atenciones.AddRange(atenciones);
@@ -263,6 +273,10 @@ public class AtencionesController : ControllerBase
 
         var usuario = await _db.Usuarios.FirstOrDefaultAsync(u => u.Id == userId);
         if (usuario is null) return NotFound("Usuario no registrado en el sistema.");
+        var now_ic = DateTime.UtcNow;
+        var horarioIc = await _db.Horarios
+            .Where(h => h.UsuarioId == usuario.Id && h.Mes == now_ic.Month && h.Anio == now_ic.Year)
+            .FirstOrDefaultAsync();
 
         if (file is null || file.Length == 0)
             return BadRequest("Debes subir un archivo CSV.");
@@ -331,7 +345,8 @@ public class AtencionesController : ControllerBase
                 Solucion = solucion,
                 Observaciones = observaciones is "N/A" or "" ? null : observaciones,
                 EnlaceApoyo = enlace is "N/A" or "" ? null : enlace,
-                FechaRegistro = fecha
+                FechaRegistro = fecha,
+                FueraDeTurno = HorarioHelper.EstaFueraDeHorario(horarioIc, DateTime.UtcNow)
             });
         }
 

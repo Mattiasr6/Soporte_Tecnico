@@ -52,6 +52,7 @@ export default function DashboardStats() {
 
     lines.push("SECCION,CLAVE,TOTAL");
     lines.push(`General,Total atenciones,${stats.total}`);
+    lines.push(`Fuera de turno,${stats.fueraDeTurno}`);
     lines.push("");
 
     lines.push("RENDIMIENTO POR TECNICO");
@@ -149,7 +150,7 @@ export default function DashboardStats() {
         <SummaryCard label="Total Atenciones" value={stats.total} color="amber" />
         <SummaryCard label="Técnicos" value={stats.porTecnico.length} color="blue" />
         <SummaryCard label="Promedio x Técnico" value={promedio} color="emerald" />
-        <SummaryCard label="Categorías" value={stats.porCategoria.length} color="violet" />
+        <SummaryCard label="Fuera de Turno" value={stats.fueraDeTurno} color="rose" />
       </div>
 
       {/* Ranking por tecnico */}
@@ -363,6 +364,8 @@ function SummaryCard({ label, value, color }: { label: string; value: number; co
     amber: "border-amber-500/30 from-amber-500/10 to-transparent text-amber-400",
     blue: "border-sky-500/30 from-sky-500/10 to-transparent text-sky-400",
     emerald: "border-emerald-500/30 from-emerald-500/10 to-transparent text-emerald-400",
+    rose: "border-rose-500/30 from-rose-500/10 to-transparent text-rose-400",
+    orange: "border-orange-500/30 from-orange-500/10 to-transparent text-orange-400",
     violet: "border-violet-500/30 from-violet-500/10 to-transparent text-violet-400",
   };
 

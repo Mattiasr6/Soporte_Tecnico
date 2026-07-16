@@ -58,6 +58,9 @@ namespace SoporteTecnico.API.Migrations
                     b.Property<DateOnly>("FechaRegistro")
                         .HasColumnType("date");
 
+                    b.Property<bool>("FueraDeTurno")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("MedioSolicitud")
                         .IsRequired()
                         .HasMaxLength(50)

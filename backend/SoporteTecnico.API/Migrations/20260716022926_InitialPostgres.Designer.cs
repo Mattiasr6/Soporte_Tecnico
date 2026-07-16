@@ -12,7 +12,7 @@ using SoporteTecnico.API.Data;
 namespace SoporteTecnico.API.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260716020640_InitialPostgres")]
+    [Migration("20260716022926_InitialPostgres")]
     partial class InitialPostgres
     {
         /// <inheritdoc />
@@ -60,6 +60,9 @@ namespace SoporteTecnico.API.Migrations
 
                     b.Property<DateOnly>("FechaRegistro")
                         .HasColumnType("date");
+
+                    b.Property<bool>("FueraDeTurno")
+                        .HasColumnType("boolean");
 
                     b.Property<string>("MedioSolicitud")
                         .IsRequired()

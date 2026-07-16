@@ -52,6 +52,7 @@ namespace SoporteTecnico.API.Migrations
                     Observaciones = table.Column<string>(type: "character varying(2000)", maxLength: 2000, nullable: true),
                     EnlaceApoyo = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: true),
                     ColaboradorId = table.Column<int>(type: "integer", nullable: true),
+                    FueraDeTurno = table.Column<bool>(type: "boolean", nullable: false),
                     FechaRegistro = table.Column<DateOnly>(type: "date", nullable: false),
                     CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
                 },

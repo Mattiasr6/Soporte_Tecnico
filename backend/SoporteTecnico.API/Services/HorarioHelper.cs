@@ -29,24 +29,36 @@ public static class HorarioHelper
 
         return estadoActual.ToString().ToLower();
     }
+    /// <summary>
+    /// Indica si una fecha/hora específica está fuera del horario registrado.
+    /// </summary>
+    public static bool EstaFueraDeHorario(Horario? horario, DateTime fechaUtc)
+    {
+        if (horario is null) return false;
+        var horaLocal = TimeZoneInfo.ConvertTimeFromUtc(fechaUtc, BoliviaTz).TimeOfDay;
+        return !DentroDeBloques(horario, horaLocal);
+    }
 
     private static bool EstaEnHorario(Horario? horario)
     {
-        if (horario is null)
-            return true; // sin horario definido → no se puede determinar
-
+        if (horario is null) return true;
         var now = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, BoliviaTz).TimeOfDay;
+        return DentroDeBloques(horario, now);
+    }
 
+    private static bool DentroDeBloques(Horario horario, TimeSpan hora)
+    {
         if (TimeSpan.TryParse(horario.HoraInicio1, out var ini1) &&
             TimeSpan.TryParse(horario.HoraFin1, out var fin1) &&
-            now >= ini1 && now <= fin1)
+            hora >= ini1 && hora <= fin1)
             return true;
 
         if (TimeSpan.TryParse(horario.HoraInicio2, out var ini2) &&
             TimeSpan.TryParse(horario.HoraFin2, out var fin2) &&
-            now >= ini2 && now <= fin2)
+            hora >= ini2 && hora <= fin2)
             return true;
 
         return false;
     }
+
 }

@@ -51,5 +51,6 @@ export interface AtencionItem {
   colaboradorId: number | null;
   colaboradorNombre: string | null;
   fechaRegistro: string;
+  fueraDeTurno: boolean;
   createdAt: string;
 }
