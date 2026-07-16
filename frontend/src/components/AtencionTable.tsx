@@ -354,7 +354,7 @@ export default function AtencionTable() {
         <span className="self-center text-[10px] text-slate-600">Plantillas rápidas</span>
       </div>
 
-      <div className="block md:hidden space-y-3">
+      <div className="space-y-3">
         {/* Dots de navegación */}
         {rows.length > 1 && (
           <div className="flex items-center justify-center gap-2">
@@ -388,93 +388,6 @@ export default function AtencionTable() {
       </div>
 
       {/* Vista Desktop (tabla) */}
-      <div className="hidden md:block overflow-x-auto rounded-xl border border-slate-700/50 bg-slate-800/60 shadow-lg backdrop-blur-sm">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-slate-700 bg-slate-800 text-slate-300">
-                <th className="min-w-[200px] p-3 text-left font-semibold tracking-wide">Área solicitante</th>
-                <th className="min-w-[120px] p-3 text-left font-semibold tracking-wide">Medio</th>
-                <th className="min-w-[90px] p-3 text-left font-semibold tracking-wide">Usuario</th>
-                <th className="min-w-[150px] p-3 text-left font-semibold tracking-wide">Categoría</th>
-                <th className="min-w-[180px] p-3 text-left font-semibold tracking-wide">Descripción</th>
-                <th className="min-w-[180px] p-3 text-left font-semibold tracking-wide">Solución</th>
-                <th className="whitespace-nowrap p-3 text-center font-semibold tracking-wide">+1h</th>
-                <th className="p-3 text-center font-semibold tracking-wide">Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row) => (
-                <Fragment key={row.id}>
-                  <tr className="border-b border-slate-700/50 transition-colors hover:bg-slate-700/40">
-                    <td className="p-1.5"><AreaAutocomplete value={row.areaSolicitante} onChange={(v) => patch(row.id, { areaSolicitante: v })} areas={areas} placeholder="Buscar área..." /></td>
-                    <td className="p-1.5"><select value={row.medioSolicitud} onChange={(e) => patch(row.id, { medioSolicitud: e.target.value })}
-                      className="w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-sm text-slate-100">{MEDIOS.map((m) => (<option key={m} value={m}>{m}</option>))}</select></td>
-                    <td className="p-1.5"><select value={row.usuarioSolicitante} onChange={(e) => patch(row.id, { usuarioSolicitante: e.target.value })}
-                      className="w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-sm text-slate-100">{USUARIOS_SOL.map((u) => (<option key={u} value={u}>{u}</option>))}</select></td>
-                    <td className="p-1.5"><select value={row.categoria} onChange={(e) => patch(row.id, { categoria: e.target.value })}
-                      className="w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-sm text-slate-100"><option value="">Seleccionar...</option>{CATEGORIAS.map((c) => (<option key={c} value={c}>{c}</option>))}</select></td>
-                    <td className="p-1.5 relative">
-                      <input type="text" value={row.descripcion} onChange={(e) => onDescripcionChange(row.id, e.target.value)}
-                        onFocus={() => { const sug = buscarSugerencias(row.descripcion); if (sug.length > 0) { setMostrarSug(row.id); setSugerencias(sug); } }}
-                        className="w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-sm text-slate-100 placeholder-slate-500" placeholder="Ej: PC no enciende" autoComplete="off" />
-                      {mostrarSug === row.id && sugerencias.length > 0 && (
-                        <div ref={sugRef} className="absolute left-0 right-0 top-full z-20 mt-1 max-h-48 overflow-auto rounded-lg border border-slate-700 bg-slate-900 shadow-2xl">
-                          {sugerencias.map((s, i) => (<button key={i} onClick={() => aplicarSugerencia(row.id, s)}
-                            className="w-full px-3 py-2 text-left text-xs text-slate-300 transition hover:bg-amber-600/20 hover:text-amber-400">
-                            <span className="font-medium">{s.descripcion}</span><span className="ml-2 text-slate-500">→ {s.solucion}</span><span className="ml-2 text-[10px] text-slate-600">({s.categoria})</span></button>))}
-                        </div>
-                      )}
-                    </td>
-                    <td className="p-1.5"><input type="text" value={row.solucion} onChange={(e) => patch(row.id, { solucion: e.target.value })}
-                      className="w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-sm text-slate-100 placeholder-slate-500" placeholder="Ej: Se reemplazó fuente" /></td>
-                    <td className="whitespace-nowrap p-1.5 text-center"><label className="inline-flex items-center justify-center">
-                      <input type="checkbox" checked={row.requiereObservaciones}
-                        onChange={(e) => { const checked = e.target.checked; patch(row.id, { requiereObservaciones: checked, showObservaciones: checked || row.showObservaciones }); }}
-                        className="h-5 w-5 rounded border-slate-600 bg-slate-900 text-amber-500 focus:ring-amber-500/50" /></label></td>
-                    <td className="p-1.5">
-                      <div className="flex items-center justify-center gap-1">
-                        <select value={row.colaboradorId ?? ""} onChange={(e) => patch(row.id, { colaboradorId: e.target.value ? Number(e.target.value) : null })}
-                          className="rounded-lg border border-slate-600 bg-slate-900 px-2 py-2 text-xs text-slate-100">
-                          <option value="">Ninguno</option>
-                          {tecnicos.filter((t) => t.id !== user?.id).map((t) => (
-                            <option key={t.id} value={t.id}>{t.displayName}</option>
-                          ))}
-                        </select>
-                        <button type="button" onClick={() => patch(row.id, { showObservaciones: !row.showObservaciones })}
-                          className={`flex h-8 w-8 items-center justify-center rounded-lg transition ${row.showObservaciones || row.requiereObservaciones ? "bg-amber-600 text-white" : "bg-slate-700 text-slate-300 hover:bg-amber-600 hover:text-white"}`} title="Observaciones">
-                          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg></button>
-                        <button type="button" onClick={() => patch(row.id, { showEnlaceApoyo: !row.showEnlaceApoyo })}
-                          className={`flex h-8 w-8 items-center justify-center rounded-lg transition ${row.enlaceApoyo ? "bg-sky-600 text-white" : "bg-slate-700 text-slate-300 hover:bg-sky-600 hover:text-white"}`} title={row.enlaceApoyo ? "Enlace: " + row.enlaceApoyo : "Agregar enlace de apoyo"}>
-                          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg></button>
-                        {rows.length > 1 && (
-                          <button type="button" onClick={() => removeRow(row.id)}
-                            className="flex h-8 w-8 items-center justify-center rounded-lg text-lg text-slate-500 transition hover:bg-red-600 hover:text-white" title="Eliminar fila">&times;</button>)}
-                      </div>
-                    </td>
-                  </tr>
-                  {(row.showObservaciones || row.requiereObservaciones || row.showEnlaceApoyo) && (
-                    <tr className="bg-slate-800/40">
-                      <td colSpan={8} className="p-3">
-                        <div className="space-y-3">
-                          {(row.showObservaciones || row.requiereObservaciones) && (
-                            <textarea value={row.observaciones} onChange={(e) => patch(row.id, { observaciones: e.target.value })}
-                              className="w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-sm text-slate-100 placeholder-slate-500" rows={2} placeholder="Describe aquí observaciones adicionales o detalles de la solución..." />)}
-                          {row.showEnlaceApoyo && (
-                            <div className="flex items-start gap-3">
-                              <input type="text" value={row.enlaceApoyo} onChange={(e) => patch(row.id, { enlaceApoyo: e.target.value })}
-                                className="w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-sm text-slate-100 placeholder-slate-500" placeholder="URL o referencia del enlace de apoyo" />
-                              {row.enlaceApoyo && (<button type="button" onClick={() => patch(row.id, { showEnlaceApoyo: false })}
-                                className="mt-1 rounded-lg px-2 py-1 text-xs text-slate-400 transition hover:bg-slate-700 hover:text-white">Cerrar</button>)}
-                            </div>)}
-                        </div>
-                      </td>
-                    </tr>
-                  )}
-                </Fragment>
-              ))}
-            </tbody>
-          </table>
-        </div>
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <button type="button" onClick={addRow}
