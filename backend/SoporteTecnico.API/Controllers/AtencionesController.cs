@@ -387,6 +387,7 @@ public class AtencionesController : ControllerBase
             ["cuentas"] = "Cuentas/Accesos",
             ["sistemas academicos"] = "Sistemas académicos",
             ["otros"] = "Otros",
+        };
         return map.TryGetValue(cat.Trim(), out var norm) ? norm : cat;
     }
 }
