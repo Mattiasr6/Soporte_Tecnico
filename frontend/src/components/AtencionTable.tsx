@@ -4,11 +4,10 @@ import { Fragment, useState, useEffect, useRef } from "react";
 import { AtencionRow } from "@/types";
 import { createAtenciones, getAreas, getAtenciones } from "@/lib/api";
 import { useToast } from "./Toast";
-import AreaAutocomplete from "./AreaAutocomplete";
 import { useAuth } from "./AuthProvider";
 
 const MEDIOS = ["Interno", "Presencial", "WhatsApp", "E-ticket"];
-const USUARIOS_SOL = ["ADM", "BEC", "DOC"];
+const USUARIOS_SOL = ["ADM", "BEC", "DOC", "EST", "EIAG"];
 const CATEGORIAS = [
   "Audio/Video", "Cuentas/Accesos", "Hardware", "Impresión",
   "Otros", "Redes/Conectividad", "Sistemas académicos", "Software",
@@ -50,6 +49,92 @@ function blankRow(): AtencionRow {
     showEnlaceApoyo: false,
     enlaceApoyo: "",
   };
+}
+
+function AreaCombobox({ value, onChange, areas }: { value: string; onChange: (v: string) => void; areas: string[] }) {
+  const [open, setOpen] = useState(false);
+  const [filter, setFilter] = useState(value);
+  const [highlightIdx, setHighlightIdx] = useState(0);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const lastValid = useRef(value);
+
+  const filtered = areas.filter((a) =>
+    a.toLowerCase().includes(filter.toLowerCase())
+  );
+
+  useEffect(() => {
+    setFilter(value);
+    lastValid.current = value;
+  }, [value]);
+
+  function accept(v: string) {
+    onChange(v);
+    setFilter(v);
+    setOpen(false);
+    lastValid.current = v;
+  }
+
+  return (
+    <div className="relative">
+      <input
+        ref={inputRef}
+        type="text"
+        value={filter}
+        onChange={(e) => {
+          setFilter(e.target.value);
+          setOpen(true);
+          setHighlightIdx(0);
+        }}
+        onFocus={() => setOpen(true)}
+        onBlur={() => {
+          const match = areas.some((a) => a.toLowerCase() === filter.toLowerCase());
+          if (!match) setFilter(lastValid.current);
+          setOpen(false);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "ArrowDown") {
+            e.preventDefault();
+            setHighlightIdx((i) => Math.min(i + 1, filtered.length - 1));
+          } else if (e.key === "ArrowUp") {
+            e.preventDefault();
+            setHighlightIdx((i) => Math.max(i - 1, 0));
+          } else if (e.key === "Enter" && filtered[highlightIdx]) {
+            e.preventDefault();
+            accept(filtered[highlightIdx]);
+          } else if (e.key === "Tab" && filtered.length > 0) {
+            e.preventDefault();
+            accept(filtered[0]);
+          } else if (e.key === "Escape") {
+            setOpen(false);
+          }
+        }}
+        className="w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 transition focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500/50"
+        placeholder="Buscar área..."
+      />
+      {open && filtered.length > 0 && (
+        <div className="absolute left-0 right-0 top-full z-20 mt-1 max-h-48 overflow-auto rounded-lg border border-slate-700 bg-slate-900 shadow-2xl">
+          {filtered.map((a, i) => (
+            <button
+              key={a}
+              type="button"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                accept(a);
+              }}
+              onMouseEnter={() => setHighlightIdx(i)}
+              className={`w-full px-3 py-2 text-left text-sm transition ${
+                i === highlightIdx
+                  ? "bg-amber-600/20 text-amber-400"
+                  : "text-slate-200 hover:bg-amber-600/20 hover:text-amber-400"
+              }`}
+            >
+              {a}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default function AtencionTable() {
@@ -223,32 +308,58 @@ export default function AtencionTable() {
 
   // ---- MOBILE CARD VIEW ----
   const MobileCard = ({ row }: { row: AtencionRow }) => (
-    <div className="space-y-3 rounded-xl border border-slate-700/50 bg-slate-800/60 p-4">
-      <AreaAutocomplete
-        value={row.areaSolicitante}
-        onChange={(v) => patch(row.id, { areaSolicitante: v })}
-        areas={areas}
-        placeholder="Área solicitante..."
-      />
+    <div className="space-y-4 rounded-xl border border-slate-700/50 bg-slate-800/60 p-4">
+      {/* Área solicitante */}
+      <div>
+        <label className="mb-1 block text-xs font-medium uppercase tracking-wider text-slate-400">
+          Área solicitante
+        </label>
+        <AreaCombobox
+          value={row.areaSolicitante}
+          onChange={(v) => patch(row.id, { areaSolicitante: v })}
+          areas={areas}
+        />
+      </div>
 
-      <div className="grid grid-cols-2 gap-2">
-        <select value={row.medioSolicitud} onChange={(e) => patch(row.id, { medioSolicitud: e.target.value })}
-          className="rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-sm text-slate-100">
-          {MEDIOS.map((m) => (<option key={m} value={m}>{m}</option>))}
-        </select>
-        <select value={row.usuarioSolicitante} onChange={(e) => patch(row.id, { usuarioSolicitante: e.target.value })}
-          className="rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-sm text-slate-100">
-          {USUARIOS_SOL.map((u) => (<option key={u} value={u}>{u}</option>))}
+      {/* Medio + Usuario */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div>
+          <label className="mb-1 block text-xs font-medium uppercase tracking-wider text-slate-400">
+            Medio de solicitud
+          </label>
+          <select value={row.medioSolicitud} onChange={(e) => patch(row.id, { medioSolicitud: e.target.value })}
+            className="w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-sm text-slate-100">
+            {MEDIOS.map((m) => (<option key={m} value={m}>{m}</option>))}
+          </select>
+        </div>
+        <div>
+          <label className="mb-1 block text-xs font-medium uppercase tracking-wider text-slate-400">
+            Usuario solicitante
+          </label>
+          <select value={row.usuarioSolicitante} onChange={(e) => patch(row.id, { usuarioSolicitante: e.target.value })}
+            className="w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-sm text-slate-100">
+            {USUARIOS_SOL.map((u) => (<option key={u} value={u}>{u}</option>))}
+          </select>
+        </div>
+      </div>
+
+      {/* Categoría */}
+      <div>
+        <label className="mb-1 block text-xs font-medium uppercase tracking-wider text-slate-400">
+          Categoría
+        </label>
+        <select value={row.categoria} onChange={(e) => patch(row.id, { categoria: e.target.value })}
+          className="w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-sm text-slate-100">
+          <option value="" disabled>Seleccionar categoría...</option>
+          {CATEGORIAS.map((c) => (<option key={c} value={c}>{c}</option>))}
         </select>
       </div>
 
-      <select value={row.categoria} onChange={(e) => patch(row.id, { categoria: e.target.value })}
-        className="w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-sm text-slate-100">
-        <option value="">Categoría...</option>
-        {CATEGORIAS.map((c) => (<option key={c} value={c}>{c}</option>))}
-      </select>
-
+      {/* Descripción del problema */}
       <div className="relative">
+        <label className="mb-1 block text-xs font-medium uppercase tracking-wider text-slate-400">
+          Descripción del problema
+        </label>
         <input type="text" value={row.descripcion}
           onChange={(e) => onDescripcionChange(row.id, e.target.value)}
           onFocus={() => {
@@ -256,7 +367,7 @@ export default function AtencionTable() {
             if (sug.length > 0) { setMostrarSug(row.id); setSugerencias(sug); }
           }}
           className="w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-sm text-slate-100 placeholder-slate-500"
-          placeholder="Descripción del problema" autoComplete="off" />
+          placeholder="Describa el problema reportado" autoComplete="off" />
         {mostrarSug === row.id && sugerencias.length > 0 && (
           <div ref={sugRef} className="absolute left-0 right-0 top-full z-20 mt-1 max-h-48 overflow-auto rounded-lg border border-slate-700 bg-slate-900 shadow-2xl">
             {sugerencias.map((s, i) => (
@@ -270,9 +381,15 @@ export default function AtencionTable() {
         )}
       </div>
 
-      <input type="text" value={row.solucion} onChange={(e) => patch(row.id, { solucion: e.target.value })}
-        className="w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-sm text-slate-100 placeholder-slate-500"
-        placeholder="Solución aplicada" />
+      {/* Solución aplicada */}
+      <div>
+        <label className="mb-1 block text-xs font-medium uppercase tracking-wider text-slate-400">
+          Solución aplicada
+        </label>
+        <input type="text" value={row.solucion} onChange={(e) => patch(row.id, { solucion: e.target.value })}
+          className="w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-sm text-slate-100 placeholder-slate-500"
+          placeholder="Describa la solución aplicada" />
+      </div>
 
       {/* Acciones en fila */}
       <div className="flex flex-wrap items-center gap-2 pt-1">
