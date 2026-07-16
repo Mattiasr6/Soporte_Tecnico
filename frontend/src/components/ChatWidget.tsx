@@ -13,6 +13,13 @@ export default function ChatWidget() {
   const bottomRef = useRef<HTMLDivElement>(null);
   const msgsRef = useRef(messages.length);
 
+  // Pedir permiso de notificacion al abrir el chat
+  useEffect(() => {
+    if (open && "Notification" in window && Notification.permission === "default") {
+      Notification.requestPermission();
+    }
+  }, [open]);
+
   useEffect(() => {
     if (!open && messages.length > msgsRef.current) {
       setNoLeidos((n) => n + messages.length - msgsRef.current);
@@ -20,7 +27,6 @@ export default function ChatWidget() {
     msgsRef.current = messages.length;
     if (open) bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, open]);
-
   const enviar = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!texto.trim()) return;

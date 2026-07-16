@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useSignalR } from "./SignalRProvider";
 
 const estadoEmoji: Record<string, string> = {
@@ -12,7 +12,9 @@ const estadoEmoji: Record<string, string> = {
 
 export default function useNotifications() {
   const { lastStatus, messages } = useSignalR();
+  const lastKnownLen = useRef(messages.length);
 
+  // Pedir permiso al cargar
   useEffect(() => {
     if (!("Notification" in window)) return;
     if (Notification.permission === "default") {
@@ -20,6 +22,7 @@ export default function useNotifications() {
     }
   }, []);
 
+  // Notificación de cambio de estado
   useEffect(() => {
     if (!lastStatus || !("Notification" in window)) return;
     if (Notification.permission !== "granted") return;
@@ -40,16 +43,23 @@ export default function useNotifications() {
     });
   }, [lastStatus]);
 
+  // Notificación de nuevo mensaje — solo si hay mensajes NUEVOS
   useEffect(() => {
     if (messages.length === 0) return;
-    const last = messages[messages.length - 1];
     if (!("Notification" in window)) return;
     if (Notification.permission !== "granted") return;
 
+    // Solo notificar si aumentó la cantidad de mensajes
+    if (messages.length <= lastKnownLen.current) return;
+
+    const last = messages[messages.length - 1];
     new Notification(`💬 ${last.nombre}`, {
       body: last.message.slice(0, 100),
       icon: "/favicon.ico",
       silent: true,
     });
+
+    lastKnownLen.current = messages.length;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages.length]);
 }
