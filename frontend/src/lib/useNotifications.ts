@@ -7,6 +7,7 @@ const estadoEmoji: Record<string, string> = {
   ocupado: "🔴",
   disponible: "🟢",
   ausente: "⚫",
+  extraturno: "🟠",
 };
 
 export default function useNotifications() {
@@ -28,7 +29,9 @@ export default function useNotifications() {
       ? lastStatus.motivo === "colaborando"
         ? `colaborando${lastStatus.colaboradorNombre ? ` con ${lastStatus.colaboradorNombre}` : ""}`
         : "atendiendo"
-      : lastStatus.estado;
+      : lastStatus.estado === "extraturno"
+        ? "en horario extendido (fuera de turno)"
+        : lastStatus.estado;
 
     new Notification(`${emoji} ${lastStatus.nombre}`, {
       body: `${lastStatus.nombre} está ${estadoTexto}`,

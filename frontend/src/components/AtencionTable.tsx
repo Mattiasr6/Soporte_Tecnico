@@ -207,7 +207,7 @@ export default function AtencionTable() {
       setRows([blankRow()]);
       setActiveIndex(0);
     } catch (err) {
-      toast("Error al guardar", "error");
+      toast(err instanceof Error ? err.message : "Error al guardar", "error");
     } finally {
       setSaving(false);
     }
