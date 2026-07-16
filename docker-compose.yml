@@ -75,7 +75,7 @@ services:
         condition: service_started
     environment:
       ASPNETCORE_ENVIRONMENT: Production
-      ConnectionStrings__DefaultConnection: "Server=postgres;Port=5432;Database=soporte;User Id=soporte;Password=${DB_PASSWORD:-soporte_segura_2025};"
+      ConnectionStrings__DefaultConnection: "Server=postgres;Port=5432;Database=soporte;User Id=soporte;Password=${DB_PASSWORD:-soporte_segura_2025};Include Error Detail=true"
       MailService__Url: http://mail-service:8080/send.php
       MailService__DirectSmtp: "false"
     ports:
