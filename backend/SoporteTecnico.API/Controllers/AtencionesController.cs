@@ -117,7 +117,6 @@ public class AtencionesController : ControllerBase
                 total = g.Count()
             })
             .OrderByDescending(g => g.total)
-            .Take(10)
             .ToListAsync();
 
         var porMes = await query
@@ -250,7 +249,7 @@ public class AtencionesController : ControllerBase
             AreaSolicitante = a.AreaSolicitante,
             MedioSolicitud = a.MedioSolicitud,
             UsuarioSolicitante = a.UsuarioSolicitante,
-            Categoria = a.Categoria,
+            Categoria = NormalizarCategoria(a.Categoria),
             Descripcion = a.Descripcion,
             Solucion = a.Solucion,
             Observaciones = a.Observaciones,
@@ -340,7 +339,7 @@ public class AtencionesController : ControllerBase
                 AreaSolicitante = area,
                 MedioSolicitud = medio is "Presencial" or "Interno" or "WhatsApp" or "E-ticket" ? medio : "Interno",
                 UsuarioSolicitante = usuarioSol is "ADM" or "BEC" or "DOC" ? usuarioSol : "ADM",
-                Categoria = categoria,
+                Categoria = NormalizarCategoria(categoria),
                 Descripcion = descripcion,
                 Solucion = solucion,
                 Observaciones = observaciones is "N/A" or "" ? null : observaciones,
@@ -361,5 +360,16 @@ public class AtencionesController : ControllerBase
             registrosInsertados = atenciones.Count,
             errores = errores.Count > 0 ? errores : null
         });
+    }
+
+    private static string NormalizarCategoria(string cat)
+    {
+        var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["impresion"] = "Impresión",
+            ["cuentas"] = "Cuentas/Accesos",
+            ["sistemas academicos"] = "Sistemas académicos",
+        };
+        return map.TryGetValue(cat.Trim(), out var norm) ? norm : cat;
     }
 }
