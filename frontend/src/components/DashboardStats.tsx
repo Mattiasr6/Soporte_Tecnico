@@ -27,13 +27,14 @@ export default function DashboardStats() {
   const fetch = useCallback(async (uid?: number, fd?: string, fh?: string) => {
     const id = ++reqId.current;
     try {
-      const d1 = fd ? new Date(fd) : null;
-      const d2 = fh ? new Date(fh) : null;
+      const parse = (s: string) => s ? { d: +s.slice(8,10), m: +s.slice(5,7), y: +s.slice(0,4) } : null;
+      const d1 = fd ? parse(fd) : null;
+      const d2 = fh ? parse(fh) : null;
       const [s, u] = await Promise.all([
         getDashboardStats({
           usuarioId: uid,
-          desdeDia: d1?.getDate(), desdeMes: d1 ? d1.getMonth() + 1 : undefined, desdeAnio: d1?.getFullYear(),
-          hastaDia: d2?.getDate(), hastaMes: d2 ? d2.getMonth() + 1 : undefined, hastaAnio: d2?.getFullYear(),
+          desdeDia: d1?.d, desdeMes: d1?.m, desdeAnio: d1?.y,
+          hastaDia: d2?.d, hastaMes: d2?.m, hastaAnio: d2?.y,
         }),
         getUsuarios(),
       ]);
