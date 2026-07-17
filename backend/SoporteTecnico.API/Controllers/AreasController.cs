@@ -27,11 +27,16 @@ public class AreasController : ControllerBase
             .OrderBy(a => a)
             .ToListAsync();
 
-        if (areas.Count == 0)
+        areas = areas
+            .Union(new[] { "Plaza UPDS" })
+            .OrderBy(a => a)
+            .ToList();
+
+        if (areas.Count == 1) // solo Plaza UPDS, sin datos reales
         {
             areas = new List<string>
             {
-                "Acreditación Vicerrectorado", "Archivo", "Aula B-02", "Aula B-05 (Medicina)",
+                "Archivo", "Aula B-02", "Aula B-05 MED",
                 "Aula B-06", "Aula B-10", "Aula B-11", "Aula C-04", "Aula C-07",
                 "Aula C-09", "Aula C-12", "Biblioteca", "Bienestar Estudiantil",
                 "Caja", "CAP", "Contabilidad", "Coordinación Acad. FCS",
@@ -39,7 +44,7 @@ public class AreasController : ControllerBase
                 "Publicidad", "Recepción", "Rectorado", "Registro",
                 "Relaciones Públicas", "Sala de Docentes", "Sala de lectura",
                 "Sala Magna", "Secretaria General", "Sistemas",
-                "Talentos Humanos", "Vicerrectorado"
+                "Talento Humano", "Vicerrectorado",
             };
         }
 
