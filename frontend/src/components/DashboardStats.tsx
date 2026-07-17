@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { getDashboardStats, getUsuarios, type DashboardStats } from "@/lib/api";
 import type { Usuario } from "@/types";
@@ -22,7 +22,10 @@ export default function DashboardStats() {
   });
   const [fechaHasta, setFechaHasta] = useState(() => new Date().toISOString().slice(0, 10));
   const [expandAreas, setExpandAreas] = useState(false);
+  const reqId = useRef(0);
+
   const fetch = useCallback(async (uid?: number, fd?: string, fh?: string) => {
+    const id = ++reqId.current;
     try {
       const d1 = fd ? new Date(fd) : null;
       const d2 = fh ? new Date(fh) : null;
@@ -34,12 +37,13 @@ export default function DashboardStats() {
         }),
         getUsuarios(),
       ]);
-      setStats(s);
-      setTecnicos(u);
+      if (id === reqId.current) {
+        setStats(s);
+        setTecnicos(u);
+      }
     } catch { /* ignore */ }
-    setLoading(false);
+    if (id === reqId.current) setLoading(false);
   }, []);
-
   useEffect(() => {
     setLoading(true);
     fetch(selectedUserId, fechaDesde, fechaHasta);
