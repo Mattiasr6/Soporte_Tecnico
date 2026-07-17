@@ -74,8 +74,8 @@ public class AtencionesController : ControllerBase
     [HttpGet("stats")]
     public async Task<ActionResult> GetStats(
         [FromQuery] int? usuarioId,
-        [FromQuery] int? desdeMes, [FromQuery] int? desdeAnio,
-        [FromQuery] int? hastaMes, [FromQuery] int? hastaAnio)
+        [FromQuery] int? desdeDia, [FromQuery] int? desdeMes, [FromQuery] int? desdeAnio,
+        [FromQuery] int? hastaDia, [FromQuery] int? hastaMes, [FromQuery] int? hastaAnio)
     {
         var userId = GetUserId();
         var user = await _db.Usuarios.FindAsync(userId);
@@ -89,14 +89,13 @@ public class AtencionesController : ControllerBase
 
         if (desdeAnio.HasValue && desdeMes.HasValue)
         {
-            var desde = new DateOnly(desdeAnio.Value, desdeMes.Value, 1);
+            var desde = new DateOnly(desdeAnio.Value, desdeMes.Value, desdeDia ?? 1);
             query = query.Where(a => a.FechaRegistro >= desde);
         }
 
         if (hastaAnio.HasValue && hastaMes.HasValue)
         {
-            var hasta = new DateOnly(hastaAnio.Value, hastaMes.Value,
-                DateTime.DaysInMonth(hastaAnio.Value, hastaMes.Value));
+            var hasta = new DateOnly(hastaAnio.Value, hastaMes.Value, hastaDia ?? DateTime.DaysInMonth(hastaAnio.Value, hastaMes.Value));
             query = query.Where(a => a.FechaRegistro <= hasta);
         }
 
@@ -149,14 +148,13 @@ public class AtencionesController : ControllerBase
 
         if (desdeAnio.HasValue && desdeMes.HasValue)
         {
-            var desde = new DateOnly(desdeAnio.Value, desdeMes.Value, 1);
+            var desde = new DateOnly(desdeAnio.Value, desdeMes.Value, desdeDia ?? 1);
             asistenciasQuery = asistenciasQuery.Where(a => a.FechaRegistro >= desde);
         }
 
         if (hastaAnio.HasValue && hastaMes.HasValue)
         {
-            var hasta = new DateOnly(hastaAnio.Value, hastaMes.Value,
-                DateTime.DaysInMonth(hastaAnio.Value, hastaMes.Value));
+            var hasta = new DateOnly(hastaAnio.Value, hastaMes.Value, hastaDia ?? DateTime.DaysInMonth(hastaAnio.Value, hastaMes.Value));
             asistenciasQuery = asistenciasQuery.Where(a => a.FechaRegistro <= hasta);
         }
 

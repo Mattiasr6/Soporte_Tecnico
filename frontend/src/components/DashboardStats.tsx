@@ -8,7 +8,6 @@ import AnimatedCounter from "./AnimatedCounter";
 import { SkeletonCard, SkeletonRow } from "./Skeleton";
 
 const MONTHS = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
-const MONTH_OPTIONS = MONTHS.map((m, i) => ({ value: i + 1, label: m }));
 const YEAR_OPTIONS = [new Date().getFullYear()];
 
 export default function DashboardStats() {
@@ -17,20 +16,21 @@ export default function DashboardStats() {
   const [tecnicos, setTecnicos] = useState<Usuario[]>([]);
   const [selectedUserId, setSelectedUserId] = useState<number | undefined>(undefined);
   const [loading, setLoading] = useState(true);
-  const [desdeMes, setDesdeMes] = useState(1);
-  const [desdeAnio] = useState(new Date().getFullYear());
-  const [hastaMes, setHastaMes] = useState(new Date().getMonth() + 1);
+  const [fechaDesde, setFechaDesde] = useState(() => {
+    const d = new Date(); d.setDate(1); d.setMonth(0);
+    return d.toISOString().slice(0, 10); // enero 1
+  });
+  const [fechaHasta, setFechaHasta] = useState(() => new Date().toISOString().slice(0, 10));
   const [expandAreas, setExpandAreas] = useState(false);
-
-  const fetch = useCallback(async (uid?: number, dm?: number, hm?: number) => {
+  const fetch = useCallback(async (uid?: number, fd?: string, fh?: string) => {
     try {
+      const d1 = fd ? new Date(fd) : null;
+      const d2 = fh ? new Date(fh) : null;
       const [s, u] = await Promise.all([
         getDashboardStats({
           usuarioId: uid,
-          desdeMes: dm,
-          desdeAnio: new Date().getFullYear(),
-          hastaMes: hm,
-          hastaAnio: new Date().getFullYear(),
+          desdeDia: d1?.getDate(), desdeMes: d1 ? d1.getMonth() + 1 : undefined, desdeAnio: d1?.getFullYear(),
+          hastaDia: d2?.getDate(), hastaMes: d2 ? d2.getMonth() + 1 : undefined, hastaAnio: d2?.getFullYear(),
         }),
         getUsuarios(),
       ]);
@@ -42,8 +42,8 @@ export default function DashboardStats() {
 
   useEffect(() => {
     setLoading(true);
-    fetch(selectedUserId, desdeMes, hastaMes);
-  }, [selectedUserId, desdeMes, hastaMes, fetch]);
+    fetch(selectedUserId, fechaDesde, fechaHasta);
+  }, [selectedUserId, fechaDesde, fechaHasta, fetch]);
 
   const exportCsv = () => {
     if (!stats) return;
@@ -87,7 +87,7 @@ export default function DashboardStats() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    const periodo = `${MONTHS[desdeMes - 1]}-${MONTHS[hastaMes - 1]}`;
+    const periodo = `${fechaDesde} a ${fechaHasta}`;
     a.download = `dashboard-stats-${periodo}.csv`;
     a.click();
     URL.revokeObjectURL(url);
@@ -117,11 +117,19 @@ export default function DashboardStats() {
 
   return (
     <div className="space-y-6">
-      {/* Filtro de periodo + export */}
+      {/* Filtro de fechas + export */}
       <div className="flex flex-wrap items-end gap-4">
         <div className="flex items-end gap-3">
-          <SelectMonth label="Desde" value={desdeMes} onChange={setDesdeMes} />
-          <SelectMonth label="Hasta" value={hastaMes} onChange={setHastaMes} min={desdeMes} />
+          <div>
+            <label className="mb-1 block text-xs font-medium uppercase tracking-wider text-slate-500">Desde</label>
+            <input type="date" value={fechaDesde} onChange={(e) => setFechaDesde(e.target.value)}
+              className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-slate-200 focus:border-amber-500/50 focus:outline-none" />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium uppercase tracking-wider text-slate-500">Hasta</label>
+            <input type="date" value={fechaHasta} onChange={(e) => setFechaHasta(e.target.value)}
+              className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-slate-200 focus:border-amber-500/50 focus:outline-none" />
+          </div>
         </div>
         <div className="ml-auto flex items-center gap-3">
           <select
@@ -253,7 +261,7 @@ export default function DashboardStats() {
 
         <section className="rounded-xl border border-slate-700/50 bg-slate-800/30 p-5">
           <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-slate-400">Tendencia Mensual</h3>
-          <LineChart porMes={stats.porMes} desdeMes={desdeMes} hastaMes={hastaMes} setDesdeMes={setDesdeMes} setHastaMes={setHastaMes} />
+          <LineChart porMes={stats.porMes} />
         </section>
       </div>
     </div>
@@ -308,21 +316,8 @@ function DonutChart({ data }: { data: { label: string; value: number }[] }) {
   );
 }
 
-function LineChart({
-  porMes,
-  desdeMes,
-  hastaMes,
-  setDesdeMes,
-  setHastaMes,
-}: {
-  porMes: { anio: number; mes: number; total: number }[];
-  desdeMes: number;
-  hastaMes: number;
-  setDesdeMes: (v: number) => void;
-  setHastaMes: (v: number) => void;
-}) {
+function LineChart({ porMes }: { porMes: { anio: number; mes: number; total: number }[] }) {
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
-  const [savedRange, setSavedRange] = useState<{ desde: number; hasta: number } | null>(null);
 
   if (porMes.length === 0) return <p className="py-8 text-center text-xs text-slate-500">Sin datos</p>;
 
@@ -355,17 +350,6 @@ function LineChart({
   const tooltipX = tooltipData ? getX(tooltipData.mes) : 0;
   const tooltipY = tooltipData ? getY(tooltipData.total) : 0;
 
-  const handleMonthClick = (mes: number) => {
-    if (desdeMes === mes && hastaMes === mes && savedRange) {
-      setDesdeMes(savedRange.desde);
-      setHastaMes(savedRange.hasta);
-      setSavedRange(null);
-    } else {
-      if (!savedRange) setSavedRange({ desde: desdeMes, hasta: hastaMes });
-      setDesdeMes(mes);
-      setHastaMes(mes);
-    }
-  };
 
   return (
     <div className="relative flex justify-center">
@@ -415,11 +399,9 @@ function LineChart({
           const cy = getY(d.total);
           return (
             <g key={i}>
-              <circle cx={cx} cy={cy} r="10" fill="transparent"
-                className="cursor-pointer"
+              <circle cx={cx} cy={cy} r="10" fill="transparent" className="cursor-pointer"
                 onMouseEnter={() => setHoveredIndex(i)}
-                onMouseLeave={() => setHoveredIndex(null)}
-                onClick={() => handleMonthClick(d.mes)} />
+                onMouseLeave={() => setHoveredIndex(null)} />
               <circle cx={cx} cy={cy} r="4" fill="#f59e0b" stroke="#1e293b" strokeWidth="2" className="pointer-events-none" />
               <text x={cx} y={cy - 8} textAnchor="middle" className="fill-slate-100 text-[11px] font-semibold">{d.total}</text>
             </g>
@@ -445,23 +427,6 @@ function LineChart({
           </g>
         )}
       </svg>
-    </div>
-  );
-}
-
-function SelectMonth({ label, value, onChange, min }: { label: string; value: number; onChange: (v: number) => void; min?: number }) {
-  return (
-    <div>
-      <label className="mb-1 block text-xs font-medium uppercase tracking-wider text-slate-500">{label}</label>
-      <select
-        value={value}
-        onChange={(e) => onChange(Number(e.target.value))}
-        className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-slate-200 focus:border-amber-500/50 focus:outline-none"
-      >
-        {MONTH_OPTIONS.filter((m) => !min || m.value >= min).map((m) => (
-          <option key={m.value} value={m.value}>{m.label}</option>
-        ))}
-      </select>
     </div>
   );
 }

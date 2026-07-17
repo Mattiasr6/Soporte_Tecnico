@@ -126,15 +126,15 @@ export interface DashboardStats {
 
 export async function getDashboardStats(opts?: {
   usuarioId?: number;
-  desdeMes?: number;
-  desdeAnio?: number;
-  hastaMes?: number;
-  hastaAnio?: number;
+  desdeDia?: number; desdeMes?: number; desdeAnio?: number;
+  hastaDia?: number; hastaMes?: number; hastaAnio?: number;
 }): Promise<DashboardStats> {
   const params = new URLSearchParams();
   if (opts?.usuarioId) params.set("usuarioId", String(opts.usuarioId));
+  if (opts?.desdeDia) params.set("desdeDia", String(opts.desdeDia));
   if (opts?.desdeMes) params.set("desdeMes", String(opts.desdeMes));
   if (opts?.desdeAnio) params.set("desdeAnio", String(opts.desdeAnio));
+  if (opts?.hastaDia) params.set("hastaDia", String(opts.hastaDia));
   if (opts?.hastaMes) params.set("hastaMes", String(opts.hastaMes));
   if (opts?.hastaAnio) params.set("hastaAnio", String(opts.hastaAnio));
   const qs = params.toString();
