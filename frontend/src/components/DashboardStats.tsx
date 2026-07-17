@@ -199,7 +199,7 @@ export default function DashboardStats() {
           <DonutChart data={stats.porCategoria.map((c) => ({ label: c.categoria, value: c.total }))} />
         </section>
         <section className="rounded-xl border border-slate-700/50 bg-slate-800/30 p-5 lg:col-span-3">
-          <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-slate-400">Categorías más frecuentes</h3>
+          <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-slate-400">Categorías</h3>
           <div className="space-y-2">
             {stats.porCategoria.map((c) => (
               <div key={c.categoria} className="flex items-center gap-3">
@@ -253,7 +253,7 @@ export default function DashboardStats() {
 
         <section className="rounded-xl border border-slate-700/50 bg-slate-800/30 p-5">
           <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-slate-400">Tendencia Mensual</h3>
-          <LineChart data={stats.porMes.map((m) => ({ label: MONTHS[m.mes - 1], value: m.total }))} />
+          <LineChart porMes={stats.porMes} desdeMes={desdeMes} hastaMes={hastaMes} setDesdeMes={setDesdeMes} setHastaMes={setHastaMes} />
         </section>
       </div>
     </div>
@@ -308,42 +308,142 @@ function DonutChart({ data }: { data: { label: string; value: number }[] }) {
   );
 }
 
-function LineChart({ data }: { data: { label: string; value: number }[] }) {
-  if (data.length === 0) return <p className="py-8 text-center text-xs text-slate-500">Sin datos</p>;
+function LineChart({
+  porMes,
+  desdeMes,
+  hastaMes,
+  setDesdeMes,
+  setHastaMes,
+}: {
+  porMes: { anio: number; mes: number; total: number }[];
+  desdeMes: number;
+  hastaMes: number;
+  setDesdeMes: (v: number) => void;
+  setHastaMes: (v: number) => void;
+}) {
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+  const [savedRange, setSavedRange] = useState<{ desde: number; hasta: number } | null>(null);
 
-  const w = 500, h = 160, px = 40, py = 20;
-  const max = Math.max(...data.map((d) => d.value), 1);
-  const xStep = (w - px * 2) / (data.length - 1 || 1);
+  if (porMes.length === 0) return <p className="py-8 text-center text-xs text-slate-500">Sin datos</p>;
 
-  const points = data.map((d, i) => `${px + i * xStep},${h - py - ((d.value / max) * (h - py * 2))}`).join(" ");
-  const areaPoints = `${px},${h - py} ${points} ${px + (data.length - 1) * xStep},${h - py}`;
+  // Agrupar por año
+  const byYear = new Map<number, typeof porMes>();
+  for (const m of porMes) {
+    const arr = byYear.get(m.anio) || [];
+    arr.push(m);
+    byYear.set(m.anio, arr);
+  }
+  const years = [...byYear.keys()].sort();
+  const mainYear = years[years.length - 1];
+  const mainData = [...(byYear.get(mainYear)!)].sort((a, b) => a.mes - b.mes);
+  const prevData = years.length > 1
+    ? [...(byYear.get(years[years.length - 2])!)].sort((a, b) => a.mes - b.mes)
+    : null;
+
+  const w = 500, h = 250, px = 40, py = 30;
+  const max = Math.max(...porMes.map((m) => m.total), 1, 200);
+  const xStep = (w - px * 2) / 11;
+
+  const getY = (value: number) => h - py - ((value / max) * (h - py * 2));
+  const getX = (mes: number) => px + (mes - 1) * xStep;
+
+  const mainPoints = mainData.map((d) => `${getX(d.mes)},${getY(d.total)}`).join(" ");
+  const areaPoints = `${getX(mainData[0].mes)},${h - py} ${mainPoints} ${getX(mainData[mainData.length - 1].mes)},${h - py}`;
+  const prevPoints = prevData ? prevData.map((d) => `${getX(d.mes)},${getY(d.total)}`).join(" ") : null;
+
+  const tooltipData = hoveredIndex !== null ? mainData[hoveredIndex] : null;
+  const tooltipX = tooltipData ? getX(tooltipData.mes) : 0;
+  const tooltipY = tooltipData ? getY(tooltipData.total) : 0;
+
+  const handleMonthClick = (mes: number) => {
+    if (desdeMes === mes && hastaMes === mes && savedRange) {
+      setDesdeMes(savedRange.desde);
+      setHastaMes(savedRange.hasta);
+      setSavedRange(null);
+    } else {
+      if (!savedRange) setSavedRange({ desde: desdeMes, hasta: hastaMes });
+      setDesdeMes(mes);
+      setHastaMes(mes);
+    }
+  };
 
   return (
-    <div className="flex justify-center">
-      <svg viewBox={`0 0 ${w} ${h}`} className="w-full max-w-md" style={{ height: "180px" }}>
-        {/* Grid lines */}
-        {[0, 0.25, 0.5, 0.75, 1].map((r, i) => (
-          <line key={i} x1={px} y1={h - py - r * (h - py * 2)} x2={w - px} y2={h - py - r * (h - py * 2)}
-            stroke="#334155" strokeWidth="1" strokeDasharray="4 4" />
-        ))}
-        {/* Area fill */}
-        <polygon points={areaPoints} fill="url(#lineGrad)" opacity="0.2" />
+    <div className="relative flex justify-center">
+      <svg viewBox={`0 0 ${w} ${h}`} className="w-full max-w-lg" style={{ height: "260px" }}>
         <defs>
           <linearGradient id="lineGrad" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor="#f59e0b" />
             <stop offset="100%" stopColor="#f59e0b" stopOpacity="0" />
           </linearGradient>
         </defs>
-        {/* Line */}
-        <polyline points={points} fill="none" stroke="#f59e0b" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" className="transition-all duration-700" />
-        {/* Dots */}
-        {data.map((d, i) => (
-          <circle key={i} cx={px + i * xStep} cy={h - py - ((d.value / max) * (h - py * 2))} r="4" fill="#f59e0b" stroke="#1e293b" strokeWidth="2" />
+
+        {/* Grid lines */}
+        {[0, 0.25, 0.5, 0.75, 1].map((r, i) => (
+          <line key={i} x1={px} y1={h - py - r * (h - py * 2)} x2={w - px} y2={h - py - r * (h - py * 2)}
+            stroke="#334155" strokeWidth="1" strokeDasharray="4 4" />
         ))}
-        {/* Labels */}
-        {data.map((d, i) => (
-          <text key={i} x={px + i * xStep} y={h - 4} textAnchor="middle" className="fill-slate-500 text-[10px]">{d.label}</text>
+
+        {/* Meta */}
+        <line x1={px} y1={getY(200)} x2={w - px - 64} y2={getY(200)}
+          stroke="#10b981" strokeWidth="2" strokeDasharray="8 4" />
+        <text x={w - px} y={getY(200) + 4} textAnchor="end" className="fill-emerald-400 text-[10px] font-medium">
+          Meta: 200
+        </text>
+
+        {/* Año anterior */}
+        {prevData && (
+          <g opacity="0.6">
+            <polyline points={prevPoints!} fill="none" stroke="#64748b" strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" />
+            {prevData.map((d, i) => (
+              <circle key={i} cx={getX(d.mes)} cy={getY(d.total)} r="3" fill="#64748b" />
+            ))}
+            <text x={w - px} y={getY(prevData[prevData.length - 1].total)} textAnchor="end" className="fill-slate-400 text-[10px] font-medium">
+              {prevData[0].anio}
+            </text>
+          </g>
+        )}
+
+        {/* Area fill */}
+        <polygon points={areaPoints} fill="url(#lineGrad)" opacity="0.2" />
+
+        {/* Linea principal */}
+        <polyline points={mainPoints} fill="none" stroke="#f59e0b" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
+
+        {/* Puntos + interaccion */}
+        {mainData.map((d, i) => {
+          const cx = getX(d.mes);
+          const cy = getY(d.total);
+          return (
+            <g key={i}>
+              <circle cx={cx} cy={cy} r="10" fill="transparent"
+                className="cursor-pointer"
+                onMouseEnter={() => setHoveredIndex(i)}
+                onMouseLeave={() => setHoveredIndex(null)}
+                onClick={() => handleMonthClick(d.mes)} />
+              <circle cx={cx} cy={cy} r="4" fill="#f59e0b" stroke="#1e293b" strokeWidth="2" className="pointer-events-none" />
+              <text x={cx} y={cy - 8} textAnchor="middle" className="fill-slate-100 text-[11px] font-semibold">{d.total}</text>
+            </g>
+          );
+        })}
+
+        {/* Labels meses */}
+        {mainData.map((d, i) => (
+          <text key={i} x={getX(d.mes)} y={h - 6} textAnchor="middle" className="fill-slate-500 text-[11px] font-medium">{MONTHS[d.mes - 1]}</text>
         ))}
+
+        {/* Tooltip */}
+        {tooltipData && (
+          <g>
+            <rect x={tooltipX - 65} y={tooltipY - 54} width="130" height="34" rx="6"
+              fill="#0f172a" stroke="#334155" strokeWidth="1" />
+            <text x={tooltipX} y={tooltipY - 38} textAnchor="middle" fill="#e2e8f0" fontSize="11" fontWeight="600">
+              {MONTHS[tooltipData.mes - 1]} {tooltipData.anio}
+            </text>
+            <text x={tooltipX} y={tooltipY - 26} textAnchor="middle" fill="#94a3b8" fontSize="11">
+              {tooltipData.total} atenciones
+            </text>
+          </g>
+        )}
       </svg>
     </div>
   );
