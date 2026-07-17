@@ -20,6 +20,7 @@ export default function DashboardStats() {
   const [desdeMes, setDesdeMes] = useState(1);
   const [desdeAnio] = useState(new Date().getFullYear());
   const [hastaMes, setHastaMes] = useState(new Date().getMonth() + 1);
+  const [expandAreas, setExpandAreas] = useState(false);
 
   const fetch = useCallback(async (uid?: number, dm?: number, hm?: number) => {
     try {
@@ -223,9 +224,15 @@ export default function DashboardStats() {
       {/* Areas y Tendencia */}
       <div className="grid gap-6 lg:grid-cols-2">
         <section className="rounded-xl border border-slate-700/50 bg-slate-800/30 p-5">
-          <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-slate-400">Áreas más solicitantes</h3>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-sm font-semibold uppercase tracking-wider text-slate-400">Áreas más solicitantes</h3>
+            <button onClick={() => setExpandAreas(!expandAreas)}
+              className="text-xs text-amber-400 hover:text-amber-300 transition">
+              {expandAreas ? "Ver menos" : `Ver todas (${stats.porArea.length})`}
+            </button>
+          </div>
           <div className="space-y-2">
-            {stats.porArea.map((a) => (
+            {(expandAreas ? stats.porArea : stats.porArea.slice(0, 8)).map((a) => (
               <div key={a.area} className="flex items-center gap-3">
                 <div className="flex-1">
                   <div className="flex items-center justify-between text-xs">

@@ -7,7 +7,6 @@ using Microsoft.EntityFrameworkCore;
 using SoporteTecnico.API.Data;
 using SoporteTecnico.API.DTOs;
 using SoporteTecnico.API.Models;
-using SoporteTecnico.API.Models;
 using SoporteTecnico.API.Services;
 namespace SoporteTecnico.API.Controllers;
 
@@ -144,7 +143,6 @@ public class AtencionesController : ControllerBase
                 total = g.Count()
             })
             .OrderByDescending(g => g.total)
-            .Take(8)
             .ToListAsync();
 
         var asistenciasQuery = _db.Atenciones.Where(a => a.ColaboradorId != null);
