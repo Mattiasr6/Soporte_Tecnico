@@ -28,7 +28,7 @@ public class AreasController : ControllerBase
             .ToListAsync();
 
         areas = areas
-            .Union(new[] { "Plaza UPDS", "Vicerrectorado Administrativo" })
+            .Union(new[] { "Plaza UPDS", "Vicerrectorado Administrativo", "Sala 2 (Directorio)", "Sala 3 (Directorio)" })
             .OrderBy(a => a)
             .ToList();
 
