@@ -27,11 +27,10 @@ public class AreasController : ControllerBase
             .OrderBy(a => a)
             .ToListAsync();
 
-        areas = areas
-            .Union(new[] { "Plaza UPDS", "Vicerrectorado Administrativo", "Sala 2 (Directorio)", "Sala 3 (Directorio)", "C-16" })
-            .OrderBy(a => a)
-            .ToList();
-
+        var extraAreas = new[] { "Plaza UPDS", "Vicerrectorado Administrativo", "Sala 2 (Directorio)", "Sala 3 (Directorio)" }
+            .Concat(Enumerable.Range(1, 20).Select(i => $"Aula C-{i:D2}"))
+            .ToArray();
+        areas = areas.Union(extraAreas).OrderBy(a => a).ToList();
         if (areas.Count == 1) // solo Plaza UPDS, sin datos reales
         {
             areas = new List<string>
