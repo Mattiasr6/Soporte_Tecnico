@@ -27,7 +27,7 @@ public class AreasController : ControllerBase
             .OrderBy(a => a)
             .ToListAsync();
 
-        var extraAreas = new[] { "Plaza UPDS", "Vicerrectorado Administrativo", "Sala 2 (Directorio)", "Sala 3 (Directorio)" }
+        var extraAreas = new[] { "Archivos Contabilidad", "Plaza UPDS", "Vicerrectorado Administrativo", "Sala 2 (Directorio)", "Sala 3 (Directorio)" }
             .Concat(Enumerable.Range(1, 20).Select(i => $"Aula C-{i:D2}"))
             .ToArray();
         areas = areas.Union(extraAreas).OrderBy(a => a).ToList();

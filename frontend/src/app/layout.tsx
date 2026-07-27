@@ -6,6 +6,7 @@ import { ToastProvider } from "@/components/Toast";
 import { SignalRProvider } from "@/lib/SignalRProvider";
 import Navbar from "@/components/Navbar";
 import ChatWidget from "@/components/ChatWidget";
+import AnnouncementBanner from "@/components/AnnouncementBanner";
 
 const dmSans = DM_Sans({
   subsets: ["latin"],
@@ -34,6 +35,7 @@ export default function RootLayout({
         <AuthProvider>
           <ToastProvider>
             <SignalRProvider>
+              <AnnouncementBanner />
               <div className="lg:flex">
                 <Navbar />
                 <main className="flex-1 pt-14 lg:pt-0">{children}</main>

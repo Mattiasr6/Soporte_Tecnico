@@ -2,17 +2,20 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "./AuthProvider";
 import BlocNotas from "./BlocNotas";
 import useNotifications from "@/lib/useNotifications";
 import useScheduleReminder from "@/lib/useScheduleReminder";
+import AnnouncementModal from "./AnnouncementModal";
 
 export default function Navbar() {
   const { user, logout } = useAuth();
+  const router = useRouter();
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
   const [notasOpen, setNotasOpen] = useState(false);
+  const [anuncioOpen, setAnuncioOpen] = useState(false);
 
   useNotifications();
   useScheduleReminder();
@@ -96,17 +99,32 @@ export default function Navbar() {
             <MdiNotas />
             Bloc de Notas
           </button>
+
+          {canDashboard && (
+            <button
+              onClick={() => setAnuncioOpen(true)}
+              className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-slate-400 transition-all hover:bg-slate-800/60 hover:text-slate-200"
+            >
+              <MdiAnnouncement />
+              Anuncio
+            </button>
+          )}
         </nav>
 
         <div className="border-t border-slate-800 px-4 py-4">
           <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-amber-400 to-amber-600 text-xs font-bold text-slate-950 shadow-md">
-              {user.displayName.charAt(0).toUpperCase()}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="truncate text-sm font-medium text-slate-200">{user.displayName}</p>
-              <p className="truncate text-[10px] uppercase tracking-wider text-slate-500">{user.role}</p>
-            </div>
+            <button
+              onClick={() => router.push(`/perfil/${user.id}`)}
+              className="flex items-center gap-3 overflow-hidden transition hover:opacity-80"
+            >
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-amber-400 to-amber-600 text-xs font-bold text-slate-950 shadow-md">
+                {user.displayName.charAt(0).toUpperCase()}
+              </div>
+              <div className="min-w-0 flex-1 text-left">
+                <p className="truncate text-sm font-medium text-slate-200">{user.displayName}</p>
+                <p className="truncate text-[10px] uppercase tracking-wider text-slate-500">{user.role}</p>
+              </div>
+            </button>
             <button
               onClick={logout}
               className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition hover:bg-red-600/20 hover:text-red-400"
@@ -120,6 +138,7 @@ export default function Navbar() {
         </div>
       </aside>
       {notasOpen && <BlocNotas onClose={() => setNotasOpen(false)} />}
+      {anuncioOpen && <AnnouncementModal onClose={() => setAnuncioOpen(false)} />}
     </>
   );
 }
@@ -163,6 +182,14 @@ function MdiFileReport() {
   return (
     <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+    </svg>
+  );
+}
+
+function MdiAnnouncement() {
+  return (
+    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M10.34 15.84c-.688-.06-1.386-.09-2.09-.09H7.5a4.5 4.5 0 110-9h.75c.704 0 1.402-.03 2.09-.09m0 9.18c.253.962.584 1.892.985 2.783.247.55.06 1.21-.463 1.511l-.657.38a.498.498 0 01-.603-.045 9.009 9.009 0 01-4.21-5.19m.066-9.15a9.01 9.01 0 014.21-5.19.498.498 0 01.603-.045l.657.38c.524.302.71.962.463 1.511a11.95 11.95 0 00-.985 2.783m0 0a8.954 8.954 0 012.09 5.21 8.954 8.954 0 01-2.09 5.21M15.75 12a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0z" />
     </svg>
   );
 }

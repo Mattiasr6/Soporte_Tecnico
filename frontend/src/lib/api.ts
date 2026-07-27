@@ -119,6 +119,7 @@ export interface DashboardStats {
   total: number;
   fueraDeTurno: number;
   porTecnico: { usuarioId: number; displayName: string; total: number }[];
+  asistencias: { usuarioId: number; displayName: string; total: number }[];
   porCategoria: { categoria: string; total: number }[];
   porMes: { anio: number; mes: number; total: number }[];
   porArea: { area: string; total: number }[];

@@ -12,6 +12,7 @@ namespace SoporteTecnico.API.Hubs;
 [Authorize]
 public class AppHub : Hub
 {
+    public static string? CurrentAnnouncement { get; set; }
     private static readonly ConcurrentDictionary<string, int> ConnectedUsers = new();
     private readonly IServiceScopeFactory _scopeFactory;
 

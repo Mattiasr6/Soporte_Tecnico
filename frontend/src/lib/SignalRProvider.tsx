@@ -25,6 +25,8 @@ interface SignalRContextValue {
   messages: ChatMessage[];
   sendMessage: (msg: string) => Promise<void>;
   lastStatus: StatusEvent | null;
+  announcement: string | null;
+  setAnnouncement: (msg: string | null) => void;
 }
 
 const SignalRCtx = createContext<SignalRContextValue>(null!);
@@ -39,6 +41,7 @@ export function SignalRProvider({ children }: { children: ReactNode }) {
     return saved ? JSON.parse(saved) : [];
   });
   const [lastStatus, setLastStatus] = useState<StatusEvent | null>(null);
+  const [announcement, setAnnouncement] = useState<string | null>(null);
   const connRef = useRef<signalR.HubConnection | null>(null);
 
   useEffect(() => {
@@ -65,6 +68,10 @@ export function SignalRProvider({ children }: { children: ReactNode }) {
       setLastStatus(ev);
     });
 
+    conn.on("ReceiveAnnouncement", (msg: string | null) => {
+      setAnnouncement(msg);
+    });
+
     conn.start().then(() => setConnected(true)).catch(() => {});
 
     connRef.current = conn;
@@ -79,7 +86,7 @@ export function SignalRProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <SignalRCtx.Provider value={{ connected, messages, sendMessage, lastStatus }}>
+    <SignalRCtx.Provider value={{ connected, messages, sendMessage, lastStatus, announcement, setAnnouncement }}>
       {children}
     </SignalRCtx.Provider>
   );

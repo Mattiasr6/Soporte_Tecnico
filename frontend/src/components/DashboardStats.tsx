@@ -6,6 +6,7 @@ import { getDashboardStats, getUsuarios, type DashboardStats } from "@/lib/api";
 import type { Usuario } from "@/types";
 import AnimatedCounter from "./AnimatedCounter";
 import { SkeletonCard, SkeletonRow } from "./Skeleton";
+import AtencionListModal from "./AtencionListModal";
 
 const MONTHS = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
 const YEAR_OPTIONS = [new Date().getFullYear()];
@@ -23,6 +24,7 @@ export default function DashboardStats() {
   const [fechaHasta, setFechaHasta] = useState(() => new Date().toISOString().slice(0, 10));
   const [expandAreas, setExpandAreas] = useState(false);
   const reqId = useRef(0);
+  const [modalTecnico, setModalTecnico] = useState<{ usuarioId: number; displayName: string } | null>(null);
 
   const fetch = useCallback(async (uid?: number, fd?: string, fh?: string) => {
     const id = ++reqId.current;
@@ -119,6 +121,7 @@ export default function DashboardStats() {
   const promedio = stats.porTecnico.length > 0
     ? Math.round(stats.total / stats.porTecnico.length)
     : 0;
+  const maxColab = Math.max(...stats.asistencias.map((c) => c.total), 1);
 
   return (
     <div className="space-y-6">
@@ -199,9 +202,45 @@ export default function DashboardStats() {
                   />
                 </div>
               </div>
-              <span className="w-16 text-right text-sm font-semibold text-slate-100">{t.total}</span>
+              <span className="w-14 text-right text-sm font-semibold text-slate-100">{t.total}</span>
+              <button
+                onClick={() => setModalTecnico({ usuarioId: t.usuarioId, displayName: t.displayName })}
+                className="flex h-7 w-7 shrink-0 items-center justify-center rounded text-slate-500 transition hover:bg-amber-500/20 hover:text-amber-400"
+                title="Ver atenciones">
+                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                </svg>
+              </button>
             </div>);
           })}
+        </div>
+      </section>
+
+      {/* Colaboraciones */}
+      <section className="rounded-xl border border-slate-700/50 bg-slate-800/30 p-5">
+        <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-slate-400">
+          Colaboraciones
+        </h3>
+        <div className="space-y-2">
+          {stats.asistencias.map((c, i) => (
+            <div key={c.usuarioId} className="flex items-center gap-3">
+              <span className="w-6 text-xs font-bold text-slate-500">#{i + 1}</span>
+              <span className="w-32 truncate text-sm text-slate-200">{c.displayName}</span>
+              <div className="flex-1">
+                <div className="h-5 overflow-hidden rounded-full bg-slate-700">
+                  <div
+                    className="h-full rounded-full bg-gradient-to-r from-violet-500 to-violet-600 transition-all duration-500"
+                    style={{ width: `${(c.total / maxColab) * 100}%` }}
+                  />
+                </div>
+              </div>
+              <span className="w-14 text-right text-sm font-semibold text-slate-100">{c.total}</span>
+            </div>
+          ))}
+          {stats.asistencias.length === 0 && (
+            <p className="py-4 text-center text-xs text-slate-500">Sin colaboraciones en este período</p>
+          )}
         </div>
       </section>
 
@@ -269,6 +308,16 @@ export default function DashboardStats() {
           <LineChart porMes={stats.porMes} />
         </section>
       </div>
+
+      {modalTecnico && (
+        <AtencionListModal
+          usuarioId={modalTecnico.usuarioId}
+          displayName={modalTecnico.displayName}
+          fechaDesde={fechaDesde}
+          fechaHasta={fechaHasta}
+          onClose={() => setModalTecnico(null)}
+        />
+      )}
     </div>
   );
 }

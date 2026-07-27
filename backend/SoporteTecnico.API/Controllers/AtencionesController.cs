@@ -40,9 +40,9 @@ public class AtencionesController : ControllerBase
 
         IQueryable<Atencion> query = _db.Atenciones.Include(a => a.Usuario);
 
-        if (user.Role == "Jefe" && usuarioId.HasValue)
+        if ((user.Role == "Jefe" || user.CanViewDashboard) && usuarioId.HasValue)
             query = query.Where(a => a.UsuarioId == usuarioId.Value);
-        else if (user.Role != "Jefe")
+        else if (user.Role != "Jefe" && !user.CanViewDashboard)
             query = query.Where(a => a.UsuarioId == userId);
 
         var atenciones = await query
