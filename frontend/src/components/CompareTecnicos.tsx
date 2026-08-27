@@ -147,33 +147,88 @@ export default function CompareTecnicos() {
             </div>
           </div>
 
-          {/* Tendencia mensual lado a lado */}
+          {/* Tendencia mensual — lineas */}
           <div>
             <h4 className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-500">
               Tendencia Mensual
             </h4>
-            <div className="flex items-end gap-3" style={{ height: "140px" }}>
-              {allMeses.map((key) => {
-                const [anio, mes] = key.split("-").map(Number);
-                const v1 = s1.porMes.find((m) => m.anio === anio && m.mes === mes)?.total ?? 0;
-                const v2 = s2.porMes.find((m) => m.anio === anio && m.mes === mes)?.total ?? 0;
-                return (
-                  <div key={key} className="flex flex-1 flex-col items-center gap-0.5">
-                    <span className="text-[10px] font-medium text-slate-400">{v1}</span>
-                    <div
-                      className="w-full rounded-t-sm bg-gradient-to-t from-amber-500 to-amber-400 transition-all"
-                      style={{ height: `${(v1 / maxMes) * 55}px`, minHeight: v1 > 0 ? "2px" : "0px" }}
-                      title={name1}
-                    />
-                    <div
-                      className="w-full rounded-t-sm bg-gradient-to-t from-sky-500 to-sky-400 transition-all"
-                      style={{ height: `${(v2 / maxMes) * 55}px`, minHeight: v2 > 0 ? "2px" : "0px" }}
-                      title={name2}
-                    />
-                    <span className="mt-1 text-[10px] text-slate-500">{MONTHS[mes - 1]}</span>
-                  </div>
-                );
-              })}
+            <div className="relative flex justify-center">
+              <svg viewBox="0 0 600 220" className="w-full max-w-xl" style={{ height: "240px" }}>
+                <defs>
+                  <linearGradient id="grad1" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#f59e0b" stopOpacity="0.2" />
+                    <stop offset="100%" stopColor="#f59e0b" stopOpacity="0" />
+                  </linearGradient>
+                  <linearGradient id="grad2" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#38bdf8" stopOpacity="0.2" />
+                    <stop offset="100%" stopColor="#38bdf8" stopOpacity="0" />
+                  </linearGradient>
+                </defs>
+
+                {(() => {
+                  const px = 50, py = 30, w = 600, h = 220;
+                  const n = allMeses.length;
+                  if (n === 0) return null;
+                  const xStep = (w - px * 2) / (n - 1 || 1);
+                  const getY = (v: number) => h - py - ((v / maxMes) * (h - py * 2));
+
+                  const pts1 = allMeses.map((key, i) => {
+                    const [anio, mes] = key.split("-").map(Number);
+                    const v = s1.porMes.find((m) => m.anio === anio && m.mes === mes)?.total ?? 0;
+                    return { x: px + i * xStep, y: getY(v), v };
+                  });
+                  const pts2 = allMeses.map((key, i) => {
+                    const [anio, mes] = key.split("-").map(Number);
+                    const v = s2.porMes.find((m) => m.anio === anio && m.mes === mes)?.total ?? 0;
+                    return { x: px + i * xStep, y: getY(v), v };
+                  });
+
+                  const poly1 = pts1.map((p) => `${p.x},${p.y}`).join(" ");
+                  const poly2 = pts2.map((p) => `${p.x},${p.y}`).join(" ");
+                  const area1 = `${pts1[0].x},${h - py} ${poly1} ${pts1[pts1.length - 1].x},${h - py}`;
+                  const area2 = `${pts2[0].x},${h - py} ${poly2} ${pts2[pts2.length - 1].x},${h - py}`;
+
+                  return (
+                    <>
+                      {/* Grid lines */}
+                      {[0, 0.25, 0.5, 0.75, 1].map((r, i) => (
+                        <line key={i} x1={px} y1={h - py - r * (h - py * 2)} x2={w - px} y2={h - py - r * (h - py * 2)}
+                          stroke="#334155" strokeWidth="1" strokeDasharray="4 4" />
+                      ))}
+                      {/* Area fills */}
+                      <polygon points={area1} fill="url(#grad1)" />
+                      <polygon points={area2} fill="url(#grad2)" />
+                      {/* Lines */}
+                      <polyline points={poly1} fill="none" stroke="#f59e0b" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
+                      <polyline points={poly2} fill="none" stroke="#38bdf8" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
+                      {/* Dots + labels */}
+                      {pts1.map((p, i) => (
+                        <g key={`a${i}`}>
+                          <circle cx={p.x} cy={p.y} r="5" fill="transparent" className="cursor-pointer" />
+                          <circle cx={p.x} cy={p.y} r="4" fill="#f59e0b" stroke="#1e293b" strokeWidth="2" />
+                          <text x={p.x} y={p.y - 8} textAnchor="middle" className="fill-amber-400 text-[11px] font-semibold">{p.v}</text>
+                        </g>
+                      ))}
+                      {pts2.map((p, i) => (
+                        <g key={`b${i}`}>
+                          <circle cx={p.x} cy={p.y} r="5" fill="transparent" className="cursor-pointer" />
+                          <circle cx={p.x} cy={p.y} r="4" fill="#38bdf8" stroke="#1e293b" strokeWidth="2" />
+                          <text x={p.x} y={p.y + 14} textAnchor="middle" className="fill-sky-400 text-[11px] font-semibold">{p.v}</text>
+                        </g>
+                      ))}
+                      {/* Month labels */}
+                      {allMeses.map((key, i) => {
+                        const [, mes] = key.split("-").map(Number);
+                        return (
+                          <text key={key} x={px + i * xStep} y={h - 6} textAnchor="middle" className="fill-slate-500 text-[11px] font-medium">
+                            {MONTHS[mes - 1]}
+                          </text>
+                        );
+                      })}
+                    </>
+                  );
+                })()}
+              </svg>
             </div>
             <div className="mt-2 flex justify-center gap-6 text-xs text-slate-500">
               <span className="flex items-center gap-1.5">
