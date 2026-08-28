@@ -1,0 +1,18 @@
+# Uso: docker compose -f docker-compose.dev.yml up -d
+# Entorno V2 aislado: postgres-dev :5433 + backend v2
+# Requiere rama v2-experimental: git checkout v2-experimental
+services:
+  postgres:
+    container_name: soporte-postgres-dev
+    ports:
+      - "5433:5432"
+    volumes:
+      - soporte-postgres-dev-data:/var/lib/postgresql/data
+  backend:
+    environment:
+      ConnectionStrings__DefaultConnection: "Server=soporte-postgres-dev;Port=5432;Database=soporte;User Id=soporte;Password=soporte_segura_2025;Include Error Detail=true"
+  pgbackup:
+    profiles: ["donotstart"]
+volumes:
+  soporte-postgres-dev-data:
+    external: true
