@@ -3,6 +3,9 @@ namespace SoporteTecnico.API.DTOs;
 public class AtencionCreateDto
 {
     public string AreaSolicitante { get; set; } = string.Empty;
+    public int? GrupoPadreId { get; set; }
+    public int? GrupoId { get; set; }
+    public int? AreaId { get; set; }
     public string MedioSolicitud { get; set; } = string.Empty;
     public string UsuarioSolicitante { get; set; } = string.Empty;
     public string Categoria { get; set; } = string.Empty;

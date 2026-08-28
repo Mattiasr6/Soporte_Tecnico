@@ -46,6 +46,9 @@ public class AtencionesController : ControllerBase
             query = query.Where(a => a.UsuarioId == userId);
 
         var atenciones = await query
+            .Include(a => a.GrupoPadre)
+            .Include(a => a.Grupo)
+            .Include(a => a.Area)
             .OrderByDescending(a => a.FechaRegistro)
             .ThenByDescending(a => a.Id)
             .Select(a => new
@@ -54,6 +57,12 @@ public class AtencionesController : ControllerBase
                 a.UsuarioId,
                 UsuarioNombre = a.Usuario.DisplayName,
                 a.AreaSolicitante,
+                a.GrupoPadreId,
+                GrupoPadreNombre = a.GrupoPadre != null ? a.GrupoPadre.Nombre : null,
+                a.GrupoId,
+                GrupoNombre = a.Grupo != null ? a.Grupo.Nombre : null,
+                a.AreaId,
+                AreaNombre = a.Area != null ? a.Area.Nombre : null,
                 a.MedioSolicitud,
                 a.UsuarioSolicitante,
                 a.Categoria,
@@ -198,6 +207,25 @@ public class AtencionesController : ControllerBase
             return Forbid();
 
         if (dto.AreaSolicitante is not null) atencion.AreaSolicitante = dto.AreaSolicitante;
+        if (dto.GrupoPadreId is not null) atencion.GrupoPadreId = dto.GrupoPadreId;
+        if (dto.GrupoId is not null) atencion.GrupoId = dto.GrupoId;
+        if (dto.AreaId is not null) atencion.AreaId = dto.AreaId;
+        // Si se actualiza AreaId/GrupoId, sincronizar legacy AreaSolicitante para compatibilidad
+        if (dto.AreaId is not null)
+        {
+            var area = await _db.Areas.FindAsync(dto.AreaId.Value);
+            if (area != null) atencion.AreaSolicitante = area.Nombre;
+        }
+        else if (dto.GrupoId is not null && dto.AreaId is null)
+        {
+            var grupo = await _db.Grupos.FindAsync(dto.GrupoId.Value);
+            if (grupo != null && string.IsNullOrWhiteSpace(dto.AreaSolicitante)) atencion.AreaSolicitante = grupo.Nombre;
+        }
+        else if (dto.GrupoPadreId is not null && dto.GrupoId is null && dto.AreaId is null)
+        {
+            var gp = await _db.GruposPadres.FindAsync(dto.GrupoPadreId.Value);
+            if (gp != null && string.IsNullOrWhiteSpace(dto.AreaSolicitante)) atencion.AreaSolicitante = gp.Nombre;
+        }
         if (dto.MedioSolicitud is not null) atencion.MedioSolicitud = dto.MedioSolicitud;
         if (dto.UsuarioSolicitante is not null) atencion.UsuarioSolicitante = dto.UsuarioSolicitante;
         if (dto.Categoria is not null) atencion.Categoria = dto.Categoria;
@@ -249,21 +277,73 @@ public class AtencionesController : ControllerBase
             .ToListAsync();
         var horarioUsuario = horariosDelMes.FirstOrDefault();
 
-        var atenciones = dto.Atenciones.Select(a => new Atencion
+        var atenciones = new List<Atencion>();
+        foreach (var a in dto.Atenciones)
         {
-            UsuarioId = usuario.Id,
-            AreaSolicitante = a.AreaSolicitante,
-            MedioSolicitud = a.MedioSolicitud,
-            UsuarioSolicitante = a.UsuarioSolicitante,
-            Categoria = NormalizarCategoria(a.Categoria),
-            Descripcion = a.Descripcion,
-            Solucion = a.Solucion,
-            Observaciones = a.Observaciones,
-            EnlaceApoyo = a.EnlaceApoyo,
-            ColaboradorId = a.ColaboradorId,
-            FechaRegistro = a.FechaRegistro,
-            FueraDeTurno = HorarioHelper.EstaFueraDeHorario(horarioUsuario, DateTime.UtcNow)
-        }).ToList();
+            int? gpId = a.GrupoPadreId;
+            int? gId = a.GrupoId;
+            int? arId = a.AreaId;
+            string legacy = a.AreaSolicitante;
+
+            // Prioridad: AreaId > GrupoId > GrupoPadreId > legacy string
+            if (arId.HasValue)
+            {
+                var area = await _db.Areas.FindAsync(arId.Value);
+                if (area == null) return BadRequest($"AreaId {arId} no existe");
+                gpId = area.GrupoPadreId;
+                gId = area.GrupoId;
+                legacy = area.Nombre;
+            }
+            else if (gId.HasValue)
+            {
+                var grupo = await _db.Grupos.FindAsync(gId.Value);
+                if (grupo == null) return BadRequest($"GrupoId {gId} no existe");
+                gpId = grupo.GrupoPadreId;
+                if (string.IsNullOrWhiteSpace(legacy)) legacy = grupo.Nombre;
+            }
+            else if (!string.IsNullOrWhiteSpace(legacy))
+            {
+                // Resolver legacy string a FKs (compatibilidad con clientes viejos)
+                var areaByName = await _db.Areas.FirstOrDefaultAsync(x => x.Nombre == legacy);
+                if (areaByName != null) { gpId = areaByName.GrupoPadreId; gId = areaByName.GrupoId; arId = areaByName.Id; }
+                else
+                {
+                    var grupoByName = await _db.Grupos.FirstOrDefaultAsync(x => x.Nombre == legacy);
+                    if (grupoByName != null) { gpId = grupoByName.GrupoPadreId; gId = grupoByName.Id; }
+                    else
+                    {
+                        var gp = await _db.GruposPadres.FirstOrDefaultAsync(x => x.Nombre == legacy);
+                        if (gp != null) gpId = gp.Id;
+                    }
+                }
+            }
+            if (!gpId.HasValue && string.IsNullOrWhiteSpace(legacy))
+                return BadRequest("Debe enviar AreaSolicitante o GrupoPadreId/GrupoId/AreaId");
+            if (string.IsNullOrWhiteSpace(legacy) && gpId.HasValue)
+            {
+                var gp = await _db.GruposPadres.FindAsync(gpId.Value);
+                legacy = gp?.Nombre ?? "Desconocido";
+            }
+
+            atenciones.Add(new Atencion
+            {
+                UsuarioId = usuario.Id,
+                AreaSolicitante = legacy,
+                GrupoPadreId = gpId,
+                GrupoId = gId,
+                AreaId = arId,
+                MedioSolicitud = a.MedioSolicitud,
+                UsuarioSolicitante = a.UsuarioSolicitante,
+                Categoria = NormalizarCategoria(a.Categoria),
+                Descripcion = a.Descripcion,
+                Solucion = a.Solucion,
+                Observaciones = a.Observaciones,
+                EnlaceApoyo = a.EnlaceApoyo,
+                ColaboradorId = a.ColaboradorId,
+                FechaRegistro = a.FechaRegistro,
+                FueraDeTurno = HorarioHelper.EstaFueraDeHorario(horarioUsuario, DateTime.UtcNow)
+            });
+        }
 
         _db.Atenciones.AddRange(atenciones);
         await _db.SaveChangesAsync();
@@ -346,10 +426,24 @@ public class AtencionesController : ControllerBase
                 catNorm = "Otros";
             }
 
+            // Resolver jerarquía para import (mapea legacy string a FKs)
+            int? csvGpId = null; int? csvGId = null; int? csvArId = null;
+            var csvArea = await _db.Areas.FirstOrDefaultAsync(x => x.Nombre == area);
+            if (csvArea != null) { csvGpId = csvArea.GrupoPadreId; csvGId = csvArea.GrupoId; csvArId = csvArea.Id; }
+            else
+            {
+                var csvGrupo = await _db.Grupos.FirstOrDefaultAsync(x => x.Nombre == area);
+                if (csvGrupo != null) { csvGpId = csvGrupo.GrupoPadreId; csvGId = csvGrupo.Id; }
+                else { var csvGp = await _db.GruposPadres.FirstOrDefaultAsync(x => x.Nombre == area); if (csvGp != null) csvGpId = csvGp.Id; }
+            }
+
             atenciones.Add(new Atencion
             {
                 UsuarioId = usuario.Id,
                 AreaSolicitante = area,
+                GrupoPadreId = csvGpId,
+                GrupoId = csvGId,
+                AreaId = csvArId,
                 MedioSolicitud = medio is "Presencial" or "Interno" or "WhatsApp" or "E-ticket" ? medio : "Interno",
                 UsuarioSolicitante = usuarioSol is "ADM" or "BEC" or "DOC" or "EST" or "EIAG" ? usuarioSol : "ADM",
                 Categoria = catNorm,

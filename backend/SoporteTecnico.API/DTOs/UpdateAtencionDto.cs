@@ -3,6 +3,9 @@ namespace SoporteTecnico.API.DTOs;
 public record UpdateAtencionDto
 {
     public string? AreaSolicitante { get; init; }
+    public int? GrupoPadreId { get; init; }
+    public int? GrupoId { get; init; }
+    public int? AreaId { get; init; }
     public string? MedioSolicitud { get; init; }
     public string? UsuarioSolicitante { get; init; }
     public string? Categoria { get; init; }
