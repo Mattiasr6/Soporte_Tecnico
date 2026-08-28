@@ -1,0 +1,54 @@
+grupo_padre,grupo,nombre,activo
+Académicos,,Academicos Modular,1
+Académicos,,Academicos Semestral,1
+Académicos,,Camara Gessel,1
+Administrativos,,Archivo,1
+Administrativos,,Asistente F.C.S.,1
+Administrativos,,Biblioteca,1
+Administrativos,,Bienestar Estudiantil,1
+Administrativos,,CAP,1
+Administrativos,,Caja,1
+Administrativos,,Contabilidad,1
+Administrativos,,Coordinación Acad. FCS,1
+Administrativos,,Data Center,1
+Administrativos,,Extensión Universitaria,1
+Administrativos,,Marketing,1
+Administrativos,,NAF,1
+Administrativos,,Publicidad,1
+Administrativos,,Recepción,1
+Administrativos,,Registro,1
+Administrativos,,Relaciones Públicas,1
+Administrativos,,Sala Magna,1
+Administrativos,,Sala de lectura,1
+Administrativos,,Servicios Generales,1
+Administrativos,,Sistemas,1
+Administrativos,,Soporte Técnico,1
+Administrativos,,Souvenirs,1
+Administrativos,,Trámites Académicos,1
+Administrativos,,Vicerrectorado Administrativo,1
+Administrativos,Investigación,C. de Inv./ C. Empresariales,1
+Administrativos,Investigación,C. de Inv./ C. Salud,1
+Administrativos,Investigación,C. de Inv./ C. Sociales,1
+Administrativos,Investigación,C. de Inv./ Ingeniería,1
+Administrativos,Investigación,C. de Inv./C. Jurídicas,1
+Administrativos,Rectorado,Archivos Contabilidad,1
+Administrativos,Rectorado,Rectorado,1
+Administrativos,Rectorado,Secretaria Consistencia,1
+Administrativos,Rectorado,Secretaria General,1
+Administrativos,Rectorado,Talento Humano,1
+Administrativos,Vicerrectorado,Acreditación,1
+Administrativos,Vicerrectorado,Decanatura,1
+Administrativos,Vicerrectorado,Jefatura Académica,1
+Administrativos,Vicerrectorado,Sala de Docentes,1
+Administrativos,Vicerrectorado,Vicerrectorado,1
+Extras,,ADI (Academia de Idiomas),1
+Extras,,Directorio,1
+Extras,,Directorio (Rectorado),1
+Extras,,EIAG,1
+Extras,,Rectorado Nacional,1
+Extras,,SFIC,1
+Extras,,Sala 1 (Directorio),1
+Extras,,Sala 2 (Directorio),1
+Extras,,Sala 3 (Directorio),1
+Extras,Eventos,Auditorio,1
+Extras,Eventos,Plaza UPDS,1

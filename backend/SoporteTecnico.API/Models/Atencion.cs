@@ -4,7 +4,10 @@ public class Atencion
 {
     public int Id { get; set; }
     public int UsuarioId { get; set; }
-    public string AreaSolicitante { get; set; } = string.Empty;
+    public int? GrupoPadreId { get; set; }
+    public int? GrupoId { get; set; }
+    public int? AreaId { get; set; }
+    public string AreaSolicitante { get; set; } = string.Empty; // Legacy varchar, mantener para histórico
     public string MedioSolicitud { get; set; } = string.Empty;
     public string UsuarioSolicitante { get; set; } = string.Empty;
     public string Categoria { get; set; } = string.Empty;
@@ -18,4 +21,7 @@ public class Atencion
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public Usuario Usuario { get; set; } = null!;
     public Usuario? Colaborador { get; set; }
+    public GrupoPadre? GrupoPadre { get; set; }
+    public Grupo? Grupo { get; set; }
+    public Area? Area { get; set; }
 }

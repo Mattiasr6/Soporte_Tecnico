@@ -8,6 +8,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<Usuario> Usuarios => Set<Usuario>();
     public DbSet<Atencion> Atenciones => Set<Atencion>();
     public DbSet<Horario> Horarios => Set<Horario>();
+    public DbSet<GrupoPadre> GruposPadres => Set<GrupoPadre>();
+    public DbSet<Grupo> Grupos => Set<Grupo>();
+    public DbSet<Area> Areas => Set<Area>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -195,8 +198,26 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                   .HasForeignKey(a => a.ColaboradorId)
                   .OnDelete(DeleteBehavior.SetNull);
 
+            entity.HasOne(a => a.GrupoPadre)
+                  .WithMany()
+                  .HasForeignKey(a => a.GrupoPadreId)
+                  .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasOne(a => a.Grupo)
+                  .WithMany()
+                  .HasForeignKey(a => a.GrupoId)
+                  .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasOne(a => a.Area)
+                  .WithMany()
+                  .HasForeignKey(a => a.AreaId)
+                  .OnDelete(DeleteBehavior.SetNull);
+
             entity.HasIndex(a => a.UsuarioId);
             entity.HasIndex(a => a.FechaRegistro);
+            entity.HasIndex(a => a.GrupoPadreId);
+            entity.HasIndex(a => a.GrupoId);
+            entity.HasIndex(a => a.AreaId);
         });
 
         modelBuilder.Entity<Horario>(entity =>
@@ -218,6 +239,39 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                   .OnDelete(DeleteBehavior.Restrict);
 
             entity.HasIndex(h => new { h.UsuarioId, h.Mes, h.Anio }).IsUnique();
+        });
+
+        modelBuilder.Entity<GrupoPadre>(entity =>
+        {
+            entity.ToTable("GruposPadres");
+            entity.HasKey(g => g.Id);
+            entity.Property(g => g.Nombre).IsRequired().HasMaxLength(50);
+            entity.Property(g => g.Descripcion).HasMaxLength(200);
+            entity.HasIndex(g => g.Nombre).IsUnique();
+            entity.HasData(
+                new GrupoPadre { Id = 1, Nombre = "Administrativos", Orden = 1 },
+                new GrupoPadre { Id = 2, Nombre = "Académicos", Orden = 2 },
+                new GrupoPadre { Id = 3, Nombre = "Extras", Orden = 3 }
+            );
+        });
+
+        modelBuilder.Entity<Grupo>(entity =>
+        {
+            entity.ToTable("Grupos");
+            entity.HasKey(g => g.Id);
+            entity.Property(g => g.Nombre).IsRequired().HasMaxLength(100);
+            entity.HasOne(g => g.GrupoPadre).WithMany(p => p.Grupos).HasForeignKey(g => g.GrupoPadreId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasIndex(g => new { g.GrupoPadreId, g.Nombre }).IsUnique();
+        });
+
+        modelBuilder.Entity<Area>(entity =>
+        {
+            entity.ToTable("Areas");
+            entity.HasKey(a => a.Id);
+            entity.Property(a => a.Nombre).IsRequired().HasMaxLength(200);
+            entity.HasOne(a => a.GrupoPadre).WithMany(p => p.Areas).HasForeignKey(a => a.GrupoPadreId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(a => a.Grupo).WithMany(g => g.Areas).HasForeignKey(a => a.GrupoId).OnDelete(DeleteBehavior.SetNull);
+            entity.HasIndex(a => new { a.GrupoPadreId, a.GrupoId, a.Nombre }).IsUnique();
         });
     }
 }
