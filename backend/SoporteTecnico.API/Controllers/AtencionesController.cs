@@ -445,7 +445,7 @@ public class AtencionesController : ControllerBase
                 GrupoId = csvGId,
                 AreaId = csvArId,
                 MedioSolicitud = medio is "Presencial" or "Interno" or "WhatsApp" or "E-ticket" ? medio : "Interno",
-                UsuarioSolicitante = usuarioSol is "ADM" or "BEC" or "DOC" or "EST" or "EIAG" ? usuarioSol : "ADM",
+                UsuarioSolicitante = usuarioSol is "ADM" or "BEC" or "DOC" or "EST" ? usuarioSol : "ADM",
                 Categoria = catNorm,
                 Descripcion = descripcion,
                 Solucion = solucion,

@@ -7,7 +7,7 @@ import { useToast } from "./Toast";
 import { useAuth } from "./AuthProvider";
 
 const MEDIOS = ["Interno", "Presencial", "WhatsApp", "E-ticket"];
-const USUARIOS_SOL = ["ADM", "BEC", "DOC", "EST", "EIAG"];
+const USUARIOS_SOL = ["ADM", "BEC", "DOC", "EST"];
 const CATEGORIAS = [
   "Audio/Video", "Cuentas/Accesos", "Hardware", "Impresión",
   "Otros", "Redes/Conectividad", "Sistemas académicos", "Software",
