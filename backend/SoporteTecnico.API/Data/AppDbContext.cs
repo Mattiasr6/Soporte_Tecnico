@@ -142,6 +142,17 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                     EstadoActual = EstadoUsuario.Ausente,
                     CreatedAt = new DateTime(2025, 7, 1, 0, 0, 0, DateTimeKind.Utc),
                     UpdatedAt = new DateTime(2025, 7, 1, 0, 0, 0, DateTimeKind.Utc)
+                },
+                new Usuario
+                {
+                    Id = 10,
+                    Email = "Auxiliar.Soporte@upds.edu.bo",
+                    DisplayName = "Auxiliar Soporte",
+                    Role = "Auxiliar",
+                    PasswordHash = "$2b$10$ry4T/i.OUlnzdxIo8FoKn.d.X0OtpWea43MCi2WbPeYmCXDk7eVF6",
+                    EstadoActual = EstadoUsuario.Ausente,
+                    CreatedAt = new DateTime(2025, 8, 28, 0, 0, 0, DateTimeKind.Utc),
+                    UpdatedAt = new DateTime(2025, 8, 28, 0, 0, 0, DateTimeKind.Utc)
                 }
             );
         });

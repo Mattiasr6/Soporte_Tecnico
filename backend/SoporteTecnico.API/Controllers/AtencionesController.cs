@@ -82,27 +82,47 @@ public class AtencionesController : ControllerBase
         if (user is null || (user.Role != "Jefe" && !user.CanViewDashboard))
             return Unauthorized();
 
-        IQueryable<Atencion> query = _db.Atenciones.Include(a => a.Usuario);
-
-        if (usuarioId.HasValue)
-            query = query.Where(a => a.UsuarioId == usuarioId.Value);
-
+        // ponytail: raw SQL count via fresh connection — EF Core pool causa snapshots inconsistentes
+        DateOnly? desde = null, hasta = null;
+        var sql = "SELECT COUNT(*) FROM \"Atenciones\" WHERE 1=1";
+        if (usuarioId.HasValue) sql += " AND \"UsuarioId\" = @uid";
         if (desdeAnio.HasValue && desdeMes.HasValue)
         {
-            var desde = new DateOnly(desdeAnio.Value, desdeMes.Value, desdeDia ?? 1);
-            query = query.Where(a => a.FechaRegistro >= desde);
+            desde = new DateOnly(desdeAnio.Value, desdeMes.Value, desdeDia ?? 1);
+            sql += " AND \"FechaRegistro\" >= @desde";
         }
-
         if (hastaAnio.HasValue && hastaMes.HasValue)
         {
-            var hasta = new DateOnly(hastaAnio.Value, hastaMes.Value, hastaDia ?? DateTime.DaysInMonth(hastaAnio.Value, hastaMes.Value));
-            query = query.Where(a => a.FechaRegistro <= hasta);
+            hasta = new DateOnly(hastaAnio.Value, hastaMes.Value, hastaDia ?? DateTime.DaysInMonth(hastaAnio.Value, hastaMes.Value));
+            sql += " AND \"FechaRegistro\" <= @hasta";
         }
 
-        var total = await query.CountAsync();
-        var fueraDeTurno = await query.CountAsync(a => a.FueraDeTurno);
+        var connStr = _db.Database.GetConnectionString()!;
+        int total;
+        int connId = 0;
+        await using (var freshConn = new Npgsql.NpgsqlConnection(connStr))
+        {
+            await freshConn.OpenAsync();
+            connId = freshConn.ProcessID;
+            await using var cmd = new Npgsql.NpgsqlCommand(sql, freshConn);
+            if (usuarioId.HasValue) cmd.Parameters.Add(new("@uid", usuarioId.Value));
+            if (desde.HasValue) cmd.Parameters.Add(new("@desde", desde.Value));
+            if (hasta.HasValue) cmd.Parameters.Add(new("@hasta", hasta.Value));
+            total = Convert.ToInt32(await cmd.ExecuteScalarAsync());
+        }
+        Console.WriteLine($"[STATS] total={total}");
 
-        var porTecnico = await query
+        var snapshot = await _db.Atenciones.AsNoTracking()
+            .Where(a => usuarioId.HasValue ? a.UsuarioId == usuarioId.Value : true)
+            .Where(a => desde.HasValue ? a.FechaRegistro >= desde.Value : true)
+            .Where(a => hasta.HasValue ? a.FechaRegistro <= hasta.Value : true)
+            .ToListAsync();
+        var usuarios = await _db.Usuarios.AsNoTracking().ToListAsync();
+        var usuarioDict = usuarios.ToDictionary(u => u.Id);
+        foreach (var a in snapshot) a.Usuario = usuarioDict.GetValueOrDefault(a.UsuarioId)!;
+        var fueraDeTurno = snapshot.Count(a => a.FueraDeTurno);
+
+        var porTecnico = snapshot
             .GroupBy(a => new { a.UsuarioId, a.Usuario.DisplayName })
             .Select(g => new
             {
@@ -111,9 +131,9 @@ public class AtencionesController : ControllerBase
                 total = g.Count()
             })
             .OrderByDescending(g => g.total)
-            .ToListAsync();
+            .ToList();
 
-        var porCategoria = await query
+        var porCategoria = snapshot
             .GroupBy(a => a.Categoria)
             .Select(g => new
             {
@@ -121,9 +141,9 @@ public class AtencionesController : ControllerBase
                 total = g.Count()
             })
             .OrderByDescending(g => g.total)
-            .ToListAsync();
+            .ToList();
 
-        var porMes = await query
+        var porMes = snapshot
             .GroupBy(a => new { a.FechaRegistro.Year, a.FechaRegistro.Month })
             .Select(g => new
             {
@@ -132,9 +152,9 @@ public class AtencionesController : ControllerBase
                 total = g.Count()
             })
             .OrderBy(g => g.anio).ThenBy(g => g.mes)
-            .ToListAsync();
+            .ToList();
 
-        var porArea = await query
+        var porArea = snapshot
             .GroupBy(a => a.AreaSolicitante)
             .Select(g => new
             {
@@ -142,21 +162,15 @@ public class AtencionesController : ControllerBase
                 total = g.Count()
             })
             .OrderByDescending(g => g.total)
-            .ToListAsync();
+            .ToList();
 
         var asistenciasQuery = _db.Atenciones.Where(a => a.ColaboradorId != null);
 
-        if (desdeAnio.HasValue && desdeMes.HasValue)
-        {
-            var desde = new DateOnly(desdeAnio.Value, desdeMes.Value, desdeDia ?? 1);
-            asistenciasQuery = asistenciasQuery.Where(a => a.FechaRegistro >= desde);
-        }
+        if (desde.HasValue)
+            asistenciasQuery = asistenciasQuery.Where(a => a.FechaRegistro >= desde.Value);
 
-        if (hastaAnio.HasValue && hastaMes.HasValue)
-        {
-            var hasta = new DateOnly(hastaAnio.Value, hastaMes.Value, hastaDia ?? DateTime.DaysInMonth(hastaAnio.Value, hastaMes.Value));
-            asistenciasQuery = asistenciasQuery.Where(a => a.FechaRegistro <= hasta);
-        }
+        if (hasta.HasValue)
+            asistenciasQuery = asistenciasQuery.Where(a => a.FechaRegistro <= hasta.Value);
 
         if (usuarioId.HasValue)
             asistenciasQuery = asistenciasQuery.Where(a => a.ColaboradorId == usuarioId.Value);

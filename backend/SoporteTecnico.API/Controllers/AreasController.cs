@@ -27,7 +27,7 @@ public class AreasController : ControllerBase
             .OrderBy(a => a)
             .ToListAsync();
 
-        var extraAreas = new[] { "Asistente F.C.S.", "ADI (Academia de Idiomas)", "Archivos Contabilidad", "Laboratorios y gabinetes de Medicina", "Plaza UPDS", "Vicerrectorado Administrativo", "Sala 2 (Directorio)", "Sala 3 (Directorio)" }
+        var extraAreas = new[] { "Académicos Modular", "Académicos Semestral", "Asistente F.C.S.", "ADI (Academia de Idiomas)", "Archivos Contabilidad", "Laboratorios y gabinetes de Medicina", "Plaza UPDS", "Vicerrectorado Administrativo", "Sala 2 (Directorio)", "Sala 3 (Directorio)" }
             .Concat(Enumerable.Range(1, 12).Select(i => $"Aula A-{i:D2}"))
             .Concat(Enumerable.Range(1, 21).Select(i => $"Aula B-{i:D2}"))
             .Concat(Enumerable.Range(1, 20).Select(i => $"Aula C-{i:D2}"))
