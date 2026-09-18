@@ -1,0 +1,18 @@
+/* Tokens starbucks (referencia mockup soporte-redesign-2x). Base funcional; el diseño fino llega con mockups S9. */
+:root {
+  --color-page-bg: #f2f0eb;
+  --color-surface: #ffffff;
+  --color-text: rgba(0, 0, 0, 0.87);
+  --color-text-secondary: #33433d;
+  --color-muted: rgba(0, 0, 0, 0.58);
+  --color-house: #1e3932;
+  --color-accent: #00754a;
+  --color-accent-deep: #006241;
+  --color-gold: #cba258;
+  --color-border: #d6dbde;
+  --color-danger: #c82014;
+  --radius-control: 5px;
+  --radius-card: 12px;
+}
+body { background: var(--color-page-bg); color: var(--color-text); font-family: system-ui, sans-serif; }
+.error { color: var(--color-danger); }

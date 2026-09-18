@@ -16,7 +16,7 @@ dependencies: ["S1", "S2", "S3", "S4", "S5", "S6", "S7", "S8"]
 ## Arquitectura
 
 ```
-[Browser] --HTTP--> [Django :8000 views] --HTTP Bearer--> [FastAPI :5002] --> [postgres-dev]
+[Browser] --HTTP--> [Django :8001 views] --HTTP Bearer--> [FastAPI :5002] --> [postgres-dev]
 ```
 
 Django: sin modelos/migraciones. JWT en sesión firmada (cookies, `SESSION_ENGINE=signed_cookies`, sin DB).

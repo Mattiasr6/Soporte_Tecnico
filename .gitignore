@@ -34,6 +34,8 @@ handoff/
 docs/diagramas/
 backend-fastapi/.env
 backend-fastapi/.venv/
+frontend-django/.env
+frontend-django/.venv/
 __pycache__/
 
 
