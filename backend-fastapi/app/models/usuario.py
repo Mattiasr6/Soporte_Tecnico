@@ -7,28 +7,30 @@ from app.db.base import Base
 
 
 class Usuario(Base):
-    __tablename__ = "Usuarios"
+    __tablename__: str = "Usuarios"
 
-    Id: Mapped[int] = mapped_column("Id", Integer, primary_key=True)
-    Email: Mapped[str] = mapped_column(
+    id: Mapped[int] = mapped_column("Id", Integer, primary_key=True)
+    email: Mapped[str] = mapped_column(
         "Email", String(255), unique=True, nullable=False
     )
-    PasswordHash: Mapped[str | None] = mapped_column(
+    password_hash: Mapped[str | None] = mapped_column(
         "PasswordHash", String, nullable=True
     )
-    DisplayName: Mapped[str] = mapped_column("DisplayName", String(255), nullable=False)
-    Notas: Mapped[str | None] = mapped_column("Notas", Text, nullable=True)
-    Especialidad: Mapped[str | None] = mapped_column(
+    display_name: Mapped[str] = mapped_column(
+        "DisplayName", String(255), nullable=False
+    )
+    notas: Mapped[str | None] = mapped_column("Notas", Text, nullable=True)
+    especialidad: Mapped[str | None] = mapped_column(
         "Especialidad", Text, nullable=True
     )
-    Role: Mapped[str] = mapped_column(
+    role: Mapped[str] = mapped_column(
         "Role", String(50), nullable=False, default="Tecnico"
     )
-    EstadoActual: Mapped[str] = mapped_column(
+    estado_actual: Mapped[str] = mapped_column(
         "EstadoActual", String(20), nullable=False, default="Ausente"
     )
-    CanViewDashboard: Mapped[bool] = mapped_column(
+    can_view_dashboard: Mapped[bool] = mapped_column(
         "CanViewDashboard", Boolean, nullable=False, default=False
     )
-    CreatedAt: Mapped[datetime] = mapped_column("CreatedAt", DateTime(timezone=True))
-    UpdatedAt: Mapped[datetime] = mapped_column("UpdatedAt", DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column("CreatedAt", DateTime(timezone=True))
+    updated_at: Mapped[datetime] = mapped_column("UpdatedAt", DateTime(timezone=True))

@@ -53,29 +53,29 @@ def run_seed() -> dict[str, int]:
             if u is None:
                 db.add(
                     Usuario(
-                        Id=uid,
-                        Email=email,
-                        PasswordHash=hashed,
-                        DisplayName=name,
-                        Role=role,
-                        EstadoActual="Ausente",
-                        CanViewDashboard=can_view,
-                        CreatedAt=now,
-                        UpdatedAt=now,
+                        id=uid,
+                        email=email,
+                        password_hash=hashed,
+                        display_name=name,
+                        role=role,
+                        estado_actual="Ausente",
+                        can_view_dashboard=can_view,
+                        created_at=now,
+                        updated_at=now,
                     )
                 )
                 stats["usuarios_insertados"] += 1
             else:
-                u.Email = email
-                u.PasswordHash = hashed
-                u.DisplayName = name
-                u.Role = role
-                u.CanViewDashboard = can_view
-                u.UpdatedAt = now
+                u.email = email
+                u.password_hash = hashed
+                u.display_name = name
+                u.role = role
+                u.can_view_dashboard = can_view
+                u.updated_at = now
                 stats["usuarios_actualizados"] += 1
         for pid, nombre, orden in PADRES:
             if db.get(GrupoPadre, pid) is None:
-                db.add(GrupoPadre(Id=pid, Nombre=nombre, Orden=orden))
+                db.add(GrupoPadre(id=pid, nombre=nombre, orden=orden))
                 stats["padres"] += 1
         db.commit()
     return stats
