@@ -9,7 +9,7 @@ ALLOWED_HOSTS = os.environ.get("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1").sp
 
 FASTAPI_URL = os.environ.get("FASTAPI_URL", "http://localhost:5002").rstrip("/")
 
-INSTALLED_APPS: list[str] = []
+INSTALLED_APPS = ["django.contrib.staticfiles"]
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
