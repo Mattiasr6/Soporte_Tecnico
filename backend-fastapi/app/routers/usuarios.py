@@ -8,6 +8,7 @@ from app.core.security import CurrentUser, is_privileged
 from app.db.session import DbSession
 from app.models.horario import Horario
 from app.models.usuario import Usuario
+from app.realtime.hub import broadcast
 from app.schemas.usuario import (
     EspecialidadIn,
     EstadoIn,
@@ -102,7 +103,7 @@ def update_notas(dto: NotasIn, db: DbSession, user: CurrentUser) -> None:
 
 
 @router.patch("/estado", status_code=204)
-def toggle_estado(dto: EstadoIn, db: DbSession, user: CurrentUser) -> None:
+async def toggle_estado(dto: EstadoIn, db: DbSession, user: CurrentUser) -> None:
     usuario = db.get(Usuario, user.id)
     if usuario is None:
         raise not_found("Usuario no registrado en el sistema.")
@@ -114,4 +115,26 @@ def toggle_estado(dto: EstadoIn, db: DbSession, user: CurrentUser) -> None:
     usuario.estado_actual = nuevo
     usuario.updated_at = datetime.now(timezone.utc)
     db.commit()
-    # TODO(S7): broadcast StatusChanged (nombre, estado efectivo, motivo, colaborador)
+    now = datetime.now(timezone.utc)
+    horario = db.scalars(
+        select(Horario).where(
+            Horario.usuario_id == user.id,
+            Horario.mes == now.month,
+            Horario.anio == now.year,
+        )
+    ).first()
+    colaborador_nombre = None
+    if dto.colaborador_id is not None:
+        colab = db.get(Usuario, dto.colaborador_id)
+        colaborador_nombre = colab.display_name if colab else None
+    await broadcast(
+        {
+            "type": "status_changed",
+            "usuario_id": usuario.id,
+            "nombre": usuario.display_name,
+            "estado": estado_efectivo(usuario.estado_actual, horario, now),
+            "motivo": dto.motivo,
+            "colaborador_nombre": colaborador_nombre,
+            "timestamp": now.strftime("%H:%M"),
+        }
+    )

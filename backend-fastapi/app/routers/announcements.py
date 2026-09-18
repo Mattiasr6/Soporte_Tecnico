@@ -4,6 +4,7 @@ from app.core.errors import forbidden
 from app.core.security import CurrentUser, is_privileged
 from app.db.session import DbSession
 from app.models.usuario import Usuario
+from app.realtime.hub import broadcast
 from app.schemas.announcement import AnnouncementIn, AnnouncementOut
 
 router = APIRouter(prefix="/api/announcements", tags=["announcements"])
@@ -17,7 +18,7 @@ def get_announcement():
 
 
 @router.post("", response_model=AnnouncementOut)
-def post_announcement(dto: AnnouncementIn, db: DbSession, user: CurrentUser):
+async def post_announcement(dto: AnnouncementIn, db: DbSession, user: CurrentUser):
     global _current
     if not is_privileged(user):
         raise forbidden("Solo Jefe puede publicar anuncios")
@@ -26,5 +27,5 @@ def post_announcement(dto: AnnouncementIn, db: DbSession, user: CurrentUser):
         raise forbidden("Solo Jefe puede publicar anuncios")
     mensaje = dto.message.strip() if dto.message and dto.message.strip() else None
     _current = mensaje
-    # TODO(S7): broadcast ReceiveAnnouncement
+    await broadcast({"type": "receive_announcement", "message": mensaje})
     return {"message": mensaje}

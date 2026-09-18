@@ -6,6 +6,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
+from app.realtime.ws import router as ws_router
 from app.routers import (
     announcements,
     areas,
@@ -17,6 +18,7 @@ from app.routers import (
 )
 
 app = FastAPI(title="Soporte Tecnico API (Python)")
+app.include_router(ws_router)
 app.include_router(jerarquia.router)
 app.include_router(areas.router)
 app.include_router(auth.router)
