@@ -99,3 +99,31 @@ decisión de color.
 
 Sin color de marca, sin tipografía final, sin imágenes, sin estados de hover. Cualquier
 decisión de apariencia se toma después, sobre el mockup, cuando este wireframe esté aprobado.
+
+---
+
+## Nota sobre el diagrama HTML
+
+`flujo-soporte.html` **necesita scroll vertical** a 1440×900: mide 794px de alto contra un
+presupuesto de ~770px. No es un defecto ajustable — con 5 lanes el diagrama no entra a
+ningún ancho, ni siquiera a escala 1.0.
+
+Se probaron y descartaron, sin perder información: ensanchar los nodos (viewBox 930→1186),
+quitar las tres cards de conclusiones, y ocultar el legend. Ninguno alcanza.
+
+Las salidas reales, si hace falta que entre en una pantalla:
+
+| Opción | Costo |
+|---|---|
+| Fusionar Usuario → Frontend (4 lanes) | pierde la fila "Usuario"; necesita ancho ~1300, no verificado |
+| Fusionar a 3 lanes | pierde dos filas de estructura |
+| Partir en dos diagramas (Acceso / Registro) | pierde la vista de punta a punta |
+
+Por ahora se acepta el scroll: el valor del diagrama está en la vista de punta a punta, y
+recortar lanes cuesta más de lo que gana. La evidencia está en
+`flujo-soporte.visual-check.json`.
+
+En contraste, `registro-atencion.html` **sí encuadra** en los cuatro viewports — sirve de
+referencia de la receta: viewBox ancho justo por debajo del techo de legibilidad, alto
+ajustado al contenido, y sin cards.
+
