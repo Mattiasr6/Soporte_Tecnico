@@ -1,0 +1,95 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "Flujo de Soporte Técnico",
+    "quality_profile": "showcase",
+    "output": "docs/diagramas/flujo-soporte.html",
+    "views": [
+      {
+        "id": "entrada-y-rol",
+        "label": "Entrada y rol",
+        "focus": ["usuario", "login", "codigo", "rol"],
+        "note": "Del acceso al punto donde el rol decide la pantalla de entrada."
+      },
+      {
+        "id": "registro",
+        "label": "Registro de la atención",
+        "focus": ["panel", "registro", "jerarquia", "atencion"],
+        "note": "La parte mas cara: cuatro decisiones antes de escribir el problema."
+      },
+      {
+        "id": "consulta",
+        "label": "Consulta y resumen",
+        "focus": ["atencion", "historial", "dashboard"],
+        "note": "El tecnico revisa lo suyo y el jefe ve el equipo."
+      }
+    ]
+  },
+  "lanes": [
+    { "id": "persona", "label": "Usuario" },
+    { "id": "web", "label": "Frontend (Next.js)" },
+    { "id": "api", "label": "API" },
+    { "id": "datos", "label": "Datos (PostgreSQL)" },
+    { "id": "verificacion", "label": "Verificacion", "variant": "exception" }
+  ],
+  "phases": [
+    { "id": "acceso", "label": "Acceso", "fromCol": 0, "toCol": 2 },
+    { "id": "registro", "label": "Registro", "fromCol": 3, "toCol": 4, "variant": "emphasis" },
+    { "id": "consulta", "label": "Consulta", "fromCol": 5, "toCol": 5, "variant": "dashed" }
+  ],
+  "groups": [
+    { "id": "gate", "label": "Gate de verificacion", "lane": "verificacion", "fromCol": 1, "toCol": 3, "variant": "emphasis" }
+  ],
+  "mainPath": ["usuario", "login", "codigo", "rol", "panel", "registro", "atencion"],
+  "nodes": [
+    { "id": "usuario", "lane": "persona", "col": 0, "type": "external", "label": "Tecnico / Jefe", "sublabel": "abre la app", "width": 132 },
+    { "id": "login", "lane": "web", "col": 1, "type": "frontend", "label": "Pantalla de acceso", "sublabel": "correo + contrasena", "width": 132 },
+    { "id": "codigo", "lane": "verificacion", "col": 2, "type": "security", "label": "Verificar codigo", "sublabel": "6 digitos", "tag": "obligatorio", "width": 132 },
+    { "id": "rol", "lane": "verificacion", "col": 3, "type": "security", "label": "Rol", "sublabel": "Jefe o Tecnico", "tag": "decide la pantalla", "width": 132 },
+    { "id": "panel", "lane": "web", "col": 3, "type": "frontend", "label": "Panel del Tecnico", "sublabel": "estado + registro", "width": 132 },
+    { "id": "estado", "lane": "api", "col": 3, "type": "backend", "label": "Marca estado", "sublabel": "disponible / ocupado", "width": 132 },
+    { "id": "registro", "lane": "api", "col": 4, "type": "backend", "label": "Registro de atencion", "sublabel": "fila de la tabla", "tag": "POST /api/atenciones", "width": 132 },
+    { "id": "jerarquia", "lane": "datos", "col": 4, "type": "database", "label": "Area (FK)", "sublabel": "GrupoPadre > Grupo > Area", "tag": "53 areas", "width": 132 },
+    { "id": "atencion", "lane": "datos", "col": 5, "type": "database", "label": "Atencion", "sublabel": "persistida", "width": 132 },
+    { "id": "historial", "lane": "api", "col": 5, "type": "backend", "label": "Historial", "sublabel": "por tecnico o equipo", "width": 132 },
+    { "id": "dashboard", "lane": "web", "col": 5, "type": "frontend", "label": "Dashboard", "sublabel": "resumen del equipo", "tag": "solo Jefe", "width": 132 }
+  ],
+  "edges": [
+    { "id": "usuario-login", "from": "usuario", "to": "login", "variant": "default" },
+    { "id": "login-codigo", "from": "login", "to": "codigo", "label": "credenciales", "variant": "emphasis" },
+    { "id": "codigo-rol", "from": "codigo", "to": "rol", "label": "verificado", "variant": "security" },
+    { "id": "rol-panel", "from": "rol", "to": "panel", "label": "Tecnico", "variant": "emphasis" },
+    { "id": "panel-estado", "from": "panel", "to": "estado", "label": "cambia estado", "variant": "default" },
+    { "id": "panel-registro", "from": "panel", "to": "registro", "label": "registra", "variant": "emphasis" },
+    { "id": "registro-atencion", "from": "registro", "to": "atencion", "variant": "emphasis" },
+    { "id": "atencion-historial", "from": "atencion", "to": "historial", "variant": "default", "bias": 0.25 },
+    { "id": "historial-dashboard", "from": "historial", "to": "dashboard", "label": "alimenta", "variant": "dashed" }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Punto mas caro del flujo",
+      "items": [
+        "Area, Medio, Usuario y Categoria son cuatro decisiones antes de escribir el problema",
+        "Es el candidato natural a plantillas y valores por defecto"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Hallazgo de la v2",
+      "items": [
+        "Area deja de ser texto y pasa a ser clave foranea dentro de GrupoPadre > Grupo > Area",
+        "Con 53 areas la UI necesita cascada de tres niveles o combobox con busqueda"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "A decidir antes del mockup",
+      "items": [
+        "Si el rol debe decidir la pantalla de entrada o el tecnico tambien necesita su resumen",
+        "Si fuera de turno y colaborador van en la fila principal o bajo mas opciones"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,51 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "Registro de una Atencion",
+    "quality_profile": "showcase",
+    "output": "docs/diagramas/registro-atencion.html",
+    "column_fit": "spread",
+    "viewBox": [1000, 560],
+    "views": [
+      {
+        "id": "captura",
+        "label": "Captura en la tabla",
+        "focus": ["tecnico", "frontend"],
+        "note": "El tecnico no abre un formulario aparte: edita la fila dentro de la tabla."
+      },
+      {
+        "id": "persistencia",
+        "label": "Resolucion y guardado",
+        "focus": ["frontend", "api", "db"],
+        "note": "La API resuelve el Area por clave foranea antes de insertar la atencion."
+      }
+    ]
+  },
+  "participants": [
+    { "id": "tecnico", "type": "external", "label": "Tecnico", "sublabel": "edita la fila" },
+    { "id": "frontend", "type": "frontend", "label": "Frontend", "sublabel": "Next.js" },
+    { "id": "api", "type": "backend", "label": "API", "sublabel": "AtencionesController" },
+    { "id": "db", "type": "database", "label": "PostgreSQL", "sublabel": "Atencion" }
+  ],
+  "segments": [
+    { "from": 150, "to": 250, "label": "Captura" },
+    { "from": 252, "to": 395, "label": "Persistencia" },
+    { "from": 397, "to": 500, "label": "Confirmacion" }
+  ],
+  "messages": [
+    { "from": "tecnico", "to": "frontend", "y": 180, "label": "rellena la fila: area, categoria, descripcion, solucion", "variant": "default" },
+    { "from": "tecnico", "to": "frontend", "y": 222, "label": "pulsa Guardar", "variant": "emphasis" },
+    { "from": "frontend", "to": "api", "y": 264, "label": "POST /api/atenciones (Bearer JWT)", "variant": "emphasis" },
+    { "from": "api", "to": "db", "y": 306, "label": "resuelve Area por FK (GrupoPadre > Grupo > Area)", "variant": "security" },
+    { "from": "api", "to": "db", "y": 348, "label": "INSERT Atencion", "variant": "emphasis" },
+    { "from": "db", "to": "api", "y": 390, "label": "id", "variant": "return" },
+    { "from": "api", "to": "frontend", "y": 432, "label": "201 Created", "variant": "return" },
+    { "from": "frontend", "to": "tecnico", "y": 474, "label": "toast + fila confirmada", "variant": "return" }
+  ],
+  "activations": [
+    { "participant": "frontend", "from": 174, "to": 482, "type": "frontend" },
+    { "participant": "api", "from": 258, "to": 440, "type": "backend" },
+    { "participant": "db", "from": 342, "to": 398, "type": "database" }
+  ]
+}

@@ -18,22 +18,22 @@
   <text x="210.0" y="391.0" text-anchor="middle" font-size="20" fill="#1e1e1e">Técnico → Soporte</text>
   <rect x="540" y="0" width="420" height="694.0" rx="14" fill="#ffffff" stroke="#868e96" stroke-width="2"/>
   <rect x="556" y="12" width="388" height="72.0" rx="10" fill="#ffd8a8" stroke="#868e96" stroke-width="2"/>
-  <text x="750.0" y="41.0" text-anchor="middle" font-size="20" fill="#1e1e1e">Nav: Inicio · Horarios · Soporte ·</text>
-  <text x="750.0" y="65.0" text-anchor="middle" font-size="20" fill="#1e1e1e">Reporte</text>
+  <text x="750.0" y="41.0" text-anchor="middle" font-size="20" fill="#1e1e1e">Nav: Inicio · Horarios · Soporte</text>
+  <text x="750.0" y="65.0" text-anchor="middle" font-size="20" fill="#1e1e1e">· Reporte</text>
   <rect x="564" y="94.0" width="372" height="52" rx="10" fill="#fff3bf" stroke="#868e96" stroke-width="2"/>
   <text x="750.0" y="125.0" text-anchor="middle" font-size="20" fill="#1e1e1e">Mi estado: [ Disponible ]</text>
   <rect x="564" y="156.0" width="372" height="48.0" rx="10" fill="#ffffff" stroke="#868e96" stroke-width="2"/>
   <text x="750.0" y="185.0" text-anchor="middle" font-size="20" fill="#1e1e1e">Registro de Atenciones</text>
   <rect x="564" y="214.0" width="372" height="72.0" rx="10" fill="#f1f3f5" stroke="#868e96" stroke-width="2"/>
-  <text x="750.0" y="243.0" text-anchor="middle" font-size="20" fill="#1e1e1e">Área ▾ | Medio ▾ | Usuario ▾ |</text>
-  <text x="750.0" y="267.0" text-anchor="middle" font-size="20" fill="#1e1e1e">Categoría ▾</text>
+  <text x="750.0" y="243.0" text-anchor="middle" font-size="20" fill="#1e1e1e">Área ▾ | Medio ▾ | Usuario ▾</text>
+  <text x="750.0" y="267.0" text-anchor="middle" font-size="20" fill="#1e1e1e">| Categoría ▾</text>
   <rect x="564" y="296.0" width="372" height="48" rx="10" fill="#a5d8ff" stroke="#868e96" stroke-width="2"/>
   <text x="750.0" y="325.0" text-anchor="middle" font-size="20" fill="#1e1e1e">Descripción del problema</text>
   <rect x="564" y="354.0" width="372" height="48" rx="10" fill="#a5d8ff" stroke="#868e96" stroke-width="2"/>
   <text x="750.0" y="383.0" text-anchor="middle" font-size="20" fill="#1e1e1e">Solución aplicada</text>
   <rect x="564" y="412.0" width="372" height="72.0" rx="10" fill="#d0bfff" stroke="#868e96" stroke-width="2"/>
-  <text x="750.0" y="441.0" text-anchor="middle" font-size="20" fill="#1e1e1e">Plantillas: Conectividad ·</text>
-  <text x="750.0" y="465.0" text-anchor="middle" font-size="20" fill="#1e1e1e">Impresora · Correo</text>
+  <text x="750.0" y="441.0" text-anchor="middle" font-size="20" fill="#1e1e1e">Plantillas: Conectividad</text>
+  <text x="750.0" y="465.0" text-anchor="middle" font-size="20" fill="#1e1e1e">· Impresora · Correo</text>
   <rect x="564" y="494.0" width="372" height="48.0" rx="10" fill="#ffffff" stroke="#868e96" stroke-width="2"/>
   <text x="750.0" y="523.0" text-anchor="middle" font-size="20" fill="#1e1e1e">☐ Fuera de turno · Colaborador ▾</text>
   <rect x="564" y="552.0" width="372" height="48" rx="10" fill="#b2f2bb" stroke="#868e96" stroke-width="2"/>
@@ -43,8 +43,8 @@
   <text x="750.0" y="663.0" text-anchor="middle" font-size="20" fill="#1e1e1e">Histórico ]</text>
   <rect x="1080" y="0" width="420" height="694.0" rx="14" fill="#ffffff" stroke="#868e96" stroke-width="2"/>
   <rect x="1096" y="12" width="388" height="72.0" rx="10" fill="#ffd8a8" stroke="#868e96" stroke-width="2"/>
-  <text x="1290.0" y="41.0" text-anchor="middle" font-size="20" fill="#1e1e1e">Nav: Dashboard · Horarios ·</text>
-  <text x="1290.0" y="65.0" text-anchor="middle" font-size="20" fill="#1e1e1e">Soporte · Reporte</text>
+  <text x="1290.0" y="41.0" text-anchor="middle" font-size="20" fill="#1e1e1e">Nav: Dashboard · Horarios</text>
+  <text x="1290.0" y="65.0" text-anchor="middle" font-size="20" fill="#1e1e1e">· Soporte · Reporte</text>
   <rect x="1104" y="94.0" width="372" height="48.0" rx="10" fill="#ffffff" stroke="#868e96" stroke-width="2"/>
   <text x="1290.0" y="123.0" text-anchor="middle" font-size="20" fill="#1e1e1e">Resumen del equipo</text>
   <rect x="1104.0" y="152.0" width="85.5" height="72" rx="10" fill="#fff3bf" stroke="#868e96" stroke-width="2"/>
