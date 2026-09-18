@@ -11,7 +11,7 @@ Rama: `python-experiment` · DB: misma `postgres-dev` (`:5433`) · Convivencia .
 | S5 | Auth mínima: login JWT compatible + guards | aprobada y redactada (`docs/spec-s5-auth.md`) |
 | S6 | Resto v2: horarios, usuarios, announcements | aprobada y redactada (`docs/spec-s6-resto.md`) |
 | S7 | Realtime: paridad SignalR WS | aprobada y redactada (`docs/spec-s7-realtime.md`) |
-| S8 | Puesta en marcha: uvicorn live + smoke + convivencia .NET | pendiente |
+| S8 | Puesta en marcha: uvicorn live + smoke + convivencia .NET | aprobada y redactada (`docs/spec-s8-live.md`) |
 | S9 | Django templates: base + atenciones (wireframe→mockup→template) | pendiente |
 | S10 | Django templates: dashboard + resto pantallas | pendiente |
 | S11 | Cutover: paridad final, apagado .NET/Next, compose definitivo | pendiente |
