@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
 import { getUsuarios } from "@/lib/api";
@@ -21,7 +22,7 @@ interface CoberturaItem { franja: string; hora: string; tecnicos: string[]; }
 
 function api(path: string, token: string, opts?: RequestInit) {
   const hostname = typeof window !== "undefined" ? window.location.hostname : "localhost";
-  return fetch(`http://${hostname}:5000/api${path}`, {
+  return fetch(`http://${hostname}:5001/api${path}`, {
     ...opts,
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}`, ...opts?.headers },
   });
@@ -35,7 +36,11 @@ interface HorarioForm {
   horaFin2: string;
 }
 
-export default function HorariosPage() {
+function emptyForm(): HorarioForm {
+  return { label: "", horaInicio1: "", horaFin1: "", horaInicio2: "", horaFin2: "" };
+}
+
+export default function HorariosPageV2() {
   const { user, token } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
@@ -61,39 +66,23 @@ export default function HorariosPage() {
     ]);
     setTecnicos(u);
     setCobertura((c as any).cobertura ?? []);
-
     const h = await api(`/horarios?mes=${mes}&anio=${anio}`, token).then((r) => r.json());
     const map: Record<number, HorarioForm> = {};
     for (const hor of h as any[]) {
-      map[hor.usuarioId] = {
-        label: hor.label,
-        horaInicio1: hor.horaInicio1 ?? "",
-        horaFin1: hor.horaFin1 ?? "",
-        horaInicio2: hor.horaInicio2 ?? "",
-        horaFin2: hor.horaFin2 ?? "",
-      };
+      map[hor.usuarioId] = { label: hor.label, horaInicio1: hor.horaInicio1 ?? "", horaFin1: hor.horaFin1 ?? "", horaInicio2: hor.horaInicio2 ?? "", horaFin2: hor.horaFin2 ?? "" };
     }
     setForms(map);
     setLoading(false);
   };
 
-  useEffect(() => {
-    if (token && canAccess) cargar();
-  }, [token, mes, anio, canAccess]);
+  useEffect(() => { if (token && canAccess) cargar(); }, [token, mes, anio, canAccess]);
 
   const guardar = async (usuarioId: number) => {
     if (!token) return;
     const f = forms[usuarioId];
-    // autogenerar label desde los bloques si no hay comentario
-    const label = f?.label?.trim() || [
-      f?.horaInicio1 && f?.horaFin1 ? `${f.horaInicio1}-${f.horaFin1}` : "",
-      f?.horaInicio2 && f?.horaFin2 ? `${f.horaInicio2}-${f.horaFin2}` : "",
-    ].filter(Boolean).join(" + ") || "Sin horario";
+    const label = f?.label?.trim() || [f?.horaInicio1 && f?.horaFin1 ? `${f.horaInicio1}-${f.horaFin1}` : "", f?.horaInicio2 && f?.horaFin2 ? `${f.horaInicio2}-${f.horaFin2}` : ""].filter(Boolean).join(" + ") || "Sin horario";
     try {
-      await api("/horarios", token, {
-        method: "POST",
-        body: JSON.stringify({ ...f, label, usuarioId, mes, anio }),
-      });
+      await api("/horarios", token, { method: "POST", body: JSON.stringify({ ...f, label, usuarioId, mes, anio }) });
       toast("Horario guardado", "success");
       setEditando(null);
       const c = await api(`/horarios/cobertura?mes=${mes}&anio=${anio}`, token).then((r) => r.json());
@@ -108,20 +97,10 @@ export default function HorariosPage() {
     for (const t of tecnicos) {
       const f = forms[t.id];
       if (!f) continue;
-      const label = f.label?.trim() || [
-        f.horaInicio1 && f.horaFin1 ? `${f.horaInicio1}-${f.horaFin1}` : "",
-        f.horaInicio2 && f.horaFin2 ? `${f.horaInicio2}-${f.horaFin2}` : "",
-      ].filter(Boolean).join(" + ") || "Sin horario";
-      try {
-        await api("/horarios", token, {
-          method: "POST",
-          body: JSON.stringify({ ...f, label, usuarioId: t.id, mes, anio }),
-        });
-        ok++;
-      } catch { err++; }
+      const label = f.label?.trim() || [f.horaInicio1 && f.horaFin1 ? `${f.horaInicio1}-${f.horaFin1}` : "", f.horaInicio2 && f.horaFin2 ? `${f.horaInicio2}-${f.horaFin2}` : ""].filter(Boolean).join(" + ") || "Sin horario";
+      try { await api("/horarios", token, { method: "POST", body: JSON.stringify({ ...f, label, usuarioId: t.id, mes, anio }) }); ok++; } catch { err++; }
     }
-    setGuardando(false);
-    setEditando(null);
+    setGuardando(false); setEditando(null);
     if (err === 0) toast(`Todos los horarios guardados (${ok})`, "success");
     else toast(`${ok} guardados, ${err} errores`, "error");
     const c = await api(`/horarios/cobertura?mes=${mes}&anio=${anio}`, token).then((r) => r.json());
@@ -129,10 +108,7 @@ export default function HorariosPage() {
   };
 
   const aplicarPlantilla = (usuarioId: number, p: typeof PLANTILLAS[number]) => {
-    setForms((prev) => ({
-      ...prev,
-      [usuarioId]: { label: p.label, horaInicio1: p.h1, horaFin1: p.f1, horaInicio2: p.h2, horaFin2: p.f2 },
-    }));
+    setForms((prev) => ({ ...prev, [usuarioId]: { label: p.label, horaInicio1: p.h1, horaFin1: p.f1, horaInicio2: p.h2, horaFin2: p.f2 } }));
   };
 
   const limpiar = async (usuarioId: number) => {
@@ -140,10 +116,7 @@ export default function HorariosPage() {
     try {
       const h = await api(`/horarios?mes=${mes}&anio=${anio}`, token).then((r) => r.json()) as any[];
       const hor = h.find((x: any) => x.usuarioId === usuarioId);
-      if (hor?.id) {
-        await api(`/horarios/${hor.id}`, token, { method: "DELETE" });
-        toast("Horario eliminado", "info");
-      }
+      if (hor?.id) { await api(`/horarios/${hor.id}`, token, { method: "DELETE" }); toast("Horario eliminado", "info"); }
       setForms((prev) => { const n = { ...prev }; delete n[usuarioId]; return n; });
       const c = await api(`/horarios/cobertura?mes=${mes}&anio=${anio}`, token).then((r) => r.json());
       setCobertura((c as any).cobertura ?? []);
@@ -152,150 +125,127 @@ export default function HorariosPage() {
 
   if (!user || !canAccess) return null;
 
+  const s = { bg: "#f2f0eb", accent: "#00754A", house: "#1e3932", cream: "#faf6ee", gold: "#cba258", border: "#e7e7e7" } as const;
+
   return (
-    <main className="mx-auto max-w-5xl space-y-6 px-4 py-6">
-      <div>
-        <h1 className="text-xl font-bold text-slate-100 lg:text-2xl">Gestión de Horarios</h1>
-        <p className="mt-0.5 text-xs text-slate-400 lg:text-sm">
-          Asigna los horarios del equipo para {MONTHS[mes - 1]} {anio}
-        </p>
+    <main style={{ background: s.bg, minHeight: "100vh", fontFamily: "Inter, system-ui, sans-serif", letterSpacing: "-0.01em" }}>
+      <div style={{ background: s.house, color: "#fff", padding: "22px 0 18px" }}>
+        <div style={{ maxWidth: 1440, margin: "0 auto", padding: "0 40px" }}>
+          <h1 style={{ fontSize: "clamp(22px,3vw,28px)", letterSpacing: "-0.03em", fontWeight: 700 }}>Gestión de Horarios</h1>
+          <p style={{ fontSize: 13, color: "rgba(255,255,255,0.6)", marginTop: 4 }}>Asigna los horarios del equipo para {MONTHS[mes - 1]} {anio}</p>
+        </div>
       </div>
 
-      <select value={mes} onChange={(e) => setMes(Number(e.target.value))}
-        className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-200">
-        {MONTHS.map((m, i) => (<option key={i} value={i + 1}>{m}</option>))}
-      </select>
+      <div style={{ maxWidth: 1440, margin: "0 auto", padding: "0 40px 40px" }}>
+        <select value={mes} onChange={(e) => setMes(Number(e.target.value))} style={{ borderRadius: 9999, padding: "8px 16px", fontSize: 13, fontWeight: 600, background: "#fff", color: "#1e3932", border: "1px solid #d6dbde", cursor: "pointer", marginTop: 24 }}>
+          {MONTHS.map((m, i) => (<option key={i} value={i + 1}>{m}</option>))}
+        </select>
 
-      {loading ? (
-        <div className="flex justify-center py-12 text-slate-500">
-          <svg className="h-5 w-5 animate-spin" viewBox="0 0 24 24" fill="none">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-          </svg>
-          <span className="ml-2 text-sm">Cargando...</span>
-        </div>
-      ) : (
-        <>
-          <section className="rounded-xl border border-slate-700/50 bg-slate-800/30 p-5">
-            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-slate-400">
-              Horarios — {MONTHS[mes - 1]} {anio}
-            </h2>
+        {loading ? (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 12, marginTop: 24 }}>
+            {[1,2,3].map(i => <div key={i} style={{ height: 60, borderRadius: 12, background: "#edebe9", opacity: 0.5 }} />)}
+          </div>
+        ) : (
+          <>
+            {/* Horarios */}
+            <div style={{ background: "#fff", border: `1px solid ${s.border}`, borderRadius: 12, marginTop: 16, padding: 16 }}>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
+                {PLANTILLAS.map((p) => (
+                  <button key={p.label} onClick={() => { if (editando !== null) aplicarPlantilla(editando, p); }} disabled={editando === null}
+                    style={{ borderRadius: 9999, padding: "6px 12px", fontSize: 11, fontWeight: 600, background: editando !== null ? "#f2f0eb" : "#fff", color: editando !== null ? "#1e3932" : "rgba(0,0,0,0.4)", border: "1px solid #e7e7e7", cursor: editando !== null ? "pointer" : "default", opacity: editando !== null ? 1 : 0.5 }}>
+                    {p.label}
+                  </button>
+                ))}
+              </div>
 
-            <div className="mb-4 flex flex-wrap gap-2">
-              {PLANTILLAS.map((p) => (
-                <button key={p.label}
-                  onClick={() => { if (editando !== null) aplicarPlantilla(editando, p); }}
-                  disabled={editando === null}
-                  className="rounded-lg border border-slate-700 bg-slate-800/60 px-3 py-1.5 text-xs text-slate-300 transition hover:border-amber-500 hover:text-amber-400 disabled:opacity-40"
-                >
-                  {p.label}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                <span style={{ fontSize: 11, color: "rgba(0,0,0,0.58)" }}>
+                  {tecnicos.filter((t) => forms[t.id]?.horaInicio1).length} de {tecnicos.length} técnicos con horario
+                </span>
+                <button onClick={guardarTodo} disabled={guardando} style={{ borderRadius: 9999, padding: "6px 14px", fontSize: 12, fontWeight: 700, background: guardando ? "#d6dbde" : s.accent, color: "#fff", border: "none", cursor: guardando ? "default" : "pointer" }}>
+                  {guardando ? "Guardando..." : "Guardar todo"}
                 </button>
-              ))}
-              <span className="self-center text-[10px] text-slate-500">(selecciona un técnico y aplica)</span>
-            </div>
+              </div>
 
-            <div className="mb-4 flex items-center justify-between">
-              <span className="text-[10px] text-slate-500">
-                {tecnicos.filter((t) => forms[t.id]?.horaInicio1).length} de {tecnicos.length} técnicos con horario
-              </span>
-              <button onClick={guardarTodo} disabled={guardando}
-                className="rounded-lg bg-emerald-500 px-4 py-1.5 text-xs font-bold text-slate-900 transition hover:bg-emerald-400 disabled:opacity-50">
-                {guardando ? "Guardando..." : "Guardar todo"}
-              </button>
-            </div>
-
-            <div className="space-y-2">
-              {tecnicos.map((t) => {
-                const f = forms[t.id];
-                const activo = editando === t.id;
-                return (
-                  <div key={t.id} className={`rounded-xl border p-3 transition ${activo ? "border-amber-500/40 bg-slate-800/60" : "border-slate-700/40 bg-slate-800/30"}`}>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium text-slate-200">{t.displayName}</span>
-                      <div className="flex items-center gap-2">
-                        {f?.label && !activo && <span className="text-xs text-slate-500">{f.label}</span>}
-                        <button onClick={() => setEditando(activo ? null : t.id)}
-                          className="rounded-lg px-3 py-1 text-xs text-slate-400 transition hover:bg-slate-700 hover:text-slate-200">
-                          {activo ? "Cancelar" : f?.label ? "Editar" : "Asignar"}
-                        </button>
-                        {f?.label && (
-                          <button onClick={() => limpiar(t.id)}
-                            className="rounded-lg px-2 py-1 text-xs text-red-400/70 transition hover:bg-red-600/20 hover:text-red-400">✕</button>
-                        )}
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {tecnicos.map((t) => {
+                  const f = forms[t.id];
+                  const activo = editando === t.id;
+                  return (
+                    <div key={t.id} style={{ border: `1.5px solid ${activo ? "#00754A" : "#e7e7e7"}`, borderRadius: 12, padding: 12, background: activo ? "#f9f9f9" : "#fff" }}>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                        <span style={{ fontSize: 13, fontWeight: 600, color: "#1e3932" }}>{t.displayName}</span>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          {f?.label && !activo && <span style={{ fontSize: 11, color: "rgba(0,0,0,0.58)" }}>{f.label}</span>}
+                          <button onClick={() => setEditando(activo ? null : t.id)} style={{ borderRadius: 8, padding: "4px 10px", fontSize: 11, fontWeight: 600, background: activo ? "transparent" : "#f2f0eb", color: activo ? s.accent : "#1e3932", border: "none", cursor: "pointer" }}>
+                            {activo ? "Cancelar" : f?.label ? "Editar" : "Asignar"}
+                          </button>
+                          {f?.label && (
+                            <button onClick={() => limpiar(t.id)} style={{ borderRadius: 8, padding: "4px 8px", fontSize: 11, background: "transparent", border: "none", color: "#c82014", cursor: "pointer" }}>✕</button>
+                          )}
+                        </div>
                       </div>
+                      {activo && (
+                        <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 8 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12 }}>
+                            <span style={{ width: 64, color: "rgba(0,0,0,0.58)" }}>Bloque 1</span>
+                            <input type="time" value={f?.horaInicio1 ?? ""} onChange={(e) => setForms((p) => ({ ...p, [t.id]: { ...(p[t.id] ?? emptyForm()), horaInicio1: e.target.value } }))}
+                              style={{ borderRadius: 4, border: "1.5px solid #d6dbde", padding: "4px 8px", fontSize: 12 }} />
+                            <span style={{ color: "rgba(0,0,0,0.4)" }}>a</span>
+                            <input type="time" value={f?.horaFin1 ?? ""} onChange={(e) => setForms((p) => ({ ...p, [t.id]: { ...(p[t.id] ?? emptyForm()), horaFin1: e.target.value } }))}
+                              style={{ borderRadius: 4, border: "1.5px solid #d6dbde", padding: "4px 8px", fontSize: 12 }} />
+                          </div>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12 }}>
+                            <span style={{ width: 64, color: "rgba(0,0,0,0.58)" }}>Bloque 2</span>
+                            <input type="time" value={f?.horaInicio2 ?? ""} onChange={(e) => setForms((p) => ({ ...p, [t.id]: { ...(p[t.id] ?? emptyForm()), horaInicio2: e.target.value } }))}
+                              style={{ borderRadius: 4, border: "1.5px solid #d6dbde", padding: "4px 8px", fontSize: 12 }} />
+                            <span style={{ color: "rgba(0,0,0,0.4)" }}>a</span>
+                            <input type="time" value={f?.horaFin2 ?? ""} onChange={(e) => setForms((p) => ({ ...p, [t.id]: { ...(p[t.id] ?? emptyForm()), horaFin2: e.target.value } }))}
+                              style={{ borderRadius: 4, border: "1.5px solid #d6dbde", padding: "4px 8px", fontSize: 12 }} />
+                            <span style={{ fontSize: 10, color: "rgba(0,0,0,0.4)" }}>(opcional)</span>
+                          </div>
+                          <div style={{ display: "flex", gap: 8 }}>
+                            <input type="text" value={f?.label ?? ""} onChange={(e) => setForms((p) => ({ ...p, [t.id]: { ...(p[t.id] ?? emptyForm()), label: e.target.value } }))}
+                              placeholder="Comentario (opcional)" style={{ flex: 1, borderRadius: 4, border: "1.5px solid #d6dbde", padding: "4px 8px", fontSize: 12 }} />
+                            <button onClick={() => guardar(t.id)} style={{ borderRadius: 9999, padding: "6px 14px", fontSize: 12, fontWeight: 700, background: s.accent, color: "#fff", border: "none", cursor: "pointer" }}>Guardar</button>
+                          </div>
+                        </div>
+                      )}
                     </div>
-                    {activo && (
-                      <div className="mt-3 space-y-2">
-                        <div className="flex items-center gap-2">
-                          <span className="w-16 text-xs text-slate-500">Bloque 1</span>
-                          <input type="time" value={f?.horaInicio1 ?? ""}
-                            onChange={(e) => setForms((p) => ({ ...p, [t.id]: { ...(p[t.id] ?? emptyForm()), horaInicio1: e.target.value } }))}
-                            className="rounded border border-slate-600 bg-slate-900 px-2 py-1 text-xs text-slate-100" />
-                          <span className="text-xs text-slate-600">a</span>
-                          <input type="time" value={f?.horaFin1 ?? ""}
-                            onChange={(e) => setForms((p) => ({ ...p, [t.id]: { ...(p[t.id] ?? emptyForm()), horaFin1: e.target.value } }))}
-                            className="rounded border border-slate-600 bg-slate-900 px-2 py-1 text-xs text-slate-100" />
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="w-16 text-xs text-slate-500">Bloque 2</span>
-                          <input type="time" value={f?.horaInicio2 ?? ""}
-                            onChange={(e) => setForms((p) => ({ ...p, [t.id]: { ...(p[t.id] ?? emptyForm()), horaInicio2: e.target.value } }))}
-                            className="rounded border border-slate-600 bg-slate-900 px-2 py-1 text-xs text-slate-100" />
-                          <span className="text-xs text-slate-600">a</span>
-                          <input type="time" value={f?.horaFin2 ?? ""}
-                            onChange={(e) => setForms((p) => ({ ...p, [t.id]: { ...(p[t.id] ?? emptyForm()), horaFin2: e.target.value } }))}
-                            className="rounded border border-slate-600 bg-slate-900 px-2 py-1 text-xs text-slate-100" />
-                          <span className="text-[10px] text-slate-600">(opcional)</span>
-                        </div>
-                        <div className="flex gap-2">
-                          <input type="text" value={f?.label ?? ""}
-                            onChange={(e) => setForms((p) => ({ ...p, [t.id]: { ...(p[t.id] ?? emptyForm()), label: e.target.value } }))}
-                            placeholder="Comentario (opcional)"
-                            className="flex-1 rounded border border-slate-600 bg-slate-900 px-2 py-1 text-xs text-slate-100 placeholder-slate-600" />
-                          <button onClick={() => guardar(t.id)}
-                            className="rounded-lg bg-amber-500 px-4 py-1 text-xs font-bold text-slate-900 transition hover:bg-amber-400">Guardar</button>
-                        </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Cobertura */}
+            <div style={{ background: "#fff", border: `1px solid ${s.border}`, borderRadius: 12, marginTop: 16, padding: 16 }}>
+              <h2 style={{ fontSize: 13, fontWeight: 700, color: "#1e3932", marginBottom: 12 }}>Cobertura — {MONTHS[mes - 1]} {anio}</h2>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 12 }}>
+                {cobertura.map((c) => (
+                  <div key={c.franja} style={{ border: `1px solid ${s.border}`, borderRadius: 12, padding: 14 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <span style={{ fontSize: 13, fontWeight: 600, color: "#1e3932" }}>{c.franja}</span>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: s.gold, letterSpacing: "0.04em" }}>{c.hora}</span>
+                    </div>
+                    {c.tecnicos.length === 0 ? (
+                      <p style={{ marginTop: 8, fontSize: 12, color: "rgba(0,0,0,0.58)" }}>Sin cobertura</p>
+                    ) : (
+                      <div style={{ marginTop: 8, display: "flex", flexWrap: "wrap", gap: 6 }}>
+                        {c.tecnicos.map((nom) => (
+                          <span key={nom} style={{ fontSize: 11, fontWeight: 600, padding: "4px 8px", borderRadius: 9999, background: "#f2f0eb", color: "#1e3932", display: "inline-flex", alignItems: "center", gap: 4 }}>
+                            <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#00754A", display: "inline-block" }} />
+                            {nom}
+                          </span>
+                        ))}
                       </div>
                     )}
                   </div>
-                );
-              })}
+                ))}
+              </div>
             </div>
-          </section>
-
-          <section className="rounded-xl border border-slate-700/50 bg-slate-800/30 p-5">
-            <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-slate-400">
-              Cobertura — {MONTHS[mes - 1]} {anio}
-            </h2>
-            <div className="grid gap-4 sm:grid-cols-2">
-              {cobertura.map((c) => (
-                <div key={c.franja} className="rounded-xl border border-slate-700/40 bg-slate-800/50 p-4">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-semibold text-slate-200">{c.franja}</h3>
-                    <span className="text-[10px] font-medium uppercase tracking-wider text-amber-400">{c.hora}</span>
-                  </div>
-                  {c.tecnicos.length === 0 ? (
-                    <p className="mt-2 text-xs text-slate-500">Sin cobertura</p>
-                  ) : (
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      {c.tecnicos.map((nom) => (
-                        <span key={nom} className="inline-flex items-center gap-1.5 rounded-full bg-slate-700/60 px-3 py-1 text-xs text-slate-200">
-                          <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                          {nom}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </section>
-        </>
-      )}
+          </>
+        )}
+      </div>
     </main>
   );
-}
-
-function emptyForm(): HorarioForm {
-  return { label: "", horaInicio1: "", horaFin1: "", horaInicio2: "", horaFin2: "" };
 }

@@ -19,7 +19,7 @@ export default function useScheduleReminder() {
     const now = new Date();
     const hostname = window.location.hostname;
 
-    fetch(`http://${hostname}:5000/api/horarios?mes=${now.getMonth() + 1}&anio=${now.getFullYear()}`, {
+    fetch(`${process.env.NEXT_PUBLIC_API_URL || `http://${hostname}:5001`}/api/horarios?mes=${now.getMonth() + 1}&anio=${now.getFullYear()}`, {
       headers: { Authorization: `Bearer ${token}` }
     })
       .then((r) => r.json())

@@ -23,20 +23,31 @@ export default function Navbar() {
   if (!user) return null;
 
   const canDashboard = user.role === "Jefe" || user.canViewDashboard;
+  const isAuxiliar = user.role === "Auxiliar";
   const isActive = (path: string) => pathname.startsWith(path);
+  const [sistema, setSistema] = useState(() => {
+    if (typeof window !== "undefined") return localStorage.getItem("st_sistema") || "SOPORTE";
+    return "SOPORTE";
+  });
 
-  const links = [
+  const toggleSistema = (s: string) => {
+    setSistema(s);
+    localStorage.setItem("st_sistema", s);
+  };
+
+  const links = isAuxiliar ? [] : [
     ...(canDashboard ? [{ href: "/dashboard", label: "Dashboard", icon: MdiViewDashboard }] : []),
     { href: "/soporte", label: "Soporte", icon: MdiWrench },
     ...(canDashboard ? [{ href: "/reporte", label: "Reportes", icon: MdiFileReport }] : []),
     ...(canDashboard ? [{ href: "/horarios", label: "Horarios", icon: MdiCalendar }] : []),
+    ...(canDashboard ? [{ href: "/launcher", label: "Launcher", icon: MdiRocket }] : []),
   ];
 
   return (
     <>
       {/* Mobile top bar */}
       <div className="fixed left-0 right-0 top-0 z-40 flex items-center justify-between border-b border-slate-800 bg-slate-950/90 px-4 py-3 backdrop-blur-md lg:hidden">
-        <span className="text-sm font-bold text-slate-100">Soporte Técnico</span>
+        <Link href="/" className="text-sm font-bold text-slate-100 hover:text-amber-400 transition">Soporte Técnico</Link>
         <button onClick={() => setMenuOpen(!menuOpen)} className="p-2 text-slate-400">
           {menuOpen ? (
             <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -62,7 +73,7 @@ export default function Navbar() {
         } lg:flex`}
       >
         <div className="hidden border-b border-slate-800 px-6 py-5 lg:block">
-          <div className="flex items-center gap-3">
+          <Link href="/" className="flex items-center gap-3 hover:opacity-80 transition">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 text-slate-950 shadow-lg">
               <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M11.42 15.17l2.15-2.15a2.5 2.5 0 013.53 0l.7.7a2.5 2.5 0 010 3.53l-3.51 3.51a2.5 2.5 0 01-3.53 0l-.7-.7m-7.39-7.39l2.15-2.15a2.5 2.5 0 013.53 0l.7.7a2.5 2.5 0 010 3.53l-3.51 3.51a2.5 2.5 0 01-3.53 0l-.7-.7" />
@@ -72,42 +83,70 @@ export default function Navbar() {
               <p className="text-sm font-bold text-slate-100">Soporte Técnico</p>
               <p className="text-[10px] uppercase tracking-wider text-slate-500">UPDS</p>
             </div>
-          </div>
+          </Link>
+          {canDashboard && (
+            <div className="mt-3 flex gap-1.5 rounded-full border border-slate-700 bg-slate-800 p-1">
+              {["SOPORTE", "AUXILIARES"].map(s => (
+                <button key={s} onClick={() => toggleSistema(s)}
+                  className={`flex-1 rounded-full px-3 py-1.5 text-[11px] font-semibold transition-all ${
+                    sistema === s
+                      ? "bg-gradient-to-r from-emerald-500 to-emerald-600 text-white shadow-md shadow-emerald-500/20"
+                      : "text-slate-400 hover:text-slate-200"
+                  }`}>
+                  {s}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         <nav className="flex-1 space-y-1 px-3 py-4">
-          {links.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              onClick={() => setMenuOpen(false)}
-              className={`flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-all ${
-                isActive(link.href)
-                  ? "bg-gradient-to-r from-amber-500/15 to-amber-600/5 text-amber-400 shadow-sm shadow-amber-500/10"
-                  : "text-slate-400 hover:bg-slate-800/60 hover:text-slate-200"
-              }`}
-            >
-              <link.icon />
-              {link.label}
-            </Link>
-          ))}
+          {isAuxiliar ? (
+            <p className="px-4 py-8 text-center text-xs text-slate-500">Próximamente...</p>
+          ) : (
+            <>
+              {sistema === "SOPORTE" && (
+                <>
+                  {links.map((link) => (
+                    <Link
+                      key={link.href}
+                      href={link.href}
+                      onClick={() => setMenuOpen(false)}
+                      className={`flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-all ${
+                        isActive(link.href)
+                          ? "bg-gradient-to-r from-amber-500/15 to-amber-600/5 text-amber-400 shadow-sm shadow-amber-500/10"
+                          : "text-slate-400 hover:bg-slate-800/60 hover:text-slate-200"
+                      }`}
+                    >
+                      <link.icon />
+                      {link.label}
+                    </Link>
+                  ))}
 
-          <button
-            onClick={() => setNotasOpen(true)}
-            className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-slate-400 transition-all hover:bg-slate-800/60 hover:text-slate-200"
-          >
-            <MdiNotas />
-            Bloc de Notas
-          </button>
+                  <button
+                    onClick={() => setNotasOpen(true)}
+                    className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-slate-400 transition-all hover:bg-slate-800/60 hover:text-slate-200"
+                  >
+                    <MdiNotas />
+                    Bloc de Notas
+                  </button>
 
-          {canDashboard && (
-            <button
-              onClick={() => setAnuncioOpen(true)}
-              className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-slate-400 transition-all hover:bg-slate-800/60 hover:text-slate-200"
-            >
-              <MdiAnnouncement />
-              Anuncio
-            </button>
+                  {canDashboard && (
+                    <button
+                      onClick={() => setAnuncioOpen(true)}
+                      className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-slate-400 transition-all hover:bg-slate-800/60 hover:text-slate-200"
+                    >
+                      <MdiAnnouncement />
+                      Anuncio
+                    </button>
+                  )}
+                </>
+              )}
+
+              {sistema === "AUXILIARES" && (
+                <p className="px-4 py-8 text-center text-xs text-slate-500">Próximamente...</p>
+              )}
+            </>
           )}
         </nav>
 
@@ -174,6 +213,14 @@ function MdiCalendar() {
   return (
     <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
+    </svg>
+  );
+}
+
+function MdiRocket() {
+  return (
+    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M15.59 14.37a6 6 0 01-5.84 7.38v-4.8m5.84-2.58a14.98 14.98 0 006.16-12.12A14.98 14.98 0 009.631 8.41m5.96 5.96a14.926 14.926 0 01-5.841 2.58m-.119-8.54a6 6 0 00-7.381 5.84h4.8m2.581-5.84a14.927 14.927 0 00-2.58 5.84m2.699 2.7c-.103.021-.207.041-.311.06a15.09 15.09 0 01-2.448-2.448 14.9 14.9 0 01.06-.312m-2.24 2.39a4.493 4.493 0 00-1.757 4.306 4.493 4.493 0 004.306-1.758M16.5 9a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z" />
     </svg>
   );
 }

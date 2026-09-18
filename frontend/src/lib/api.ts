@@ -1,9 +1,8 @@
 import type { Usuario, AtencionCreate, AtencionItem } from "@/types";
 
 function getApiUrl(): string {
-  if (typeof window === "undefined") return "http://localhost:5000/api";
-  const hostname = window.location.hostname;
-  return `http://${hostname}:5000/api`;
+  if (typeof window === "undefined") return process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001/api";
+  return `${process.env.NEXT_PUBLIC_API_URL || `http://${window.location.hostname}:5001`}/api`;
 }
 
 function getToken(): string | null {

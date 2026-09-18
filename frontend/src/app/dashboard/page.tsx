@@ -3,9 +3,8 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
-import DashboardCards from "@/components/DashboardCards";
-import DashboardStats from "@/components/DashboardStats";
-import CompareTecnicos from "@/components/CompareTecnicos";
+import DashboardCardsV2 from "@/components/DashboardCardsV2";
+import DashboardStatsV2 from "@/components/DashboardStatsV2";
 import ErrorBoundary from "@/components/ErrorBoundary";
 
 export default function DashboardPage() {
@@ -15,34 +14,21 @@ export default function DashboardPage() {
   const canAccess = user?.role === "Jefe" || user?.canViewDashboard;
 
   useEffect(() => {
-    if (user && !canAccess) {
-      router.replace("/soporte");
-    }
+    if (user && !canAccess) router.replace("/soporte");
   }, [user, canAccess, router]);
 
-  if (!user || !canAccess) {
-    return null;
-  }
+  if (!user || !canAccess) return null;
 
   return (
-    <main className="mx-auto max-w-5xl space-y-6 px-3 py-4 lg:px-6 lg:py-6">
-      <div>
-        <h1 className="text-xl font-bold text-slate-100 lg:text-2xl">Dashboard</h1>
-        <p className="mt-0.5 text-xs text-slate-400 lg:text-sm">
-          Estado en tiempo real del equipo de soporte
-        </p>
-      </div>
+    <main className="mx-auto max-w-[1440px] px-4 py-4 lg:px-10 lg:py-6">
+      <h1 className="mb-4 text-lg font-bold text-[#006241]">Dashboard</h1>
 
-      <ErrorBoundary fallback={<p className="text-sm text-red-400">Error al cargar tarjetas</p>}>
-        <section><DashboardCards /></section>
+      <ErrorBoundary fallback={<p className="text-sm text-red-400">Error al cargar KPIs jerárquicos</p>}>
+        <section><DashboardCardsV2 /></section>
       </ErrorBoundary>
 
       <ErrorBoundary fallback={<p className="text-sm text-red-400">Error al cargar estadísticas</p>}>
-        <section><DashboardStats /></section>
-      </ErrorBoundary>
-
-      <ErrorBoundary fallback={<p className="text-sm text-red-400">Error al cargar comparación</p>}>
-        <section><CompareTecnicos /></section>
+        <section className="mt-4"><DashboardStatsV2 /></section>
       </ErrorBoundary>
     </main>
   );

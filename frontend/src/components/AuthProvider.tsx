@@ -25,8 +25,8 @@ const AuthContext = createContext<AuthContextValue>(null!);
 export const useAuth = () => useContext(AuthContext);
 
 function getApiUrl(): string {
-  if (typeof window === "undefined") return "http://localhost:5000/api";
-  return `http://${window.location.hostname}:5000/api`;
+  if (typeof window === "undefined") return process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001/api";
+  return `${process.env.NEXT_PUBLIC_API_URL || `http://${window.location.hostname}:5001`}/api`;
 }
 
 export default function AuthProvider({ children }: { children: ReactNode }) {

@@ -31,6 +31,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="es" className={`${dmSans.variable} ${jetbrainsMono.variable}`}>
+      <head>
+        <script src="https://code.iconify.design/iconify-icon/2.1.0/iconify-icon.min.js" async></script>
+      </head>
       <body className="min-h-screen bg-slate-950 font-body text-slate-100 antialiased">
         <AuthProvider>
           <ToastProvider>

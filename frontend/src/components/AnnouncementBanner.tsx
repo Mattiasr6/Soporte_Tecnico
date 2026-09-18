@@ -8,7 +8,7 @@ export default function AnnouncementBanner() {
 
   useEffect(() => {
     const hostname = window.location.hostname;
-    fetch(`http://${hostname}:5000/api/announcements`)
+    fetch(`${process.env.NEXT_PUBLIC_API_URL || `http://${hostname}:5001`}/api/announcements`)
       .then((r) => r.json())
       .then((d) => { if (d.message) setAnnouncement(d.message); })
       .catch(() => {});

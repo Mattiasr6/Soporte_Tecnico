@@ -49,7 +49,7 @@ export function SignalRProvider({ children }: { children: ReactNode }) {
 
     const hostname = window.location.hostname;
     const conn = new signalR.HubConnectionBuilder()
-      .withUrl(`http://${hostname}:5000/hub`, {
+      .withUrl(`${process.env.NEXT_PUBLIC_API_URL || `http://${hostname}:5001`}/hub`, {
         accessTokenFactory: () => token,
       })
       .withAutomaticReconnect()

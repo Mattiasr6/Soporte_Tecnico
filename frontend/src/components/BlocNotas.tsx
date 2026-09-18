@@ -22,7 +22,7 @@ export default function BlocNotas({ onClose }: { onClose: () => void }) {
 
   function getApi(path: string, opts?: RequestInit) {
     const hostname = window.location.hostname;
-    return fetch(`http://${hostname}:5000/api${path}`, {
+    return fetch(`${process.env.NEXT_PUBLIC_API_URL || `http://${hostname}:5001`}/api${path}`, {
       ...opts,
       headers: {
         "Content-Type": "application/json",

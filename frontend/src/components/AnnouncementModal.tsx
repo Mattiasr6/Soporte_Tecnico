@@ -9,7 +9,7 @@ export default function AnnouncementModal({ onClose }: { onClose: () => void }) 
   const { announcement } = useSignalR();
   const [text, setText] = useState(announcement ?? "");
   const [sending, setSending] = useState(false);
-  const apiUrl = typeof window !== "undefined" ? `http://${window.location.hostname}:5000/api/announcements` : "";
+  const apiUrl = typeof window !== "undefined" ? `${process.env.NEXT_PUBLIC_API_URL || `http://${window.location.hostname}:5001`}/api/announcements` : "";
 
   const publish = async () => {
     if (!token) return;
