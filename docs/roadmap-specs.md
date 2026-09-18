@@ -12,9 +12,10 @@ Rama: `python-experiment` · DB: misma `postgres-dev` (`:5433`) · Convivencia .
 | S6 | Resto v2: horarios, usuarios, announcements | aprobada y redactada (`docs/spec-s6-resto.md`) |
 | S7 | Realtime: paridad SignalR WS | aprobada y redactada (`docs/spec-s7-realtime.md`) |
 | S8 | Puesta en marcha: uvicorn live + smoke + convivencia .NET | aprobada y redactada (`docs/spec-s8-live.md`) |
-| S9 | Django templates: base + atenciones (wireframe→mockup→template) | pendiente |
+| S9 | Django templates: base + atenciones (wireframe→mockup→template) | aprobada y redactada (`docs/spec-s9-django-base.md`) |
 | S10 | Django templates: dashboard + resto pantallas | pendiente |
 | S11 | Cutover: paridad final, apagado .NET/Next, compose definitivo | pendiente |
+| S12 | Migración datos prod: backup → mapeo → transform → carga (mapeo del usuario) | pendiente |
 
 Decisiones globales: Python 3.13 · pip+venv+requirements · SQLAlchemy sync+psycopg · alembic aditivo ·
 `backend-fastapi/` · dev host uvicorn `:5002` · starbucks como referencia visual · IA = tooling, sin features IA ·
