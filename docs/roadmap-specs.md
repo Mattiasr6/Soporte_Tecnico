@@ -6,7 +6,7 @@ Rama: `python-experiment` · DB: misma `postgres-dev` (`:5433`) · Convivencia .
 |------|--------|--------|
 | S1 | Base + DB: FastAPI, modelos espejo, alembic, seed bcrypt | aprobada y redactada (`docs/spec-s1-base-db.md`) |
 | S2 | Jerarquía: grupos-padres, grupos, áreas, árbol | aprobada y redactada (`docs/spec-s2-jerarquia.md`) |
-| S3 | Atenciones: GET/roles, stats, PUT, DELETE, batch | pendiente |
+| S3 | Atenciones: GET/roles, stats, PUT, DELETE, batch | aprobada y redactada (`docs/spec-s3-atenciones.md`) |
 | S4 | Import CSV | pendiente |
 | S5 | Auth mínima: login JWT compatible + guards | pendiente (mail/codes fuera) |
 | S6 | Resto v2: horarios, usuarios, announcements | pendiente |
