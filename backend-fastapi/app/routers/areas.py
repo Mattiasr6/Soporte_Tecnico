@@ -3,6 +3,7 @@
 from fastapi import APIRouter
 from sqlalchemy import select
 
+from app.core.security import CurrentUser
 from app.db.session import DbSession
 from app.models.atencion import Atencion
 
@@ -60,7 +61,7 @@ def _aulas(prefijo: str, n: int) -> list[str]:
 
 
 @router.get("", response_model=list[str])
-def get_areas(db: DbSession):
+def get_areas(db: DbSession, user: CurrentUser):
     distintas = {
         r[0].strip()
         for r in db.execute(

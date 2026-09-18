@@ -1,5 +1,6 @@
 """Tests S3 contra postgres-dev real. Filas marcadas TEST-S3 bajo usuario 1, con limpieza."""
 
+import os
 from datetime import datetime, timezone
 
 import pytest
@@ -15,8 +16,23 @@ MARK = "TEST-S3-"
 client = TestClient(app)
 
 
+EMAILS = {
+    1: "mattias.ribera@upds.edu.bo",
+    2: "diego.orihuela@upds.edu.bo",
+    8: "josue.huayllas@upds.edu.bo",
+}
+_tokens: dict[int, str] = {}
+
+
 def h(uid: int) -> dict[str, str]:
-    return {"X-User-Id": str(uid)}
+    if uid not in _tokens:
+        r = client.post(
+            "/api/auth/login",
+            json={"email": EMAILS[uid], "password": os.environ["SEED_PASSWORD"]},
+        )
+        assert r.status_code == 200, r.text
+        _tokens[uid] = r.json()["token"]
+    return {"Authorization": f"Bearer {_tokens[uid]}"}
 
 
 def _base_item(descripcion: str) -> dict[str, object]:
@@ -53,7 +69,10 @@ def test_auth_requerida():
     assert client.get("/api/atenciones").status_code == 401
     assert client.get("/api/atenciones/stats", headers=h(UID_DIEGO)).status_code == 401
     assert (
-        client.get("/api/atenciones", headers={"X-User-Id": "999"}).status_code == 401
+        client.get(
+            "/api/atenciones", headers={"Authorization": "Bearer invalido"}
+        ).status_code
+        == 401
     )
 
 
@@ -118,7 +137,7 @@ def test_batch_legacy_y_fk(filas_prueba):
     legacy = next(a for a in todas if a["descripcion"] == f"{MARK}a")
     assert legacy["grupo_padre_id"] == 1  # Administrativos mapeado por nombre
     assert legacy["area_solicitante"] == "Administrativos"
-    arbol = client.get("/api/jerarquia/arbol").json()
+    arbol = client.get("/api/jerarquia/arbol", headers=h(UID_JEFE)).json()
     area = arbol["areas"][0]
     r = client.post(
         "/api/atenciones/batch",
@@ -173,7 +192,7 @@ def test_stats_delta(filas_prueba):
 
 def test_put_sync_y_permisos(filas_prueba):
     target = filas_prueba[0]
-    arbol = client.get("/api/jerarquia/arbol").json()
+    arbol = client.get("/api/jerarquia/arbol", headers=h(UID_MATTIAS)).json()
     area = arbol["areas"][0]
     assert (
         client.put(

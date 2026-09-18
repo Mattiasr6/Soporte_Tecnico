@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 from sqlalchemy import select
 
+from app.core.security import CurrentUser
 from app.db.session import DbSession
 from app.models.area import Area
 from app.models.grupo import Grupo
@@ -11,12 +12,12 @@ router = APIRouter(prefix="/api/jerarquia", tags=["jerarquia"])
 
 
 @router.get("/grupos-padres", response_model=list[GrupoPadreOut])
-def get_grupos_padres(db: DbSession):
+def get_grupos_padres(db: DbSession, user: CurrentUser):
     return db.scalars(select(GrupoPadre).order_by(GrupoPadre.orden)).all()
 
 
 @router.get("/grupos", response_model=list[GrupoOut])
-def get_grupos(db: DbSession, grupo_padre_id: int | None = None):
+def get_grupos(db: DbSession, user: CurrentUser, grupo_padre_id: int | None = None):
     q = select(Grupo)
     if grupo_padre_id is not None:
         q = q.where(Grupo.grupo_padre_id == grupo_padre_id)
@@ -26,6 +27,7 @@ def get_grupos(db: DbSession, grupo_padre_id: int | None = None):
 @router.get("/areas", response_model=list[AreaOut])
 def get_areas(
     db: DbSession,
+    user: CurrentUser,
     grupo_padre_id: int | None = None,
     grupo_id: int | None = None,
 ):
@@ -38,7 +40,7 @@ def get_areas(
 
 
 @router.get("/arbol", response_model=ArbolOut)
-def get_arbol(db: DbSession):
+def get_arbol(db: DbSession, user: CurrentUser):
     padres = db.scalars(select(GrupoPadre).order_by(GrupoPadre.orden)).all()
     grupos = db.scalars(select(Grupo).order_by(Grupo.nombre)).all()
     areas = db.scalars(

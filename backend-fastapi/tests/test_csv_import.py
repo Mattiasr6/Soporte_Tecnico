@@ -1,5 +1,6 @@
 """Tests S4 contra postgres-dev real. Filas marcadas TEST-S4, con limpieza."""
 
+import os
 from datetime import datetime, timezone
 
 from fastapi.testclient import TestClient
@@ -14,8 +15,22 @@ MARK = "TEST-S4-"
 client = TestClient(app)
 
 
+EMAILS = {
+    1: "mattias.ribera@upds.edu.bo",
+    8: "josue.huayllas@upds.edu.bo",
+}
+_tokens: dict[int, str] = {}
+
+
 def h(uid: int) -> dict[str, str]:
-    return {"X-User-Id": str(uid)}
+    if uid not in _tokens:
+        r = client.post(
+            "/api/auth/login",
+            json={"email": EMAILS[uid], "password": os.environ["SEED_PASSWORD"]},
+        )
+        assert r.status_code == 200, r.text
+        _tokens[uid] = r.json()["token"]
+    return {"Authorization": f"Bearer {_tokens[uid]}"}
 
 
 def _csv_linea(
@@ -80,7 +95,9 @@ def test_parse_puro_sin_db():
 
 
 def test_import_latin1_con_tildes():
-    area = client.get("/api/jerarquia/areas").json()[0]["nombre"]
+    area = client.get("/api/jerarquia/areas", headers=h(UID_MATTIAS)).json()[0][
+        "nombre"
+    ]
     contenido = "\n".join(
         [
             HEADER,

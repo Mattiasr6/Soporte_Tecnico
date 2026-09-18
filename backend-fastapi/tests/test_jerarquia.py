@@ -1,8 +1,23 @@
+import os
+
 from fastapi.testclient import TestClient
 
 from app.main import app
 
-client = TestClient(app)
+
+def _token() -> str:
+    r = TestClient(app).post(
+        "/api/auth/login",
+        json={
+            "email": "mattias.ribera@upds.edu.bo",
+            "password": os.environ["SEED_PASSWORD"],
+        },
+    )
+    assert r.status_code == 200, r.text
+    return r.json()["token"]
+
+
+client = TestClient(app, headers={"Authorization": f"Bearer {_token()}"})
 
 
 def test_grupos_padres_orden():

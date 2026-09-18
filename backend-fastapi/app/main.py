@@ -6,11 +6,12 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
-from app.routers import areas, atenciones, jerarquia
+from app.routers import areas, atenciones, auth, jerarquia
 
 app = FastAPI(title="Soporte Tecnico API (Python)")
 app.include_router(jerarquia.router)
 app.include_router(areas.router)
+app.include_router(auth.router)
 app.include_router(atenciones.router)
 
 

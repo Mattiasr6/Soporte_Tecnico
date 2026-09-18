@@ -4,11 +4,11 @@ import calendar
 from datetime import date, datetime, timezone
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, File, HTTPException, UploadFile
 from sqlalchemy import extract, func, select
 
 from app.core.errors import bad_request, forbidden, not_found, unauthorized
-from app.core.security import is_privileged, require_user
+from app.core.security import CurrentUser, is_privileged
 from app.db.session import DbSession
 from app.models.area import Area
 from app.models.atencion import Atencion
@@ -33,8 +33,6 @@ from app.services.csv_import import parse_csv
 from app.services.horarios import esta_fuera_de_horario
 
 router = APIRouter(prefix="/api/atenciones", tags=["atenciones"])
-
-CurrentUser = Annotated[Usuario, Depends(require_user)]
 
 
 def _nombres(
