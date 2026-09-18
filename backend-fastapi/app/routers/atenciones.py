@@ -4,7 +4,7 @@ import calendar
 from datetime import date, datetime, timezone
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlalchemy import extract, func, select
 
 from app.core.errors import bad_request, forbidden, not_found, unauthorized
@@ -28,35 +28,13 @@ from app.schemas.atencion import (
     PorTecnico,
     StatsOut,
 )
+from app.services.categorias import CATEGORIAS_VALIDAS, normalizar_categoria
+from app.services.csv_import import parse_csv
 from app.services.horarios import esta_fuera_de_horario
 
 router = APIRouter(prefix="/api/atenciones", tags=["atenciones"])
 
 CurrentUser = Annotated[Usuario, Depends(require_user)]
-
-CATEGORIAS_VALIDAS = frozenset(
-    {
-        "Audio/Video",
-        "Cuentas/Accesos",
-        "Hardware",
-        "Impresión",
-        "Otros",
-        "Redes/Conectividad",
-        "Sistemas académicos",
-        "Software",
-    }
-)
-
-NORMALIZAR_CATEGORIA = {
-    "impresion": "Impresión",
-    "cuentas": "Cuentas/Accesos",
-    "sistemas academicos": "Sistemas académicos",
-    "otros": "Otros",
-}
-
-
-def normalizar_categoria(cat: str) -> str:
-    return NORMALIZAR_CATEGORIA.get(cat.strip().lower(), cat)
 
 
 def _nombres(
@@ -446,3 +424,72 @@ def delete_atencion(atencion_id: int, db: DbSession, user: CurrentUser) -> None:
         raise forbidden("Solo el dueño o un Jefe puede eliminar")
     db.delete(a)
     db.commit()
+
+
+@router.post("/import-csv")
+def import_csv(
+    db: DbSession, user: CurrentUser, file: Annotated[UploadFile, File(...)]
+):
+    nombre = file.filename or ""
+    contenido = file.file.read()
+    if not contenido:
+        raise bad_request("Debes subir un archivo CSV.")
+    if not nombre.lower().endswith(".csv"):
+        raise bad_request("El archivo debe tener extensión .csv")
+    filas, errores = parse_csv(contenido)
+    if not filas:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "error": "No se encontraron registros válidos en el CSV.",
+                "errores": errores,
+            },
+        )
+    horario = _horario_del_mes(db, user.id)
+    now = datetime.now(timezone.utc)
+    nuevas = []
+    for f in filas:
+        gp_id, g_id, ar_id, _ = _resolver_jerarquia(
+            db,
+            AtencionCreate(
+                area_solicitante=f.area,
+                medio_solicitud=f.medio,
+                usuario_solicitante=f.usuario_solicitante,
+                categoria=f.categoria,
+                descripcion=f.descripcion,
+                solucion=f.solucion,
+            ),
+        )
+        fuera = (
+            esta_fuera_de_horario(
+                horario.hora_inicio1,
+                horario.hora_fin1,
+                horario.hora_inicio2,
+                horario.hora_fin2,
+                now,
+            )
+            if horario is not None
+            else False
+        )
+        nuevas.append(
+            Atencion(
+                usuario_id=user.id,
+                area_solicitante=f.area,
+                grupo_padre_id=gp_id,
+                grupo_id=g_id,
+                area_id=ar_id,
+                medio_solicitud=f.medio,
+                usuario_solicitante=f.usuario_solicitante,
+                categoria=f.categoria,
+                descripcion=f.descripcion,
+                solucion=f.solucion,
+                observaciones=f.observaciones,
+                enlace_apoyo=f.enlace,
+                fecha_registro=f.fecha,
+                fuera_de_turno=fuera,
+                created_at=now,
+            )
+        )
+    db.add_all(nuevas)
+    db.commit()
+    return {"registros_insertados": len(nuevas), "errores": errores or None}
