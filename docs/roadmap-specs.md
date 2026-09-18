@@ -9,7 +9,7 @@ Rama: `python-experiment` · DB: misma `postgres-dev` (`:5433`) · Convivencia .
 | S3 | Atenciones: GET/roles, stats, PUT, DELETE, batch | aprobada y redactada (`docs/spec-s3-atenciones.md`) |
 | S4 | Import CSV | aprobada y redactada (`docs/spec-s4-csv.md`) |
 | S5 | Auth mínima: login JWT compatible + guards | aprobada y redactada (`docs/spec-s5-auth.md`) |
-| S6 | Resto v2: horarios, usuarios, announcements | pendiente |
+| S6 | Resto v2: horarios, usuarios, announcements | aprobada y redactada (`docs/spec-s6-resto.md`) |
 | S7 | Realtime: paridad SignalR WS | pendiente (al final) |
 | S8 | Django templates: base + atenciones (wireframe→mockup→template) | pendiente |
 | S9 | Django templates: dashboard + resto pantallas | pendiente |
