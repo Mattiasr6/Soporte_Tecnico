@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Conexion Backend - Frontend",
+    "output": "conexion-backend-frontend.html",
+    "quality_profile": "showcase",
+    "views": [
+      { "id": "rest-path", "label": "REST + JWT", "focus": ["browser", "frontend", "auth", "backend", "postgres"], "note": "El frontend llama a /api/* con Bearer JWT y la API valida el token antes de tocar datos." },
+      { "id": "realtime", "label": "Tiempo real", "focus": ["frontend", "hub", "backend"], "note": "Canal SignalR persistente sobre /hub para estado y chat." },
+      { "id": "correo-respaldo", "label": "Correo y respaldo", "focus": ["backend", "mail", "postgres", "pgbackup"], "note": "Codigos de verificacion por SMTP y respaldo diario de PostgreSQL." }
+    ]
+  },
+  "components": [
+    { "id": "browser", "type": "external", "label": "Usuarios", "sublabel": "Tecnicos y admins", "pos": [40, 336], "size": [120, 68] },
+    { "id": "frontend", "type": "frontend", "label": "Next.js 14", "sublabel": "React 18 · Tailwind", "pos": [210, 322], "size": [180, 96], "tag": ":3000 → host 3002" },
+    { "id": "auth", "type": "security", "label": "JWT Bearer", "sublabel": "HS256 · /api/auth", "pos": [640, 210], "size": [190, 68] },
+    { "id": "backend", "type": "backend", "label": "ASP.NET Core 8 API", "sublabel": "Controllers + SignalR", "pos": [640, 322], "size": [190, 96], "tag": ":5000" },
+    { "id": "hub", "type": "messagebus", "label": "AppHub (SignalR)", "sublabel": "endpoint /hub · grupo \"all\"", "pos": [330, 458], "size": [200, 68] },
+    { "id": "postgres", "type": "database", "label": "PostgreSQL 16", "sublabel": "EF Core · Npgsql", "pos": [930, 336], "size": [150, 68], "tag": ":5432" },
+    { "id": "mail", "type": "external", "label": "mail-service", "sublabel": "SMTP · send.php", "pos": [920, 210], "size": [160, 68] },
+    { "id": "pgbackup", "type": "database", "label": "pgbackup", "sublabel": "pg_dump diario", "pos": [930, 458], "size": [150, 68], "tag": "retencion 7 dias" }
+  ],
+  "boundaries": [
+    { "kind": "region", "label": "Docker bridge: soporte-network", "wraps": ["frontend", "backend", "hub", "postgres", "mail", "pgbackup"] }
+  ],
+  "connections": [
+    { "id": "users-to-frontend", "from": "browser", "to": "frontend", "label": "HTTPS", "variant": "emphasis" },
+    { "id": "frontend-to-backend", "from": "frontend", "to": "backend", "label": "REST /api/*", "variant": "emphasis" },
+    { "id": "token-validation", "from": "auth", "to": "backend", "label": "valida Bearer JWT", "variant": "security", "fromSide": "bottom", "toSide": "top", "labelAt": [735, 300] },
+    { "id": "signalr-channel", "from": "frontend", "to": "hub", "label": "WebSocket /hub", "variant": "dashed", "fromSide": "bottom", "toSide": "top" },
+    { "id": "broadcast-group", "from": "hub", "to": "backend", "label": "estado · grupo \"all\"", "variant": "dashed", "fromSide": "right", "toSide": "bottom" },
+    { "id": "api-to-db", "from": "backend", "to": "postgres", "label": "EF Core · SQL", "fromSide": "right", "toSide": "left", "labelAt": [880, 400] },
+    { "id": "send-verification-code", "from": "backend", "to": "mail", "label": "codigo de verificacion", "variant": "dashed", "fromSide": "right", "toSide": "left" },
+    { "id": "daily-backup", "from": "postgres", "to": "pgbackup", "label": "backup diario", "variant": "dashed", "fromSide": "bottom", "toSide": "top", "labelAt": [1005, 431] }
+  ],
+  "cards": [
+    { "dot": "cyan", "title": "Canales de conexion", "items": ["REST: fetch a NEXT_PUBLIC_API_URL + /api/* con Authorization: Bearer <JWT>", "SignalR: WebSocket a /hub con accessTokenFactory() inyectando el token", "CORS del backend: SetIsOriginAllowed(_ => true) + AllowCredentials"] },
+    { "dot": "violet", "title": "Autenticacion", "items": ["POST /api/auth/send-code dispara el correo con el codigo", "POST /api/auth/verify-code devuelve { token, user }", "El token vive en localStorage; un 401 limpia la sesion y recarga"] },
+    { "dot": "emerald", "title": "Datos y respaldo", "items": ["PostgreSQL 16 via EF Core + Npgsql; db.Database.Migrate() al arrancar", "pgbackup: pg_dump diario con retencion de 7 dias", "Puertos publicados: frontend 3002→3000, backend 5000"] }
+  ]
+}

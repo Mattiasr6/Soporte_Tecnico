@@ -1,0 +1,80 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-40 -80 1580 850.0" width="1580" height="850.0" font-family="system-ui, -apple-system, sans-serif">
+  <defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#868e96"/></marker></defs>
+  <rect x="-40" y="-80" width="1580" height="850.0" fill="#ffffff"/>
+  <rect x="0" y="0" width="420" height="694.0" rx="14" fill="#ffffff" stroke="#868e96" stroke-width="2"/>
+  <rect x="16" y="12" width="388" height="56" rx="10" fill="#d0bfff" stroke="#868e96" stroke-width="2"/>
+  <text x="210.0" y="45.0" text-anchor="middle" font-size="20" fill="#1e1e1e">UPDS · Soporte Técnico</text>
+  <rect x="24" y="78" width="372" height="48.0" rx="10" fill="#a5d8ff" stroke="#868e96" stroke-width="2"/>
+  <text x="210.0" y="107.0" text-anchor="middle" font-size="20" fill="#1e1e1e">Correo institucional</text>
+  <rect x="24" y="136.0" width="372" height="48.0" rx="10" fill="#a5d8ff" stroke="#868e96" stroke-width="2"/>
+  <text x="210.0" y="165.0" text-anchor="middle" font-size="20" fill="#1e1e1e">Contraseña</text>
+  <rect x="24" y="194.0" width="372" height="72.0" rx="10" fill="#a5d8ff" stroke="#868e96" stroke-width="2"/>
+  <text x="210.0" y="223.0" text-anchor="middle" font-size="20" fill="#1e1e1e">Código de verificación (6</text>
+  <text x="210.0" y="247.0" text-anchor="middle" font-size="20" fill="#1e1e1e">dígitos)</text>
+  <rect x="24" y="276.0" width="372" height="52" rx="10" fill="#b2f2bb" stroke="#868e96" stroke-width="2"/>
+  <text x="210.0" y="307.0" text-anchor="middle" font-size="20" fill="#1e1e1e">Ingresar</text>
+  <rect x="24" y="338.0" width="372" height="72.0" rx="10" fill="#fff3bf" stroke="#868e96" stroke-width="2"/>
+  <text x="210.0" y="367.0" text-anchor="middle" font-size="20" fill="#1e1e1e">Jefe → Dashboard</text>
+  <text x="210.0" y="391.0" text-anchor="middle" font-size="20" fill="#1e1e1e">Técnico → Soporte</text>
+  <rect x="540" y="0" width="420" height="694.0" rx="14" fill="#ffffff" stroke="#868e96" stroke-width="2"/>
+  <rect x="556" y="12" width="388" height="72.0" rx="10" fill="#ffd8a8" stroke="#868e96" stroke-width="2"/>
+  <text x="750.0" y="41.0" text-anchor="middle" font-size="20" fill="#1e1e1e">Nav: Inicio · Horarios · Soporte ·</text>
+  <text x="750.0" y="65.0" text-anchor="middle" font-size="20" fill="#1e1e1e">Reporte</text>
+  <rect x="564" y="94.0" width="372" height="52" rx="10" fill="#fff3bf" stroke="#868e96" stroke-width="2"/>
+  <text x="750.0" y="125.0" text-anchor="middle" font-size="20" fill="#1e1e1e">Mi estado: [ Disponible ]</text>
+  <rect x="564" y="156.0" width="372" height="48.0" rx="10" fill="#ffffff" stroke="#868e96" stroke-width="2"/>
+  <text x="750.0" y="185.0" text-anchor="middle" font-size="20" fill="#1e1e1e">Registro de Atenciones</text>
+  <rect x="564" y="214.0" width="372" height="72.0" rx="10" fill="#f1f3f5" stroke="#868e96" stroke-width="2"/>
+  <text x="750.0" y="243.0" text-anchor="middle" font-size="20" fill="#1e1e1e">Área ▾ | Medio ▾ | Usuario ▾ |</text>
+  <text x="750.0" y="267.0" text-anchor="middle" font-size="20" fill="#1e1e1e">Categoría ▾</text>
+  <rect x="564" y="296.0" width="372" height="48" rx="10" fill="#a5d8ff" stroke="#868e96" stroke-width="2"/>
+  <text x="750.0" y="325.0" text-anchor="middle" font-size="20" fill="#1e1e1e">Descripción del problema</text>
+  <rect x="564" y="354.0" width="372" height="48" rx="10" fill="#a5d8ff" stroke="#868e96" stroke-width="2"/>
+  <text x="750.0" y="383.0" text-anchor="middle" font-size="20" fill="#1e1e1e">Solución aplicada</text>
+  <rect x="564" y="412.0" width="372" height="72.0" rx="10" fill="#d0bfff" stroke="#868e96" stroke-width="2"/>
+  <text x="750.0" y="441.0" text-anchor="middle" font-size="20" fill="#1e1e1e">Plantillas: Conectividad ·</text>
+  <text x="750.0" y="465.0" text-anchor="middle" font-size="20" fill="#1e1e1e">Impresora · Correo</text>
+  <rect x="564" y="494.0" width="372" height="48.0" rx="10" fill="#ffffff" stroke="#868e96" stroke-width="2"/>
+  <text x="750.0" y="523.0" text-anchor="middle" font-size="20" fill="#1e1e1e">☐ Fuera de turno · Colaborador ▾</text>
+  <rect x="564" y="552.0" width="372" height="48" rx="10" fill="#b2f2bb" stroke="#868e96" stroke-width="2"/>
+  <text x="750.0" y="581.0" text-anchor="middle" font-size="20" fill="#1e1e1e">[ + Añadir fila ] [ Guardar ]</text>
+  <rect x="564" y="610.0" width="372" height="72.0" rx="10" fill="#ffd8a8" stroke="#868e96" stroke-width="2"/>
+  <text x="750.0" y="639.0" text-anchor="middle" font-size="20" fill="#1e1e1e">Historial de Atenciones [ Ver</text>
+  <text x="750.0" y="663.0" text-anchor="middle" font-size="20" fill="#1e1e1e">Histórico ]</text>
+  <rect x="1080" y="0" width="420" height="694.0" rx="14" fill="#ffffff" stroke="#868e96" stroke-width="2"/>
+  <rect x="1096" y="12" width="388" height="72.0" rx="10" fill="#ffd8a8" stroke="#868e96" stroke-width="2"/>
+  <text x="1290.0" y="41.0" text-anchor="middle" font-size="20" fill="#1e1e1e">Nav: Dashboard · Horarios ·</text>
+  <text x="1290.0" y="65.0" text-anchor="middle" font-size="20" fill="#1e1e1e">Soporte · Reporte</text>
+  <rect x="1104" y="94.0" width="372" height="48.0" rx="10" fill="#ffffff" stroke="#868e96" stroke-width="2"/>
+  <text x="1290.0" y="123.0" text-anchor="middle" font-size="20" fill="#1e1e1e">Resumen del equipo</text>
+  <rect x="1104.0" y="152.0" width="85.5" height="72" rx="10" fill="#fff3bf" stroke="#868e96" stroke-width="2"/>
+  <text x="1146.75" y="181.0" text-anchor="middle" font-size="20" fill="#1e1e1e">Hoy</text>
+  <text x="1146.75" y="205.0" text-anchor="middle" font-size="20" fill="#1e1e1e">12</text>
+  <rect x="1199.5" y="152.0" width="85.5" height="72" rx="10" fill="#fff3bf" stroke="#868e96" stroke-width="2"/>
+  <text x="1242.25" y="181.0" text-anchor="middle" font-size="20" fill="#1e1e1e">Pendientes</text>
+  <text x="1242.25" y="205.0" text-anchor="middle" font-size="20" fill="#1e1e1e">3</text>
+  <rect x="1295.0" y="152.0" width="85.5" height="72" rx="10" fill="#fff3bf" stroke="#868e96" stroke-width="2"/>
+  <text x="1337.75" y="181.0" text-anchor="middle" font-size="20" fill="#1e1e1e">Técnicos</text>
+  <text x="1337.75" y="205.0" text-anchor="middle" font-size="20" fill="#1e1e1e">5</text>
+  <rect x="1390.5" y="152.0" width="85.5" height="96.0" rx="10" fill="#fff3bf" stroke="#868e96" stroke-width="2"/>
+  <text x="1433.25" y="181.0" text-anchor="middle" font-size="20" fill="#1e1e1e">Fuera</text>
+  <text x="1433.25" y="205.0" text-anchor="middle" font-size="20" fill="#1e1e1e">turno</text>
+  <text x="1433.25" y="229.0" text-anchor="middle" font-size="20" fill="#1e1e1e">2</text>
+  <rect x="1104" y="258.0" width="372" height="120" rx="10" fill="#f1f3f5" stroke="#868e96" stroke-width="2"/>
+  <text x="1290.0" y="323.0" text-anchor="middle" font-size="20" fill="#1e1e1e">Atenciones por día (gráfico)</text>
+  <rect x="1104" y="388.0" width="372" height="48.0" rx="10" fill="#ffffff" stroke="#868e96" stroke-width="2"/>
+  <text x="1290.0" y="417.0" text-anchor="middle" font-size="20" fill="#1e1e1e">Comparar Técnicos</text>
+  <rect x="1104" y="446.0" width="372" height="48.0" rx="10" fill="#f1f3f5" stroke="#868e96" stroke-width="2"/>
+  <text x="1290.0" y="475.0" text-anchor="middle" font-size="20" fill="#1e1e1e">Técnico | Atenciones | Promedio</text>
+  <rect x="1104" y="504.0" width="372" height="48.0" rx="10" fill="#ffffff" stroke="#868e96" stroke-width="2"/>
+  <text x="1290.0" y="533.0" text-anchor="middle" font-size="20" fill="#1e1e1e">Ana | 34 | 5.7</text>
+  <rect x="1104" y="562.0" width="372" height="48.0" rx="10" fill="#ffffff" stroke="#868e96" stroke-width="2"/>
+  <text x="1290.0" y="591.0" text-anchor="middle" font-size="20" fill="#1e1e1e">Luis | 28 | 4.6</text>
+  <line x1="426" y1="347.0" x2="530" y2="347.0" stroke="#868e96" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="966" y1="347.0" x2="1070" y2="347.0" stroke="#868e96" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="0" y="-24" font-size="26" font-weight="600" fill="#1e1e1e">1 · Login</text>
+  <text x="540" y="-24" font-size="26" font-weight="600" fill="#1e1e1e">2 · Panel del Técnico</text>
+  <text x="1080" y="-24" font-size="26" font-weight="600" fill="#1e1e1e">3 · Dashboard (Jefe)</text>
+  <text x="428" y="329.0" font-size="16" fill="#1e1e1e">rol Técnico</text>
+  <text x="968" y="329.0" font-size="16" fill="#1e1e1e">atenciones registradas</text>
+</svg>
