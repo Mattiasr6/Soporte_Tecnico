@@ -37,6 +37,7 @@ backend-fastapi/.venv/
 frontend-django/.env
 frontend-django/.venv/
 __pycache__/
+.playwright-mcp/
 
 
 
