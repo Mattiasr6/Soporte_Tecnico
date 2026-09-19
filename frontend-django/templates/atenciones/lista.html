@@ -1,0 +1,32 @@
+{% extends "atenciones/base.html" %}
+{% block titulo %}Atenciones — Soporte Técnico{% endblock %}
+{% block contenido %}
+<div class="page-wide">
+  <h1>Atenciones</h1>
+  <p class="sub">{{ total }} registros</p>
+  <form method="get" class="filtros">
+    <input type="text" name="q" value="{{ q }}" placeholder="Buscar...">
+    <input type="text" name="categoria" value="{{ categoria }}" placeholder="Categoría">
+    <input type="month" name="mes" value="{{ mes }}">
+    <button type="submit">Filtrar</button>
+  </form>
+  <table class="tabla">
+    <thead>
+      <tr><th>Fecha</th><th>Área</th><th>Categoría</th><th>Turno</th></tr>
+    </thead>
+    <tbody>
+      {% for a in atenciones %}
+      <tr>
+        <td>{{ a.fecha_registro }}</td>
+        <td>{{ a.area_solicitante }}</td>
+        <td>{{ a.categoria }}</td>
+        <td>{% include "atenciones/_badge_turno.html" with atencion=a %}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="4">Sin registros.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <p class="foot">Mostrando {{ total }} registros</p>
+</div>
+{% endblock %}

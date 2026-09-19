@@ -76,3 +76,66 @@ body {
   font-size: 13px;
   margin-top: 12px;
 }
+.page-wide {
+  max-width: 900px;
+  margin: 30px auto;
+  background: var(--color-page-bg);
+  border: 2px solid var(--color-border-strong);
+  border-radius: var(--radius-card);
+  padding: 24px 28px;
+}
+.page-wide h1 {
+  color: var(--color-accent-deep);
+  margin: 0;
+}
+.page-wide .sub {
+  color: var(--color-house);
+  font-size: 14px;
+}
+.filtros {
+  display: flex;
+  gap: 10px;
+  margin: 16px 0;
+}
+.filtros input {
+  border: 2px solid var(--color-border-strong);
+  border-radius: var(--radius-control);
+  padding: 8px 10px;
+  font-size: 13px;
+}
+.filtros button {
+  background: var(--color-accent-deep);
+  color: #fff;
+  border: 0;
+  border-radius: var(--radius-control);
+  padding: 8px 16px;
+  cursor: pointer;
+}
+.tabla {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.tabla thead th {
+  background: var(--color-accent-deep);
+  color: #fff;
+  text-align: left;
+  padding: 10px 12px;
+}
+.tabla tbody td {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  padding: 10px 12px;
+  color: var(--color-house);
+}
+.badge-turno {
+  background: var(--color-gold);
+  color: #fff;
+  border-radius: 9999px;
+  padding: 3px 10px;
+  font-size: 12px;
+}
+.foot {
+  color: var(--color-muted);
+  font-size: 13px;
+}
