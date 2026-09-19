@@ -1,0 +1,110 @@
+{% extends "atenciones/base.html" %}
+{% block titulo %}Nueva atención — Soporte Técnico{% endblock %}
+{% block contenido %}
+<div class="page-wide">
+  <h1>Nueva atención</h1>
+  <p class="sub">Padre → Grupo → Área</p>
+  {% if error %}<p class="error">{{ error }}</p>{% endif %}
+  <form method="post">
+    {% csrf_token %}
+    {% include "atenciones/_selector_jerarquia.html" %}
+    <div class="grid2">
+      <div>
+        <label for="id_medio">Medio</label>
+        <select id="id_medio" name="medio_solicitud">
+          {% for m in medios %}<option value="{{ m }}">{{ m }}</option>{% endfor %}
+        </select>
+      </div>
+      <div>
+        <label for="id_solicitante">Solicitante</label>
+        <select id="id_solicitante" name="usuario_solicitante">
+          {% for s in solicitantes %}<option value="{{ s }}">{{ s }}</option>{% endfor %}
+        </select>
+      </div>
+    </div>
+    <label>Categoría</label>
+    <div class="pills">
+      {% for c in categorias %}
+      <label class="pill"><input type="radio" name="categoria" value="{{ c }}" required> {{ c }}</label>
+      {% endfor %}
+    </div>
+    <div class="plantillas">
+      <button type="button" data-p="con">Conectividad</button>
+      <button type="button" data-p="acc">Acceso</button>
+      <button type="button" data-p="hw">Hardware</button>
+      <button type="button" data-p="sw">Software</button>
+    </div>
+    <label for="id_desc">Descripción</label>
+    <textarea id="id_desc" name="descripcion" rows="3" required></textarea>
+    <label for="id_sol">Solución</label>
+    <textarea id="id_sol" name="solucion" rows="3" required></textarea>
+    <div class="grid2">
+      <div>
+        <label for="id_obs">Observaciones</label>
+        <input type="text" id="id_obs" name="observaciones">
+      </div>
+      <div>
+        <label for="id_enl">Enlace de apoyo</label>
+        <input type="text" id="id_enl" name="enlace_apoyo" placeholder="https://intranet...">
+      </div>
+    </div>
+    <div class="grid2">
+      <div>
+        <label for="id_col">Colaborador (opcional)</label>
+        <select id="id_col" name="colaborador_id">
+          <option value="">— Sin colaborador —</option>
+          {% for u in usuarios %}<option value="{{ u.id }}">{{ u.display_name }}</option>{% endfor %}
+        </select>
+      </div>
+      <div>
+        <label for="id_fec">Fecha (editable)</label>
+        <input type="date" id="id_fec" name="fecha_registro" value="{{ hoy }}">
+      </div>
+    </div>
+    <button type="submit" name="action" value="agregar" class="btn">Agregar al batch</button>
+  </form>
+
+  <h2>Batch ({{ batch|length }})</h2>
+  {% for item in batch %}
+  <form method="post" class="batch-item">
+    {% csrf_token %}
+    <span>{{ item.fecha_registro }} · {{ item.descripcion|truncatechars:60 }}</span>
+    <button type="submit" name="action" value="quitar">×</button>
+    <input type="hidden" name="idx" value="{{ forloop.counter0 }}">
+  </form>
+  {% empty %}
+  <p class="sub">Batch vacío.</p>
+  {% endfor %}
+  {% if batch %}
+  <form method="post">
+    {% csrf_token %}
+    <button type="submit" name="action" value="enviar" class="btn">Enviar batch</button>
+  </form>
+  {% endif %}
+
+  <h2>Atenciones recientes</h2>
+  {% for a in recientes %}
+  <div class="reciente">
+    <strong>{{ a.area_solicitante }}</strong> · {{ a.categoria }} · {{ a.fecha_registro }}
+    <br>{{ a.descripcion|truncatechars:80 }}
+  </div>
+  {% empty %}
+  <p class="sub">Sin recientes.</p>
+  {% endfor %}
+</div>
+<script>
+document.querySelectorAll(".plantillas button").forEach((b) => {
+  b.onclick = () => {
+    const P = {
+      con: ["Redes/Conectividad", "Sin conectividad en puerto", "Se validó enlace y switch"],
+      acc: ["Cuentas/Accesos", "Sin acceso a plataforma", "Se restableció acceso"],
+      hw: ["Hardware", "Equipo no enciende", "Se revisó fuente y conexiones"],
+      sw: ["Software", "Falla aplicación", "Se reinstaló componente"],
+    }[b.dataset.p];
+    document.querySelector("input[name=categoria][value='" + P[0] + "']").checked = true;
+    document.getElementById("id_desc").value = P[1];
+    document.getElementById("id_sol").value = P[2];
+  };
+});
+</script>
+{% endblock %}

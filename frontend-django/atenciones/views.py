@@ -1,9 +1,25 @@
+import datetime as _dt
+import json as _json
+
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
 
-from .api import ApiError, api_get, login_api
+from .api import ApiError, api_get, api_post, login_api
 from .auth import con_login
 from .forms import LoginForm
+
+CATEGORIAS = [
+    "Audio/Video",
+    "Cuentas/Accesos",
+    "Hardware",
+    "Impresión",
+    "Otros",
+    "Redes/Conectividad",
+    "Sistemas académicos",
+    "Software",
+]
+MEDIOS = ["Interno", "Presencial", "WhatsApp", "E-ticket"]
+SOLICITANTES = ["ADM", "BEC", "DOC", "EST"]
 
 
 def login_vista(request: HttpRequest) -> HttpResponse:
@@ -63,3 +79,98 @@ def lista_vista(request: HttpRequest) -> HttpResponse:
             "mes": mes,
         },
     )
+
+
+@con_login
+def nueva_vista(request: HttpRequest) -> HttpResponse:
+    token = request.session["jwt"]
+    error = ""
+    batch = request.session.get("batch", [])
+    if request.method == "POST":
+        action = request.POST.get("action")
+        if action == "agregar":
+            area_id = request.POST.get("area_id") or None
+            descripcion = request.POST.get("descripcion", "").strip()
+            solucion = request.POST.get("solucion", "").strip()
+            categoria = request.POST.get("categoria", "").strip()
+            if not area_id:
+                error = "Elige un área."
+            elif not descripcion or not solucion or not categoria:
+                error = "Faltan descripción, solución o categoría."
+            else:
+                colab = request.POST.get("colaborador_id") or None
+                batch.append(
+                    {
+                        "area_solicitante": "",
+                        "grupo_padre_id": _int_o_none(
+                            request.POST.get("grupo_padre_id")
+                        ),
+                        "grupo_id": _int_o_none(request.POST.get("grupo_id")),
+                        "area_id": int(area_id),
+                        "medio_solicitud": request.POST.get(
+                            "medio_solicitud", "Interno"
+                        ),
+                        "usuario_solicitante": request.POST.get(
+                            "usuario_solicitante", "ADM"
+                        ),
+                        "categoria": categoria,
+                        "descripcion": descripcion,
+                        "solucion": solucion,
+                        "observaciones": request.POST.get("observaciones") or None,
+                        "enlace_apoyo": request.POST.get("enlace_apoyo") or None,
+                        "colaborador_id": int(colab) if colab else None,
+                        "fecha_registro": request.POST.get("fecha_registro")
+                        or _hoy_iso(),
+                    }
+                )
+                request.session["batch"] = batch
+                return redirect("atenciones_nueva")
+        elif action == "quitar":
+            try:
+                batch.pop(int(request.POST.get("idx", "-1")))
+            except (IndexError, ValueError):
+                error = "Índice inválido."
+            request.session["batch"] = batch
+            return redirect("atenciones_nueva")
+        elif action == "enviar":
+            if not batch:
+                error = "Batch vacío."
+            else:
+                try:
+                    api_post("/api/atenciones/batch", token, {"atenciones": batch})
+                except ApiError as e:
+                    error = str(e.detail) if e.detail else "No se pudo enviar"
+                else:
+                    request.session["batch"] = []
+                    return redirect("atenciones_lista")
+    arbol = api_get("/api/jerarquia/arbol", token)
+    usuarios = api_get("/api/usuarios", token)
+    recientes = api_get("/api/atenciones", token)
+    assert isinstance(arbol, dict) and isinstance(usuarios, list)
+    assert isinstance(recientes, list)
+    return render(
+        request,
+        "atenciones/nueva.html",
+        {
+            "arbol_json": _json.dumps(arbol),
+            "usuarios": [u for u in usuarios if isinstance(u, dict)],
+            "recientes": [a for a in recientes if isinstance(a, dict)][:10],
+            "batch": batch,
+            "categorias": CATEGORIAS,
+            "medios": MEDIOS,
+            "solicitantes": SOLICITANTES,
+            "error": error,
+            "hoy": _hoy_iso(),
+        },
+    )
+
+
+def _int_o_none(valor: object) -> int | None:
+    try:
+        return int(str(valor))
+    except (TypeError, ValueError):
+        return None
+
+
+def _hoy_iso() -> str:
+    return _dt.datetime.now(_dt.timezone.utc).date().isoformat()

@@ -1,0 +1,46 @@
+<div class="ruta3">
+  <div>
+    <label for="sel-padre">Grupo Padre</label>
+    <select id="sel-padre" name="grupo_padre_id">
+      <option value="">—</option>
+    </select>
+  </div>
+  <div>
+    <label for="sel-grupo">Grupo</label>
+    <select id="sel-grupo" name="grupo_id">
+      <option value="">—</option>
+    </select>
+  </div>
+  <div>
+    <label for="sel-area">Área</label>
+    <select id="sel-area" name="area_id" required>
+      <option value="">—</option>
+    </select>
+  </div>
+</div>
+<script>
+const ARBOL = {{ arbol_json|safe }};
+const selP = document.getElementById("sel-padre");
+const selG = document.getElementById("sel-grupo");
+const selA = document.getElementById("sel-area");
+ARBOL.padres.forEach((p) => selP.add(new Option(p.nombre, p.id)));
+function gruposDe(pid) { return ARBOL.grupos.filter((g) => g.grupo_padre_id == pid); }
+function areasDe(gid, pid) {
+  return ARBOL.areas.filter(
+    (a) => (gid ? a.grupo_id == gid : a.grupo_padre_id == pid && !a.grupo_id)
+  );
+}
+selP.onchange = () => {
+  selG.length = 1; selA.length = 1;
+  gruposDe(selP.value).forEach((g) => selG.add(new Option(g.nombre, g.id)));
+  if (!selG.options.length || gruposDe(selP.value).length === 0) {
+    ARBOL.areas
+      .filter((a) => a.grupo_padre_id == selP.value && !a.grupo_id)
+      .forEach((a) => selA.add(new Option(a.nombre, a.id)));
+  }
+};
+selG.onchange = () => {
+  selA.length = 1;
+  areasDe(selG.value, selP.value).forEach((a) => selA.add(new Option(a.nombre, a.id)));
+};
+</script>

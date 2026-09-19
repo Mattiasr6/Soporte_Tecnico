@@ -50,10 +50,17 @@ def login_api(email: str, password: str) -> dict[str, object]:
 def api_get(path: str, token: str, params: dict[str, str] | None = None) -> object:
     headers = {"Authorization": f"Bearer {token}"}
     res = requests.get(
-        settings.FASTAPI_URL + path, headers=headers, params=params or {}, timeout=TIMEOUT
+        settings.FASTAPI_URL + path,
+        headers=headers,
+        params=params or {},
+        timeout=TIMEOUT,
     )
     if res.status_code in (401, 403):
         raise ApiError(res.status_code, _detalle(res))
     if res.status_code >= 400:
         raise ApiError(res.status_code, _detalle(res))
     return res.json() if res.text else None
+
+
+def api_post(path: str, token: str, body: dict[str, Any]) -> object:
+    return _request("POST", path, token=token, body=body)
