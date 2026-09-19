@@ -1,6 +1,6 @@
-/* Tokens starbucks (referencia mockup soporte-redesign-2x). Base funcional; el diseño fino llega con mockups S9. */
+/* Tokens del wireframe login aprobado (usuario) sobre base starbucks. */
 :root {
-  --color-page-bg: #f2f0eb;
+  --color-page-bg: #faf6ee;
   --color-surface: #ffffff;
   --color-text: rgba(0, 0, 0, 0.87);
   --color-text-secondary: #33433d;
@@ -10,9 +10,69 @@
   --color-accent-deep: #006241;
   --color-gold: #cba258;
   --color-border: #d6dbde;
-  --color-danger: #c82014;
+  --color-border-strong: #1e3932;
+  --color-danger: #d6311f;
   --radius-control: 5px;
   --radius-card: 12px;
 }
-body { background: var(--color-page-bg); color: var(--color-text); font-family: system-ui, sans-serif; }
-.error { color: var(--color-danger); }
+body {
+  background: var(--color-page-bg);
+  color: var(--color-text);
+  font-family: system-ui, sans-serif;
+  margin: 0;
+}
+.page {
+  max-width: 560px;
+  margin: 60px auto;
+  border: 2px solid var(--color-border-strong);
+  border-radius: var(--radius-card);
+  padding: 40px 0 60px;
+}
+.card {
+  max-width: 320px;
+  margin: 0 auto;
+  background: var(--color-surface);
+  border: 2px solid var(--color-border-strong);
+  border-radius: var(--radius-card);
+  padding: 24px 20px;
+}
+.card h1 {
+  color: var(--color-accent-deep);
+  font-size: 24px;
+  margin: 0;
+}
+.card .sub {
+  color: var(--color-house);
+  font-size: 14px;
+  margin: 4px 0 20px;
+}
+.card label {
+  display: block;
+  color: var(--color-accent);
+  font-size: 14px;
+  margin: 12px 0 4px;
+}
+.card input {
+  width: 100%;
+  box-sizing: border-box;
+  border: 2px solid var(--color-border-strong);
+  border-radius: var(--radius-control);
+  padding: 9px 10px;
+  font-size: 14px;
+}
+.card button {
+  width: 100%;
+  margin-top: 18px;
+  background: var(--color-accent-deep);
+  color: #fff;
+  border: 0;
+  border-radius: var(--radius-control);
+  padding: 11px;
+  font-size: 16px;
+  cursor: pointer;
+}
+.error {
+  color: var(--color-danger);
+  font-size: 13px;
+  margin-top: 12px;
+}
