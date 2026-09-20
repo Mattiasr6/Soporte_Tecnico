@@ -1,4 +1,4 @@
-<div data-navbar data-page="{{ nav_page|default:'' }}">
+<div data-navbar data-page="{{ nav_page|default:'' }}" data-sistema="{{ sistema|default:'SOPORTE' }}">
   <button class="nav-mobile-toggle" type="button" data-navbar-open aria-label="Abrir menú">
     <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
   </button>
@@ -21,7 +21,7 @@
       {% endif %}
     </div>
     <nav class="side-nav">
-      <div data-sistema-panel="SOPORTE">
+      <div data-sistema-panel="SOPORTE"{% if sistema == 'AUXILIARES' %} hidden{% endif %}>
       {% if can_dashboard %}
       <span class="side-link soon" title="Pronto (S10)">
         <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="8" height="8" rx="1"/><rect x="13" y="3" width="8" height="8" rx="1"/><rect x="3" y="13" width="8" height="8" rx="1"/><rect x="13" y="13" width="8" height="8" rx="1"/></svg>
@@ -63,7 +63,7 @@
       </button>
       <div class="mock-note">Sistema y notas: solo visual por ahora (S10).</div>
       </div>
-      <div class="sistema-panel" data-sistema-panel="AUXILIARES" hidden>
+      <div class="sistema-panel" data-sistema-panel="AUXILIARES"{% if sistema != 'AUXILIARES' %} hidden{% endif %}>
         <p class="soon-panel">Próximamente sidebar completo para auxiliares</p>
       </div>
     </nav>

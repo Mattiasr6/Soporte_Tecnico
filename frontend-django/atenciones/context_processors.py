@@ -16,8 +16,10 @@ def sesion(request):
     }.get(url_name or "", "")
     rol = (usuario or {}).get("role", "")
     can_dashboard = rol == "Jefe" or bool((usuario or {}).get("can_view_dashboard"))
+    sistema = "AUXILIARES" if rol == "Auxiliar" else "SOPORTE"
     return {
         "usuario": usuario,
         "nav_page": pagina,
         "can_dashboard": can_dashboard,
+        "sistema": sistema,
     }

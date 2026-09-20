@@ -86,8 +86,6 @@ function mountNavbar(root) {
   });
   if (sysBtns.length) {
     applySys(currentSys());
-  } else {
-    el.setAttribute("data-sistema", "SOPORTE");
   }
 
   var notes = el.querySelector("[data-navbar-notes]");
