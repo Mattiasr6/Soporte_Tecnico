@@ -233,6 +233,43 @@ def test_stats_filtro_sin_resultados(filas_prueba):
     assert s["por_categoria"] == []
     assert s["por_medio"] == []
     assert s["por_categoria_mes"] == []
+    assert s["por_dia"] == []
+    assert s["por_padre"] == []
+    assert s["por_grupo"] == []
+    assert s["flujo_sankey"] == []
+    assert s["por_tecnico_fuera"] == []
+
+
+def test_stats_agregados_nuevos(filas_prueba):
+    s = client.get("/api/atenciones/stats", headers=h(UID_JEFE)).json()
+    assert len(s["por_padre"]) > 0
+    assert 0 < sum(p["total"] for p in s["por_padre"]) <= s["total"]
+    assert all(p["total"] > 0 for p in s["por_grupo"])
+    assert all(a["nombre"] for a in s["por_area_id"])
+
+    assert len(s["por_dia"]) > 0
+    assert all(set(d) == {"fecha", "total"} for d in s["por_dia"])
+    assert sum(d["total"] for d in s["por_dia"]) == s["total"]
+
+    assert len(s["flujo_sankey"]) > 0
+    assert all(
+        set(f) == {"medio", "categoria", "grupo_padre", "total"}
+        for f in s["flujo_sankey"]
+    )
+    assert all(f["grupo_padre"] for f in s["flujo_sankey"])
+
+    assert len(s["por_tecnico_fuera"]) > 0
+    assert all(
+        set(t) == {"usuario_id", "display_name", "total", "fuera"}
+        for t in s["por_tecnico_fuera"]
+    )
+    assert all(t["fuera"] <= t["total"] for t in s["por_tecnico_fuera"])
+
+    assert len(s["por_tecnico_categoria"]) > 0
+    assert all(
+        set(t) == {"usuario_id", "display_name", "categoria", "total"}
+        for t in s["por_tecnico_categoria"]
+    )
 
 
 def test_stats_delta(filas_prueba):
@@ -246,6 +283,13 @@ def test_stats_delta(filas_prueba):
         "por_area",
         "por_medio",
         "por_categoria_mes",
+        "por_padre",
+        "por_grupo",
+        "por_area_id",
+        "por_dia",
+        "flujo_sankey",
+        "por_tecnico_fuera",
+        "por_tecnico_categoria",
         "asistencias",
     }
     assert antes["total"] >= 2

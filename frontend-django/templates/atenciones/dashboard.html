@@ -5,30 +5,12 @@
   <div class="page-head">
     <div>
       <h1>Dashboard</h1>
-      <p class="sub">Vista general del área de soporte</p>
+      <p class="sub">Elige un nivel en las barras: todo el tablero se recalcula</p>
     </div>
-    <a class="btn" href="{% url 'dashboard' %}">Actualizar</a>
+    <a class="btn" href="{% url 'dashboard' %}">Reiniciar</a>
   </div>
 
-  <form method="get" class="filtros filtros-dash">
-    <div class="ruta3" id="ruta3-dash" data-ruta3
-         data-padre="{{ filtros.grupo_padre_id }}"
-         data-grupo="{{ filtros.grupo_id }}"
-         data-area="{{ filtros.area_id }}">
-      <script type="application/json" class="arbol-data">{{ arbol_json|safe }}</script>
-      <div>
-        <label for="f_padre">Grupo Padre</label>
-        <select id="f_padre" data-rol="padre" name="grupo_padre_id"><option value="">Todos</option></select>
-      </div>
-      <div>
-        <label for="f_grupo">Grupo</label>
-        <select id="f_grupo" data-rol="grupo" name="grupo_id"><option value="">Todos</option></select>
-      </div>
-      <div>
-        <label for="f_area">Área</label>
-        <select id="f_area" data-rol="area" name="area_id"><option value="">Todas</option></select>
-      </div>
-    </div>
+  <form method="get" class="filtros filtros-dash" id="form-filtros">
     <div class="filtros-fila">
       <div>
         <label for="f_desde">Desde</label>
@@ -39,37 +21,46 @@
         <input type="month" id="f_hasta" name="hasta" value="{{ filtros.hasta|default:'' }}">
       </div>
       <button type="submit" class="btn">Aplicar</button>
-      <a class="btn ghost" href="{% url 'dashboard' %}">Limpiar</a>
     </div>
   </form>
 
-  <div class="kpis">
-    <div class="kpi"><span>Total de casos</span><b>{{ charts.total }}</b></div>
-    <div class="kpi"><span>Fuera de turno</span><b>{{ charts.fuera_de_turno }}</b></div>
-    <div class="kpi"><span>Técnicos activos</span><b>{{ conteo.disponible }} / {{ tecnicos|length }}</b></div>
-    <div class="kpi"><span>Área top</span><b>{{ top_areas.0.area|default:"—" }}</b></div>
+  <div class="chips" id="chips"></div>
+
+  <div class="dash-top">
+    <section class="bloque">
+      <header><h2>Filtro jerárquico</h2><small id="drill-nivel">Nivel: Grupo Padre</small></header>
+      <div class="chart chart-drill" id="chart-drill"></div>
+    </section>
+    <section class="bloque">
+      <header><h2>Ficha del scope</h2><small id="ficha-ruta">sin filtro (todo)</small></header>
+      <div class="ficha" id="ficha"></div>
+    </section>
   </div>
 
-  <section class="bloque" data-estados-url="{% url 'panel_estados' %}">
-    <header><h2>Presencia en vivo</h2><small>actualiza cada 20s</small></header>
-    <div class="presencia" id="presencia-conteo">
-      <div class="p-chip" data-estado="disponible"><span>Disponible</span><b>{{ conteo.disponible }}</b></div>
-      <div class="p-chip" data-estado="ocupado"><span>Ocupado</span><b>{{ conteo.ocupado }}</b></div>
-      <div class="p-chip" data-estado="extraturno"><span>Fuera de turno</span><b>{{ conteo.extraturno }}</b></div>
-      <div class="p-chip" data-estado="ausente"><span>Ausente</span><b>{{ conteo.ausente }}</b></div>
-    </div>
-    <div class="tecnicos" id="presencia-lista">
-      {% for t in tecnicos %}
-      <div class="t-card">
-        <div><strong>{{ t.nombre }}</strong><small>{{ t.rol }}</small></div>
-        <span class="estado estado-{{ t.estado }}">{{ t.estado }}</span>
-      </div>
-      {% endfor %}
-    </div>
+  <section class="bloque">
+    <header><h2>Casos por día</h2><small>densidad diaria, estilo calendario</small></header>
+    <div class="chart chart-cal" id="chart-calendario"></div>
   </section>
 
   <section class="bloque">
-    <header><h2>Casos por categoría</h2><small>según filtros</small></header>
+    <header><h2>Flujo: medio → categoría → grupo padre</h2><small>de dónde llega el trabajo y cómo se clasifica</small></header>
+    <div class="chart chart-sankey" id="chart-sankey"></div>
+  </section>
+
+  <div class="dos-col">
+    <section class="bloque">
+      <header><h2>Carga vs fuera de turno</h2><small>cada punto es un técnico</small></header>
+      <div class="chart" id="chart-scatter"></div>
+    </section>
+    <section class="bloque">
+      <header><h2>Perfil por técnico</h2>
+        <small><select id="radar-tec" class="mini-select"></select></small></header>
+      <div class="chart" id="chart-radar"></div>
+    </section>
+  </div>
+
+  <section class="bloque">
+    <header><h2>Casos por categoría</h2><small>según el scope elegido</small></header>
     <div class="chart" id="chart-categoria"></div>
   </section>
 
@@ -101,29 +92,36 @@
     </section>
     <section class="bloque">
       <header><h2>Top 10 áreas solicitantes</h2></header>
-      <table class="tabla tabla-compacta">
-        <thead><tr><th>#</th><th>Área</th><th>Casos</th></tr></thead>
-        <tbody>
-          {% for a in top_areas %}
-          <tr><td>{{ forloop.counter }}</td><td>{{ a.area }}</td><td>{{ a.total }}</td></tr>
-          {% empty %}
-          <tr><td colspan="3">Sin datos.</td></tr>
-          {% endfor %}
-        </tbody>
-      </table>
-      <h3 class="mini-titulo">Medio de solicitud</h3>
-      <table class="tabla tabla-compacta">
-        <tbody>
-          {% for m in por_medio %}
-          <tr><td>{{ m.medio }}</td><td>{{ m.total }}</td></tr>
-          {% endfor %}
-        </tbody>
-      </table>
+      <div class="ficha" id="top-areas"></div>
     </section>
   </div>
+
+  <section class="bloque">
+    <header><h2>Presencia en vivo</h2><small>actualiza cada 20s</small></header>
+    <div class="presencia" id="presencia-conteo">
+      <div class="p-chip" data-estado="disponible"><span>Disponible</span><b>{{ conteo.disponible }}</b></div>
+      <div class="p-chip" data-estado="ocupado"><span>Ocupado</span><b>{{ conteo.ocupado }}</b></div>
+      <div class="p-chip" data-estado="extraturno"><span>Fuera de turno</span><b>{{ conteo.extraturno }}</b></div>
+      <div class="p-chip" data-estado="ausente"><span>Ausente</span><b>{{ conteo.ausente }}</b></div>
+    </div>
+    <div class="tecnicos" id="presencia-lista">
+      {% for t in tecnicos %}
+      <div class="t-card">
+        <div><strong>{{ t.nombre }}</strong><small>{{ t.rol }}</small></div>
+        <span class="estado estado-{{ t.estado }}">{{ t.estado }}</span>
+      </div>
+      {% endfor %}
+    </div>
+  </section>
 </div>
 
-{{ charts|json_script:"charts-data" }}
+{{ payload|json_script:"payload" }}
+<script type="application/json" class="arbol-data" id="arbol-data">{{ arbol_json|safe }}</script>
+<div id="dash-config" hidden
+     data-estados-url="{% url 'panel_estados' %}"
+     data-stats-url="{% url 'panel_stats' %}"
+     data-desde="{{ filtros.desde|default:'' }}"
+     data-hasta="{{ filtros.hasta|default:'' }}"></div>
 {% endblock %}
 {% block scripts %}
 <script src="/static/js/vendor/echarts.min.js?v={{ asset_version }}"></script>

@@ -647,10 +647,126 @@ body {
   color: var(--color-accent);
   margin: 14px 0 6px;
 }
+.dash-top {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+  gap: 18px;
+}
+#chart-drill {
+  height: 420px;
+}
+.chart-cal {
+  height: 220px;
+}
+.chart-sankey {
+  height: 460px;
+}
+#chart-scatter,
+#chart-radar {
+  height: 340px;
+}
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 4px 0 16px;
+  min-height: 30px;
+}
+.chips .chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px 5px 12px;
+  border-radius: 999px;
+  background: var(--color-house);
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 600;
+}
+.chips .chip.vacio {
+  background: transparent;
+  color: var(--color-muted);
+  font-weight: 400;
+  padding-left: 0;
+}
+.chips .chip button {
+  border: 0;
+  background: rgba(255, 255, 255, 0.22);
+  color: inherit;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 1;
+}
+.chips .chip button:hover {
+  background: rgba(255, 255, 255, 0.4);
+}
+.chips .clear {
+  border: 1px solid var(--color-border);
+  background: transparent;
+  color: var(--color-accent);
+  border-radius: 999px;
+  padding: 5px 12px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.chips .clear:hover {
+  border-color: var(--color-accent);
+}
+.ficha {
+  display: flex;
+  flex-direction: column;
+}
+.ficha-fila {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  padding: 9px 2px;
+  border-bottom: 1px dashed var(--color-border);
+  font-size: 13px;
+}
+.ficha-fila:last-child {
+  border-bottom: 0;
+}
+.ficha-fila span {
+  color: var(--color-muted);
+}
+.ficha-fila b {
+  color: var(--color-house);
+  font-size: 14px;
+  text-align: right;
+}
+.sin-datos {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  min-height: 120px;
+  margin: 0;
+  color: var(--color-muted);
+  font-size: 13px;
+}
+.mini-select {
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  padding: 3px 6px;
+  font-size: 12px;
+  background: #ffffff;
+  color: var(--color-text);
+  max-width: 180px;
+}
 @media (max-width: 900px) {
   .kpis,
   .presencia,
-  .dos-col {
+  .dos-col,
+  .dash-top {
     grid-template-columns: 1fr;
+  }
+  #chart-drill {
+    height: 340px;
   }
 }

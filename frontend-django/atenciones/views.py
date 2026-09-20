@@ -423,9 +423,78 @@ def _graficos(stats: dict[str, object]) -> dict[str, object]:
     asistencias = list(stats.get("asistencias") or [])
     por_mes = list(stats.get("por_mes") or [])
 
+    por_dia = list(stats.get("por_dia") or [])
+    calendario = {
+        "inicio": por_dia[0]["fecha"] if por_dia else None,
+        "fin": por_dia[-1]["fecha"] if por_dia else None,
+        "datos": [[d["fecha"], d["total"]] for d in por_dia],
+        "max": max((int(d["total"]) for d in por_dia), default=0),
+    }
+
+    flujo = list(stats.get("flujo_sankey") or [])
+    enlaces: dict[tuple[str, str], int] = {}
+    for fl in flujo:
+        for origen, destino in (
+            (fl["medio"], fl["categoria"]),
+            (fl["categoria"], fl["grupo_padre"]),
+        ):
+            clave = (str(origen), str(destino))
+            enlaces[clave] = enlaces.get(clave, 0) + int(fl["total"])
+    sankey = {
+        "nodos": [{"name": n} for n in {k for par in enlaces for k in par}],
+        "links": [
+            {"source": o, "target": d, "value": v} for (o, d), v in enlaces.items()
+        ],
+    }
+
+    tfs = list(stats.get("por_tecnico_fuera") or [])
+    scatter = {
+        "datos": [
+            [
+                int(t["total"]),
+                int(t["fuera"]),
+                str(t["display_name"]),
+                round(int(t["fuera"]) * 100 / int(t["total"]), 1)
+                if t["total"]
+                else 0.0,
+            ]
+            for t in tfs
+        ]
+    }
+
+    tcat = list(stats.get("por_tecnico_categoria") or [])
+    ejes = [c["categoria"] for c in por_categoria]
+    acumulado_tec: dict[tuple[int, str], dict[str, int]] = {}
+    for t in tcat:
+        clave_tec = (int(t["usuario_id"]), str(t["display_name"]))
+        acumulado_tec.setdefault(clave_tec, {})[str(t["categoria"])] = int(t["total"])
+    radar = {
+        "ejes": ejes,
+        "tecnicos": [
+            {
+                "id": k[0],
+                "nombre": k[1],
+                "valores": [v.get(c, 0) for c in ejes],
+                "total": sum(v.values()),
+            }
+            for k, v in sorted(
+                acumulado_tec.items(), key=lambda kv: -sum(kv[1].values())
+            )
+        ],
+    }
+
     return {
         "total": total,
         "fuera_de_turno": stats.get("fuera_de_turno", 0),
+        "arbol_conteos": {
+            "padres": stats.get("por_padre") or [],
+            "grupos": stats.get("por_grupo") or [],
+            "areas": stats.get("por_area_id") or [],
+        },
+        "calendario": calendario,
+        "sankey": sankey,
+        "scatter": scatter,
+        "radar": radar,
         "categoria": {
             "labels": [c["categoria"] for c in por_categoria],
             "values": [c["total"] for c in por_categoria],
@@ -453,7 +522,88 @@ def _graficos(stats: dict[str, object]) -> dict[str, object]:
             "labels": [_mes_etiqueta(int(m["anio"]), int(m["mes"])) for m in por_mes],
             "values": [m["total"] for m in por_mes],
         },
+        "top_areas": list(stats.get("por_area") or [])[:10],
     }
+
+
+def _ficha(
+    stats: dict[str, object], scope: dict[str, str], padre: dict[str, object] | None
+) -> dict[str, object]:
+    total = int(stats.get("total") or 0)
+    fuera = int(stats.get("fuera_de_turno") or 0)
+    meses = [m for m in (stats.get("por_mes") or []) if int(m["total"]) > 0]
+    pico = max(meses, key=lambda m: int(m["total"]), default=None)
+    valle = min(meses, key=lambda m: int(m["total"]), default=None)
+    cats = sorted((stats.get("por_categoria") or []), key=lambda c: -int(c["total"]))
+    top3 = sum(int(c["total"]) for c in cats[:3])
+    fuera_pct = round(fuera * 100 / total, 1) if total else 0.0
+    pct_padre = None
+    delta_padre = None
+    if padre is not None:
+        ptotal = int(padre.get("total") or 0)
+        if ptotal:
+            pct_padre = round(total * 100 / ptotal, 1)
+            pfuera = int(padre.get("fuera_de_turno") or 0)
+            delta_padre = round(fuera_pct - (pfuera * 100 / ptotal), 1)
+    return {
+        "casos": total,
+        "fuera": fuera,
+        "fuera_pct": fuera_pct,
+        "promedio_mes": round(total / len(meses), 1) if meses else 0,
+        "meses_activos": len(meses),
+        "pico": f"{pico['anio']}-{int(pico['mes']):02d}" if pico else None,
+        "pico_total": int(pico["total"]) if pico else 0,
+        "valle": f"{valle['anio']}-{int(valle['mes']):02d}" if valle else None,
+        "valle_total": int(valle["total"]) if valle else 0,
+        "dominante": cats[0]["categoria"] if cats else None,
+        "dominante_pct": round(int(cats[0]["total"]) * 100 / total, 1)
+        if cats and total
+        else 0.0,
+        "top3_pct": round(top3 * 100 / total, 1) if total else 0.0,
+        "pct_padre": pct_padre,
+        "delta_padre": delta_padre,
+        "scope": scope,
+    }
+
+
+def _padre_de(stats: dict[str, object]) -> dict[str, int] | None:
+    padres = stats.get("por_padre") or []
+    if len(padres) == 1:
+        return {"total": int(padres[0]["total"])}
+    return None
+
+
+def _payload(request: HttpRequest, token: str) -> dict[str, object]:
+    params = _params_stats(request)
+    stats = api_get("/api/atenciones/stats", token, params)
+    assert isinstance(stats, dict)
+    padre_stats: dict[str, int] | None = None
+    if params.get("grupo_id") or params.get("area_id"):
+        params_padre = {
+            k: v for k, v in params.items() if k not in ("grupo_id", "area_id")
+        }
+        p = api_get("/api/atenciones/stats", token, params_padre)
+        if isinstance(p, dict):
+            padre_stats = {
+                "total": p.get("total", 0),
+                "fuera_de_turno": p.get("fuera_de_turno", 0),
+            }
+    scope = {
+        "grupo_padre_id": params.get("grupo_padre_id", ""),
+        "grupo_id": params.get("grupo_id", ""),
+        "area_id": params.get("area_id", ""),
+    }
+    return {
+        "charts": _graficos(stats),
+        "ficha": _ficha(stats, scope, padre_stats),
+    }
+
+
+@con_login
+def panel_stats_vista(request: HttpRequest) -> JsonResponse:
+    if not _puede_dashboard(request):
+        return JsonResponse({"error": "sin permiso"}, status=403)
+    return JsonResponse(_payload(request, str(request.session["jwt"])))
 
 
 @con_login
@@ -461,26 +611,20 @@ def dashboard_vista(request: HttpRequest) -> HttpResponse:
     if not _puede_dashboard(request):
         return redirect("atenciones_lista")
     _marcar_sesion(request, True)
-    token = request.session["jwt"]
-    params = _params_stats(request)
-    stats = api_get("/api/atenciones/stats", token, params)
-    assert isinstance(stats, dict)
+    token = str(request.session["jwt"])
     usuarios = api_get("/api/usuarios", token)
     arbol = api_get("/api/jerarquia/arbol", token)
     assert isinstance(usuarios, list) and isinstance(arbol, dict)
     conteo, tecnicos = _presencia(usuarios)
-    top_areas = list(stats.get("por_area") or [])[:10]
-    graficos = _graficos(stats)
+    datos = _payload(request, token)
     return render(
         request,
         "atenciones/dashboard.html",
         {
-            "charts": graficos,
+            "payload": datos,
             "arbol_json": _json.dumps(arbol),
             "conteo": conteo,
             "tecnicos": tecnicos,
-            "top_areas": top_areas,
-            "por_medio": stats.get("por_medio") or [],
             "filtros": request.GET,
         },
     )

@@ -25,5 +25,6 @@ urlpatterns = [
     ),
     path("dashboard/", views.dashboard_vista, name="dashboard"),
     path("panel/estados/", views.panel_estados_vista, name="panel_estados"),
+    path("panel/stats/", views.panel_stats_vista, name="panel_stats"),
     path("auxiliares/", views.auxiliares_vista, name="auxiliares"),
 ]

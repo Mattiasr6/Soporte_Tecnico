@@ -324,13 +324,16 @@ class VistasTest(TestCase):
     @patch("atenciones.views.api_get")
     def test_dashboard_jefe(self, mock_get):
         self._como(JEFE)
-        mock_get.side_effect = [STATS, USUARIOS, ARBOL]
+        mock_get.side_effect = [USUARIOS, ARBOL, STATS]
         r = self.client.get("/dashboard/")
         self.assertEqual(r.status_code, 200)
         self.assertContains(r, "Casos por categoría")
         self.assertContains(r, "Presencia en vivo")
-        self.assertContains(r, "charts-data")
+        self.assertContains(r, "Casos por día")
+        self.assertContains(r, "Ficha del scope")
         self.assertContains(r, "Top 10 áreas")
+        self.assertIn("ficha", r.context["payload"])
+        self.assertEqual(r.context["payload"]["ficha"]["casos"], STATS["total"])
 
     def test_dashboard_tecnico_redirige(self):
         self.assertRedirects(
@@ -342,17 +345,41 @@ class VistasTest(TestCase):
     @patch("atenciones.views.api_get")
     def test_dashboard_pasa_filtros(self, mock_get):
         self._como(JEFE)
-        mock_get.side_effect = [STATS, USUARIOS, ARBOL]
+        mock_get.side_effect = [USUARIOS, ARBOL, STATS, STATS]
         r = self.client.get(
             "/dashboard/?grupo_padre_id=1&desde=2026-01&hasta=2026-09&area_id=28"
         )
         self.assertEqual(r.status_code, 200)
-        params = mock_get.call_args_list[0][0][2]
+        llamadas = [
+            c for c in mock_get.call_args_list if c[0][0] == "/api/atenciones/stats"
+        ]
+        self.assertEqual(len(llamadas), 2, "scope + padre para el delta")
+        params = llamadas[0][0][2]
         self.assertEqual(params["grupo_padre_id"], "1")
         self.assertEqual(params["area_id"], "28")
         self.assertEqual(params["desde_anio"], "2026")
         self.assertEqual(params["desde_mes"], "01")
         self.assertEqual(params["hasta_mes"], "09")
+        self.assertNotIn("area_id", llamadas[1][0][2])
+        self.assertEqual(r.context["payload"]["ficha"]["pct_padre"], 100.0)
+
+    @patch("atenciones.views.api_get")
+    def test_panel_stats_json(self, mock_get):
+        self._como(JEFE)
+        mock_get.side_effect = [STATS, STATS]
+        r = self.client.get("/panel/stats/?area_id=28")
+        self.assertEqual(r.status_code, 200)
+        d = r.json()
+        self.assertEqual(set(d), {"charts", "ficha"})
+        self.assertIn("calendario", d["charts"])
+        self.assertIn("sankey", d["charts"])
+        self.assertIn("scatter", d["charts"])
+        self.assertIn("radar", d["charts"])
+        self.assertEqual(d["ficha"]["casos"], STATS["total"])
+        self.assertEqual(
+            d["ficha"]["fuera_pct"],
+            round(STATS["fuera_de_turno"] * 100 / STATS["total"], 1),
+        )
 
     @patch("atenciones.views.api_get")
     def test_panel_estados_json(self, mock_get):

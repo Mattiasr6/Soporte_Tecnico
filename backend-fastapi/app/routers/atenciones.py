@@ -5,7 +5,7 @@ from datetime import UTC, date, datetime
 from typing import Annotated, Any
 
 from fastapi import APIRouter, File, HTTPException, UploadFile
-from sqlalchemy import extract, func, select
+from sqlalchemy import case, extract, func, select
 
 from app.core.errors import bad_request, forbidden, not_found, unauthorized
 from app.core.security import CurrentUser, is_privileged
@@ -23,12 +23,17 @@ from app.schemas.atencion import (
     AtencionOut,
     AtencionUpdate,
     CategoriaMes,
+    DiaTotal,
+    FlujoSankey,
+    NodoConteo,
     PorArea,
     PorCategoria,
     PorMedio,
     PorMes,
     PorTecnico,
     StatsOut,
+    TecnicoCategoria,
+    TecnicoFuera,
 )
 from app.services.categorias import CATEGORIAS_VALIDAS, normalizar_categoria
 from app.services.csv_import import parse_csv
@@ -318,6 +323,97 @@ def get_stats(
             )
         ).all()
     ]
+    por_padre = [
+        NodoConteo(id=r[0], nombre=r[1], total=r[2])
+        for r in db.execute(
+            select(GrupoPadre.id, GrupoPadre.nombre, func.count())
+            .join(Atencion, Atencion.grupo_padre_id == GrupoPadre.id)
+            .where(*f)
+            .group_by(GrupoPadre.id, GrupoPadre.nombre)
+        ).all()
+    ]
+    por_grupo = [
+        NodoConteo(id=r[0], nombre=r[1], padre_id=r[2], total=r[3])
+        for r in db.execute(
+            select(Grupo.id, Grupo.nombre, Grupo.grupo_padre_id, func.count())
+            .join(Atencion, Atencion.grupo_id == Grupo.id)
+            .where(*f)
+            .group_by(Grupo.id, Grupo.nombre, Grupo.grupo_padre_id)
+        ).all()
+    ]
+    por_area_id = [
+        NodoConteo(id=r[0], nombre=r[1], padre_id=r[2], grupo_id=r[3], total=r[4])
+        for r in db.execute(
+            select(
+                Area.id, Area.nombre, Area.grupo_padre_id, Area.grupo_id, func.count()
+            )
+            .join(Atencion, Atencion.area_id == Area.id)
+            .where(*f)
+            .group_by(Area.id, Area.nombre, Area.grupo_padre_id, Area.grupo_id)
+        ).all()
+    ]
+    por_dia = [
+        DiaTotal(fecha=r[0], total=r[1])
+        for r in db.execute(
+            select(Atencion.fecha_registro, func.count())
+            .where(*f)
+            .group_by(Atencion.fecha_registro)
+            .order_by(Atencion.fecha_registro)
+        ).all()
+    ]
+    flujo_sankey = [
+        FlujoSankey(medio=r[0], categoria=r[1], grupo_padre=r[2], total=r[3])
+        for r in db.execute(
+            select(
+                Atencion.medio_solicitud,
+                Atencion.categoria,
+                GrupoPadre.nombre,
+                func.count(),
+            )
+            .join(GrupoPadre, GrupoPadre.id == Atencion.grupo_padre_id)
+            .where(*f)
+            .group_by(Atencion.medio_solicitud, Atencion.categoria, GrupoPadre.nombre)
+        ).all()
+    ]
+    tecnico_cat_rows = db.execute(
+        select(Atencion.usuario_id, Atencion.categoria, func.count())
+        .where(*f)
+        .group_by(Atencion.usuario_id, Atencion.categoria)
+    ).all()
+    tecnico_fuera_rows = db.execute(
+        select(
+            Atencion.usuario_id,
+            func.count(),
+            func.sum(case((Atencion.fuera_de_turno.is_(True), 1), else_=0)),
+        )
+        .where(*f)
+        .group_by(Atencion.usuario_id)
+    ).all()
+    ids_tec = {r[0] for r in tecnico_cat_rows} | {r[0] for r in tecnico_fuera_rows}
+    nombres_tec = {
+        u.id: u.display_name
+        for u in db.scalars(
+            select(Usuario).where(Usuario.id.in_(ids_tec or {-1}))
+        ).all()
+    }
+    por_tecnico_fuera = [
+        TecnicoFuera(
+            usuario_id=r[0],
+            display_name=nombres_tec.get(r[0], ""),
+            total=r[1],
+            fuera=int(r[2] or 0),
+        )
+        for r in tecnico_fuera_rows
+    ]
+    por_tecnico_categoria = [
+        TecnicoCategoria(
+            usuario_id=r[0],
+            display_name=nombres_tec.get(r[0], ""),
+            categoria=r[1],
+            total=r[2],
+        )
+        for r in tecnico_cat_rows
+    ]
     f_asis = _filtros(
         None,
         desde_dia,
@@ -358,6 +454,13 @@ def get_stats(
         por_area=por_area,
         por_medio=por_medio,
         por_categoria_mes=por_categoria_mes,
+        por_padre=por_padre,
+        por_grupo=por_grupo,
+        por_area_id=por_area_id,
+        por_dia=por_dia,
+        flujo_sankey=flujo_sankey,
+        por_tecnico_fuera=por_tecnico_fuera,
+        por_tecnico_categoria=por_tecnico_categoria,
         asistencias=asistencias,
     )
 
