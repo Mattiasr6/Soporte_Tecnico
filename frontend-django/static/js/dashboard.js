@@ -190,6 +190,34 @@
     });
   }
 
+  /* ---------------- donas (composicion) ---------------- */
+  function pintarDonut(id, d) {
+    if (!d || !d.labels.length) return vacio(id);
+    var colores = [VERDE, VERDE2, DORADO, "#3f7d7a", "#6d9b89", "#b1d0ce"];
+    montar(id, {
+      tooltip: { trigger: "item",
+                 formatter: function (p) {
+                   return p.name + ": <b>" + num(p.value) + "</b> (" + num(p.percent) + "%)";
+                 } },
+      legend: { bottom: 0, icon: "circle", itemWidth: 9, itemHeight: 9,
+                textStyle: { color: TEXTO, fontSize: 11 },
+                formatter: function (nombre) {
+                  return nombre + "  " + num(d.values[d.labels.indexOf(nombre)]);
+                } },
+      series: [{
+        type: "pie", radius: ["46%", "68%"], center: ["50%", "45%"],
+        avoidLabelOverlap: true,
+        labelLayout: { hideOverlap: true },
+        itemStyle: { borderColor: "#ffffff", borderWidth: 2 },
+        label: { show: true, color: TEXTO, fontSize: 11,
+                 formatter: function (p) { return num(p.percent) + "%"; } },
+        data: d.labels.map(function (l, i) {
+          return { name: l, value: d.values[i], itemStyle: { color: colores[i % colores.length] } };
+        }),
+      }],
+    });
+  }
+
   /* ---------------- scatter ---------------- */
   function pintarScatter(sc) {
     if (!sc.datos || !sc.datos.length) return vacio("chart-scatter");
@@ -266,21 +294,8 @@
       vacio("chart-evolucion");
     }
 
-    if (c.pareto.labels.length) {
-      var op = base();
-      op.tooltip = { trigger: "axis", axisPointer: { type: "shadow" } };
-      op.xAxis = { type: "category", data: c.pareto.labels, axisLabel: { rotate: 30, color: TEXTO, fontSize: 10 } };
-      op.yAxis = [{ type: "value", name: "casos" },
-                  { type: "value", name: "% acum.", max: 100, axisLabel: { formatter: "{value}%" } }];
-      op.series = [
-        { type: "bar", name: "casos", data: c.pareto.values, itemStyle: { color: VERDE, borderRadius: [3, 3, 0, 0] } },
-        { type: "line", name: "% acumulado", yAxisIndex: 1, data: c.pareto.acumulado, smooth: true,
-          lineStyle: { color: DORADO, width: 3 }, itemStyle: { color: DORADO } },
-      ];
-      montar("chart-pareto", op);
-    } else {
-      vacio("chart-pareto");
-    }
+    pintarDonut("chart-medio", c.medio);
+    pintarDonut("chart-tipo-solicitante", c.tipo_solicitante);
 
     if (c.categoria_mes.celdas.length) {
       var oh = base();

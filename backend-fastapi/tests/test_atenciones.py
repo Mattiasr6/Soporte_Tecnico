@@ -234,6 +234,7 @@ def test_stats_filtro_sin_resultados(filas_prueba):
     assert s["por_medio"] == []
     assert s["por_categoria_mes"] == []
     assert s["por_dia"] == []
+    assert s["por_tipo_solicitante"] == []
     assert s["por_padre"] == []
     assert s["por_grupo"] == []
     assert s["flujo_sankey"] == []
@@ -242,6 +243,9 @@ def test_stats_filtro_sin_resultados(filas_prueba):
 
 def test_stats_agregados_nuevos(filas_prueba):
     s = client.get("/api/atenciones/stats", headers=h(UID_JEFE)).json()
+    assert len(s["por_tipo_solicitante"]) > 0
+    assert all(set(t) == {"tipo", "total"} for t in s["por_tipo_solicitante"])
+
     assert len(s["por_padre"]) > 0
     assert 0 < sum(p["total"] for p in s["por_padre"]) <= s["total"]
     assert all(p["total"] > 0 for p in s["por_grupo"])
@@ -283,6 +287,7 @@ def test_stats_delta(filas_prueba):
         "por_area",
         "por_medio",
         "por_categoria_mes",
+        "por_tipo_solicitante",
         "por_padre",
         "por_grupo",
         "por_area_id",

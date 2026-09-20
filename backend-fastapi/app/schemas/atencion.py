@@ -97,6 +97,11 @@ class PorMedio(BaseModel):
     total: int
 
 
+class TipoSolicitante(BaseModel):
+    tipo: str
+    total: int
+
+
 class CategoriaMes(BaseModel):
     categoria: str
     anio: int
@@ -146,6 +151,7 @@ class StatsOut(BaseModel):
     por_mes: list[PorMes]
     por_area: list[PorArea]
     por_medio: list[PorMedio]
+    por_tipo_solicitante: list[TipoSolicitante]
     por_categoria_mes: list[CategoriaMes]
     por_padre: list[NodoConteo]
     por_grupo: list[NodoConteo]

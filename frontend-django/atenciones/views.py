@@ -532,6 +532,14 @@ def _graficos(stats: dict[str, object]) -> dict[str, object]:
             "labels": [_mes_etiqueta(int(m["anio"]), int(m["mes"])) for m in por_mes],
             "values": [m["total"] for m in por_mes],
         },
+        "medio": {
+            "labels": [m["medio"] for m in (stats.get("por_medio") or [])],
+            "values": [m["total"] for m in (stats.get("por_medio") or [])],
+        },
+        "tipo_solicitante": {
+            "labels": [t["tipo"] for t in (stats.get("por_tipo_solicitante") or [])],
+            "values": [t["total"] for t in (stats.get("por_tipo_solicitante") or [])],
+        },
         "top_areas": list(stats.get("por_area") or [])[:10],
     }
 

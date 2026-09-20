@@ -34,6 +34,7 @@ from app.schemas.atencion import (
     StatsOut,
     TecnicoCategoria,
     TecnicoFuera,
+    TipoSolicitante,
 )
 from app.services.categorias import CATEGORIAS_VALIDAS, normalizar_categoria
 from app.services.csv_import import parse_csv
@@ -306,6 +307,15 @@ def get_stats(
             .order_by(func.count().desc())
         ).all()
     ]
+    por_tipo_solicitante = [
+        TipoSolicitante(tipo=r[0], total=r[1])
+        for r in db.execute(
+            select(Atencion.usuario_solicitante, func.count())
+            .where(*f)
+            .group_by(Atencion.usuario_solicitante)
+            .order_by(func.count().desc())
+        ).all()
+    ]
     por_categoria_mes = [
         CategoriaMes(categoria=r[0], anio=int(r[1]), mes=int(r[2]), total=r[3])
         for r in db.execute(
@@ -453,6 +463,7 @@ def get_stats(
         por_mes=por_mes,
         por_area=por_area,
         por_medio=por_medio,
+        por_tipo_solicitante=por_tipo_solicitante,
         por_categoria_mes=por_categoria_mes,
         por_padre=por_padre,
         por_grupo=por_grupo,
