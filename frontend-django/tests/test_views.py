@@ -147,7 +147,12 @@ class VistasTest(TestCase):
     def test_jefe_entra_a_auxiliares(self, mock_get):
         self._como(JEFE)
         mock_get.return_value = []
-        self.assertEqual(self.client.get("/auxiliares/").status_code, 200)
+        r = self.client.get("/auxiliares/")
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, 'data-sistema="AUXILIARES"')
+        self.assertContains(r, "data-system-view")
+        self.assertContains(r, 'data-url-auxiliares="/auxiliares/"')
+        self.assertContains(r, 'data-sistema-panel="SOPORTE" hidden')
 
     def test_inicio_rutea_por_rol(self):
         self.assertRedirects(

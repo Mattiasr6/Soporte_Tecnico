@@ -7,7 +7,6 @@ function mountNavbar(root) {
   var aside = el.querySelector("[data-navbar-sidebar]");
   var collapse = el.querySelector("[data-navbar-collapse]");
   var KEY = "st_sidebar_collapsed";
-  var SYS = "st_system_view";
 
   function setCollapsed(v) {
     document.body.classList.toggle("nav-collapsed", v);
@@ -57,13 +56,8 @@ function mountNavbar(root) {
   if (mq.addEventListener) mq.addEventListener("change", onMq);
 
   var sysBtns = Array.prototype.slice.call(el.querySelectorAll("[data-system-view]"));
-  function currentSys() {
-    try {
-      return localStorage.getItem(SYS) || "SOPORTE";
-    } catch (e) {
-      return "SOPORTE";
-    }
-  }
+  var sistemaServidor = el.getAttribute("data-sistema") || "SOPORTE";
+
   function applySys(s) {
     sysBtns.forEach(function (b) {
       b.setAttribute("aria-selected", String(b.getAttribute("data-system-view") === s));
@@ -72,21 +66,27 @@ function mountNavbar(root) {
       p.hidden = p.getAttribute("data-sistema-panel") !== s;
     });
     el.setAttribute("data-sistema", s);
-    try {
-      localStorage.setItem(SYS, s);
-    } catch (e) {}
   }
+
+  function navegarA(s) {
+    var url =
+      s === "AUXILIARES"
+        ? el.getAttribute("data-url-auxiliares")
+        : el.getAttribute("data-url-soporte");
+    if (url && window.location.pathname !== url) window.location.assign(url);
+  }
+
   sysBtns.forEach(function (b) {
     b.addEventListener("click", function () {
-      applySys(b.getAttribute("data-system-view"));
+      var s = b.getAttribute("data-system-view");
+      applySys(s);
+      navegarA(s);
       window.dispatchEvent(
-        new CustomEvent("od:system-view-change", { detail: b.getAttribute("data-system-view") })
+        new CustomEvent("od:system-view-change", { detail: s })
       );
     });
   });
-  if (sysBtns.length) {
-    applySys(currentSys());
-  }
+  if (sysBtns.length) applySys(sistemaServidor);
 
   var notes = el.querySelector("[data-navbar-notes]");
   if (notes) {

@@ -1,4 +1,5 @@
-<div data-navbar data-page="{{ nav_page|default:'' }}" data-sistema="{{ sistema|default:'SOPORTE' }}">
+<div data-navbar data-page="{{ nav_page|default:'' }}" data-sistema="{{ sistema|default:'SOPORTE' }}"
+     data-url-soporte="{% url 'atenciones_lista' %}" data-url-auxiliares="{% url 'auxiliares' %}">
   <button class="nav-mobile-toggle" type="button" data-navbar-open aria-label="Abrir menú">
     <iconify-icon icon="mdi:menu" aria-hidden="true"></iconify-icon>
   </button>
