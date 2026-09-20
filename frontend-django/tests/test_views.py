@@ -44,6 +44,7 @@ class VistasTest(TestCase):
         self.client.session.flush()
         r = Client().get("/login/")
         self.assertEqual(r.status_code, 200)
+        self.assertNotContains(r, "data-navbar")
 
     @patch("atenciones.views.api_get")
     def test_lista(self, mock_get):
@@ -51,6 +52,29 @@ class VistasTest(TestCase):
         r = self.client.get("/atenciones/")
         self.assertEqual(r.status_code, 200)
         self.assertContains(r, "Mostrando 0 registros")
+        self.assertContains(r, "data-navbar")
+        self.assertContains(r, "Soporte")
+        self.assertNotContains(r, "Dashboard")
+
+    @patch("atenciones.views.api_get")
+    def test_navbar_jefe(self, mock_get):
+        from django.conf import settings as _settings
+
+        session = self.client.session
+        session["jwt"] = "t"
+        session["usuario"] = {
+            "id": 8,
+            "display_name": "Jefe",
+            "role": "Jefe",
+            "can_view_dashboard": True,
+        }
+        session.save()
+        self.client.cookies[_settings.SESSION_COOKIE_NAME] = session.session_key
+        mock_get.return_value = []
+        r = self.client.get("/atenciones/")
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, "Dashboard")
+        self.assertContains(r, "SOPORTE")
 
     def test_lista_sin_login(self):
         self.client.session.flush()

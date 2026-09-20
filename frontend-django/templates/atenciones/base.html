@@ -6,8 +6,11 @@
 <title>{% block titulo %}Soporte Técnico{% endblock %}</title>
 <link rel="icon" href="data:,">
 <link rel="stylesheet" href="/static/css/tokens.css">
+<link rel="stylesheet" href="/static/css/navbar.css">
 </head>
-<body>
-<main>{% block contenido %}{% endblock %}</main>
+<body data-page="{{ nav_page|default:'' }}">
+{% if usuario %}{% include "atenciones/_navbar.html" %}{% endif %}
+<main class="content{% if usuario %} with-nav{% endif %}">{% block contenido %}{% endblock %}</main>
+<script src="/static/js/navbar.js" defer></script>
 </body>
 </html>

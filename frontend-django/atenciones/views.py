@@ -86,6 +86,11 @@ def nueva_vista(request: HttpRequest) -> HttpResponse:
     token = request.session["jwt"]
     error = ""
     batch = request.session.get("batch", [])
+    edit_idx = request.session.get("edit_idx")
+    if edit_idx is not None and not (0 <= edit_idx < len(batch)):
+        edit_idx = None
+        request.session.pop("edit_idx", None)
+    edit_item = batch[edit_idx] if edit_idx is not None else None
     if request.method == "POST":
         action = request.POST.get("action")
         if action == "agregar":
@@ -99,37 +104,52 @@ def nueva_vista(request: HttpRequest) -> HttpResponse:
                 error = "Faltan descripción, solución o categoría."
             else:
                 colab = request.POST.get("colaborador_id") or None
-                batch.append(
-                    {
-                        "area_solicitante": "",
-                        "grupo_padre_id": _int_o_none(
-                            request.POST.get("grupo_padre_id")
-                        ),
-                        "grupo_id": _int_o_none(request.POST.get("grupo_id")),
-                        "area_id": int(area_id),
-                        "medio_solicitud": request.POST.get(
-                            "medio_solicitud", "Interno"
-                        ),
-                        "usuario_solicitante": request.POST.get(
-                            "usuario_solicitante", "ADM"
-                        ),
-                        "categoria": categoria,
-                        "descripcion": descripcion,
-                        "solucion": solucion,
-                        "observaciones": request.POST.get("observaciones") or None,
-                        "enlace_apoyo": request.POST.get("enlace_apoyo") or None,
-                        "colaborador_id": int(colab) if colab else None,
-                        "fecha_registro": request.POST.get("fecha_registro")
-                        or _hoy_iso(),
-                    }
-                )
+                item = {
+                    "area_solicitante": "",
+                    "grupo_padre_id": _int_o_none(request.POST.get("grupo_padre_id")),
+                    "grupo_id": _int_o_none(request.POST.get("grupo_id")),
+                    "area_id": int(area_id),
+                    "medio_solicitud": request.POST.get("medio_solicitud", "Interno"),
+                    "usuario_solicitante": request.POST.get(
+                        "usuario_solicitante", "ADM"
+                    ),
+                    "categoria": categoria,
+                    "descripcion": descripcion,
+                    "solucion": solucion,
+                    "observaciones": request.POST.get("observaciones") or None,
+                    "enlace_apoyo": request.POST.get("enlace_apoyo") or None,
+                    "colaborador_id": int(colab) if colab else None,
+                    "fecha_registro": request.POST.get("fecha_registro") or _hoy_iso(),
+                }
+                if edit_idx is not None:
+                    batch[edit_idx] = item
+                    request.session.pop("edit_idx", None)
+                    edit_idx = None
+                    edit_item = None
+                else:
+                    batch.append(item)
                 request.session["batch"] = batch
                 return redirect("atenciones_nueva")
+        elif action == "editar":
+            try:
+                idx = int(request.POST.get("idx", "-1"))
+                _ = batch[idx]
+            except (IndexError, ValueError):
+                error = "Índice inválido."
+            else:
+                request.session["edit_idx"] = idx
+                return redirect("atenciones_nueva")
+        elif action == "cancelar_edicion":
+            request.session.pop("edit_idx", None)
+            return redirect("atenciones_nueva")
         elif action == "quitar":
             try:
                 batch.pop(int(request.POST.get("idx", "-1")))
             except (IndexError, ValueError):
                 error = "Índice inválido."
+            request.session.pop("edit_idx", None)
+            edit_idx = None
+            edit_item = None
             request.session["batch"] = batch
             return redirect("atenciones_nueva")
         elif action == "enviar":
@@ -142,6 +162,7 @@ def nueva_vista(request: HttpRequest) -> HttpResponse:
                     error = str(e.detail) if e.detail else "No se pudo enviar"
                 else:
                     request.session["batch"] = []
+                    request.session.pop("edit_idx", None)
                     return redirect("atenciones_lista")
     arbol = api_get("/api/jerarquia/arbol", token)
     usuarios = api_get("/api/usuarios", token)
@@ -161,6 +182,8 @@ def nueva_vista(request: HttpRequest) -> HttpResponse:
             "solicitantes": SOLICITANTES,
             "error": error,
             "hoy": _hoy_iso(),
+            "edit_item": edit_item,
+            "edit_idx": edit_idx,
         },
     )
 

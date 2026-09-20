@@ -2,8 +2,13 @@
 {% block titulo %}Atenciones — Soporte Técnico{% endblock %}
 {% block contenido %}
 <div class="page-wide">
-  <h1>Atenciones</h1>
-  <p class="sub">{{ total }} registros</p>
+  <div class="page-head">
+    <div>
+      <h1>Atenciones</h1>
+      <p class="sub">{{ total }} registros</p>
+    </div>
+    <a class="btn" href="{% url 'atenciones_nueva' %}">Nueva atención</a>
+  </div>
   <form method="get" class="filtros">
     <input type="text" name="q" value="{{ q }}" placeholder="Buscar...">
     <input type="text" name="categoria" value="{{ categoria }}" placeholder="Categoría">
