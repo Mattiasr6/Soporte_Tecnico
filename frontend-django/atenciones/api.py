@@ -72,3 +72,7 @@ def api_put(path: str, token: str, body: dict[str, Any]) -> object:
 
 def api_delete(path: str, token: str) -> object:
     return _request("DELETE", path, token=token)
+
+
+def api_patch(path: str, token: str, body: dict[str, Any]) -> object:
+    return _request("PATCH", path, token=token, body=body)

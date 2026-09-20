@@ -1,10 +1,18 @@
+import contextlib
 import datetime as _dt
 import json as _json
 
 from django.http import Http404, HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import redirect, render
 
-from .api import ApiError, api_delete, api_get, api_post, api_put, login_api
+from .api import (
+    ApiError,
+    api_delete,
+    api_get,
+    api_post,
+    api_put,
+    login_api,
+)
 from .auth import con_login
 from .forms import LoginForm
 
@@ -51,6 +59,7 @@ def login_vista(request: HttpRequest) -> HttpResponse:
                 )
                 request.session["jwt"] = data["token"]
                 request.session["usuario"] = data["user"]
+                _marcar_sesion(request, True)
                 return redirect(_destino(request))
             except ApiError as e:
                 error = str(e.detail) if e.detail else "No se pudo entrar"
@@ -70,6 +79,7 @@ def inicio_vista(request: HttpRequest) -> HttpResponse:
 
 
 def logout_vista(request: HttpRequest) -> HttpResponse:
+    _marcar_sesion(request, False)
     request.session.flush()
     return redirect("login")
 
@@ -239,6 +249,17 @@ def auxiliares_vista(request: HttpRequest) -> HttpResponse:
     return render(
         request, "atenciones/auxiliares.html", {"usuario": request.session["usuario"]}
     )
+
+
+def _marcar_sesion(request: HttpRequest, conectado: bool) -> None:
+    usuario = request.session.get("usuario")
+    if not isinstance(usuario, dict) or usuario.get("role") == "Auxiliar":
+        return
+    token = request.session.get("jwt")
+    if not token:
+        return
+    with contextlib.suppress(ApiError):
+        api_post("/api/usuarios/sesion", str(token), {"conectado": conectado})
 
 
 def _flash(request: HttpRequest, tipo: str, texto: str) -> None:
@@ -439,6 +460,7 @@ def _graficos(stats: dict[str, object]) -> dict[str, object]:
 def dashboard_vista(request: HttpRequest) -> HttpResponse:
     if not _puede_dashboard(request):
         return redirect("atenciones_lista")
+    _marcar_sesion(request, True)
     token = request.session["jwt"]
     params = _params_stats(request)
     stats = api_get("/api/atenciones/stats", token, params)

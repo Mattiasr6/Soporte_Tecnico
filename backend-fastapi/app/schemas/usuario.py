@@ -25,3 +25,7 @@ class EstadoIn(BaseModel):
     estado_actual: str = "disponible"
     motivo: str | None = None
     colaborador_id: int | None = None
+
+
+class SesionIn(BaseModel):
+    conectado: bool

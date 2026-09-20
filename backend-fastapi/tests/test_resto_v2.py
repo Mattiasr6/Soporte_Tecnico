@@ -19,6 +19,7 @@ EMAILS = {
     1: "mattias.ribera@upds.edu.bo",
     2: "diego.orihuela@upds.edu.bo",
     8: "josue.huayllas@upds.edu.bo",
+    10: "auxiliar.soporte@upds.edu.bo",
 }
 _tokens: dict[int, str] = {}
 
@@ -34,6 +35,14 @@ def h(uid: int) -> dict[str, str]:
         assert r.status_code == 200, r.text
         _tokens[uid] = r.json()["token"]
     return {"Authorization": f"Bearer {_tokens[uid]}"}
+
+
+def set_estado(uid: int, estado: str) -> None:
+    with SessionLocal() as db:
+        u = db.get(Usuario, uid)
+        assert u is not None
+        u.estado_actual = estado
+        db.commit()
 
 
 def test_estado_efectivo_puro():
@@ -270,3 +279,53 @@ def test_announcements_flujo_y_restore():
             headers=h(UID_JEFE),
         )
         assert client.get("/api/announcements").json() == inicial
+
+
+def test_sesion_conecta_y_desconecta():
+    set_estado(UID_DIEGO, "Ausente")
+    try:
+        assert (
+            client.post(
+                "/api/usuarios/sesion", json={"conectado": True}, headers=h(UID_DIEGO)
+            ).status_code
+            == 204
+        )
+        me = client.get("/api/usuarios/me", headers=h(UID_DIEGO)).json()
+        assert me["estado_actual"] in ("disponible", "extraturno")
+        assert (
+            client.post(
+                "/api/usuarios/sesion", json={"conectado": False}, headers=h(UID_DIEGO)
+            ).status_code
+            == 204
+        )
+        me = client.get("/api/usuarios/me", headers=h(UID_DIEGO)).json()
+        assert me["estado_actual"] == "ausente"
+    finally:
+        set_estado(UID_DIEGO, "Ausente")
+
+
+def test_sesion_no_desconecta_si_ocupado():
+    set_estado(UID_DIEGO, "Ocupado")
+    try:
+        client.post(
+            "/api/usuarios/sesion", json={"conectado": False}, headers=h(UID_DIEGO)
+        )
+        me = client.get("/api/usuarios/me", headers=h(UID_DIEGO)).json()
+        assert me["estado_actual"] in ("ocupado", "extraturno")
+    finally:
+        set_estado(UID_DIEGO, "Ausente")
+
+
+def test_sesion_auxiliar_no_cambia():
+    set_estado(10, "Ausente")
+    try:
+        assert (
+            client.post(
+                "/api/usuarios/sesion", json={"conectado": True}, headers=h(10)
+            ).status_code
+            == 204
+        )
+        with SessionLocal() as db:
+            assert db.get(Usuario, 10).estado_actual == "Ausente"
+    finally:
+        set_estado(10, "Ausente")

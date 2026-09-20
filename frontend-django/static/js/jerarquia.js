@@ -7,9 +7,9 @@ function initRuta(root) {
   } catch (e) {
     return;
   }
-  var selP = root.querySelector("#sel-padre");
-  var selG = root.querySelector("#sel-grupo");
-  var selA = root.querySelector("#sel-area");
+  var selP = root.querySelector('[data-rol="padre"]');
+  var selG = root.querySelector('[data-rol="grupo"]');
+  var selA = root.querySelector('[data-rol="area"]');
   if (!selP || !selG || !selA) return;
 
   function gruposDe(pid) {

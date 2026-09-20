@@ -14,6 +14,7 @@ from app.schemas.usuario import (
     EstadoIn,
     NotasIn,
     NotasOut,
+    SesionIn,
     UsuarioOut,
 )
 from app.services.estados import estado_efectivo
@@ -135,6 +136,46 @@ async def toggle_estado(dto: EstadoIn, db: DbSession, user: CurrentUser) -> None
             "estado": estado_efectivo(usuario.estado_actual, horario, now),
             "motivo": dto.motivo,
             "colaborador_nombre": colaborador_nombre,
+            "timestamp": now.strftime("%H:%M"),
+        }
+    )
+
+
+@router.post("/sesion", status_code=204)
+async def sesion(dto: SesionIn, db: DbSession, user: CurrentUser) -> None:
+    usuario = db.get(Usuario, user.id)
+    if usuario is None:
+        raise not_found("Usuario no registrado en el sistema.")
+    if usuario.role == "Auxiliar":
+        return
+    now = datetime.now(UTC)
+    cambio = False
+    if dto.conectado and usuario.estado_actual == "Ausente":
+        usuario.estado_actual = "Disponible"
+        usuario.updated_at = now
+        cambio = True
+    elif not dto.conectado and usuario.estado_actual == "Disponible":
+        usuario.estado_actual = "Ausente"
+        usuario.updated_at = now
+        cambio = True
+    if not cambio:
+        return
+    db.commit()
+    horario = db.scalars(
+        select(Horario).where(
+            Horario.usuario_id == usuario.id,
+            Horario.mes == now.month,
+            Horario.anio == now.year,
+        )
+    ).first()
+    await broadcast(
+        {
+            "type": "status_changed",
+            "usuario_id": usuario.id,
+            "nombre": usuario.display_name,
+            "estado": estado_efectivo(usuario.estado_actual, horario, now),
+            "motivo": None,
+            "colaborador_nombre": None,
             "timestamp": now.strftime("%H:%M"),
         }
     )
