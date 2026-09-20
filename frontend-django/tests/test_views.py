@@ -330,7 +330,7 @@ class VistasTest(TestCase):
         self.assertContains(r, "Casos por categoría")
         self.assertContains(r, "Presencia en vivo")
         self.assertContains(r, "Casos por día")
-        self.assertContains(r, "Ficha del scope")
+        self.assertContains(r, "Resumen del filtro")
         self.assertContains(r, "Top 10 áreas")
         self.assertIn("ficha", r.context["payload"])
         self.assertEqual(r.context["payload"]["ficha"]["casos"], STATS["total"])

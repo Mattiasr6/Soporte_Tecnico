@@ -5,7 +5,7 @@
   <div class="page-head">
     <div>
       <h1>Dashboard</h1>
-      <p class="sub">Elige un nivel en las barras: todo el tablero se recalcula</p>
+      <p class="sub">Haz clic en una barra para filtrar: todo el tablero se recalcula</p>
     </div>
     <a class="btn" href="{% url 'dashboard' %}">Reiniciar</a>
   </div>
@@ -32,7 +32,7 @@
       <div class="chart chart-drill" id="chart-drill"></div>
     </section>
     <section class="bloque">
-      <header><h2>Ficha del scope</h2><small id="ficha-ruta">sin filtro (todo)</small></header>
+      <header><h2>Resumen del filtro</h2><small id="ficha-ruta">Todo el período</small></header>
       <div class="ficha" id="ficha"></div>
     </section>
   </div>
@@ -60,7 +60,7 @@
   </div>
 
   <section class="bloque">
-    <header><h2>Casos por categoría</h2><small>según el scope elegido</small></header>
+    <header><h2>Casos por categoría</h2><small>según el filtro elegido</small></header>
     <div class="chart" id="chart-categoria"></div>
   </section>
 

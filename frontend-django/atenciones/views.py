@@ -392,6 +392,16 @@ def _mes_etiqueta(anio: int, mes: int) -> str:
     return f"{anio}-{mes:02d}"
 
 
+MESES_CORTOS = (
+    "ene", "feb", "mar", "abr", "may", "jun",
+    "jul", "ago", "sep", "oct", "nov", "dic",
+)
+
+
+def _mes_corto(anio: int, mes: int) -> str:
+    return f"{MESES_CORTOS[mes - 1]} {anio}"
+
+
 def _graficos(stats: dict[str, object]) -> dict[str, object]:
     por_categoria = list(stats.get("por_categoria") or [])
     por_categoria.sort(key=lambda c: -int(c["total"]))  # type: ignore[index]
@@ -545,15 +555,22 @@ def _ficha(
             pct_padre = round(total * 100 / ptotal, 1)
             pfuera = int(padre.get("fuera_de_turno") or 0)
             delta_padre = round(fuera_pct - (pfuera * 100 / ptotal), 1)
+    padres = list(stats.get("por_padre") or [])
+    nombre_padre = (
+        str(padres[0]["nombre"])
+        if scope.get("grupo_padre_id") and len(padres) == 1
+        else None
+    )
     return {
         "casos": total,
+        "nombre_padre": nombre_padre,
         "fuera": fuera,
         "fuera_pct": fuera_pct,
         "promedio_mes": round(total / len(meses), 1) if meses else 0,
         "meses_activos": len(meses),
-        "pico": f"{pico['anio']}-{int(pico['mes']):02d}" if pico else None,
+        "pico": _mes_corto(int(pico["anio"]), int(pico["mes"])) if pico else None,
         "pico_total": int(pico["total"]) if pico else 0,
-        "valle": f"{valle['anio']}-{int(valle['mes']):02d}" if valle else None,
+        "valle": _mes_corto(int(valle["anio"]), int(valle["mes"])) if valle else None,
         "valle_total": int(valle["total"]) if valle else 0,
         "dominante": cats[0]["categoria"] if cats else None,
         "dominante_pct": round(int(cats[0]["total"]) * 100 / total, 1)

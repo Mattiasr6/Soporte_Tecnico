@@ -33,7 +33,7 @@
     var el = document.getElementById(id);
     if (!el) return;
     if (charts[id]) { charts[id].dispose(); delete charts[id]; }
-    el.innerHTML = '<p class="sin-datos">' + (msg || "Sin datos en este scope") + "</p>";
+    el.innerHTML = '<p class="sin-datos">' + (msg || "Sin datos para este filtro") + "</p>";
   }
 
   function montar(id, option) {
@@ -97,7 +97,7 @@
       document.getElementById("drill-nivel").textContent = "Nivel: " + scope.padreNombre + " › " + scope.grupoNombre;
     }
     filas.sort(function (a, b) { return b.v - a.v; });
-    if (!filas.length) return vacio("chart-drill", "Sin divisiones en este scope");
+    if (!filas.length) return vacio("chart-drill", "Sin divisiones para este filtro");
     var o = base();
     o.grid.right = 70;
     o.tooltip = { trigger: "axis", axisPointer: { type: "shadow" },
@@ -125,24 +125,21 @@
   }
 
   /* ---------------- ficha ---------------- */
-  function pintarFicha(f, scopeSel) {
+  function pintarFicha(f) {
     var ruta = [scope.padreNombre, scope.grupoNombre, scope.areaNombre].filter(Boolean).join(" › ");
-    document.getElementById("ficha-ruta").textContent = ruta || "sin filtro (todo)";
-    var filas = [];
-    if (!scope.padre && !scope.grupo && !scope.area) {
-      filas.push(["Casos", num(f.casos)]);
-      filas.push(["Del total", "100%"]);
-    } else {
-      filas.push(["Casos en el scope", num(f.casos)]);
-      if (f.pct_padre !== null) filas.push(["Del Grupo Padre", num(f.pct_padre) + "%"]);
-    }
+    document.getElementById("ficha-ruta").textContent = ruta || "Todo el período";
+    var padre = f.nombre_padre;
+    var filas = [["Atenciones", num(f.casos)]];
+    if (padre && f.pct_padre !== null) filas.push(["Del total de " + padre, num(f.pct_padre) + "%"]);
     filas.push(["Fuera de turno", num(f.fuera) + " (" + num(f.fuera_pct) + "%)"]);
-    if (f.delta_padre !== null) filas.push(["Δ vs Grupo Padre", (f.delta_padre > 0 ? "+" : "") + num(f.delta_padre) + " pts"]);
-    filas.push(["Promedio mensual", num(f.promedio_mes) + " (" + f.meses_activos + " meses)"]);
-    filas.push(["Mes pico", (f.pico || "—") + " · " + num(f.pico_total)]);
-    filas.push(["Mes valle", (f.valle || "—") + " · " + num(f.valle_total)]);
-    filas.push(["Categoría dominante", (f.dominante || "—") + " (" + num(f.dominante_pct) + "%)"]);
-    filas.push(["Concentración top 3", num(f.top3_pct) + "% del scope"]);
+    if (padre && f.delta_padre !== null) {
+      filas.push(["Fuera de turno vs " + padre, (f.delta_padre > 0 ? "+" : "−") + num(Math.abs(f.delta_padre)) + " puntos"]);
+    }
+    filas.push(["Media por mes", num(f.promedio_mes) + " en " + f.meses_activos + " meses"]);
+    filas.push(["Mes más cargado", (f.pico || "—") + " · " + num(f.pico_total) + " casos"]);
+    filas.push(["Mes más tranquilo", (f.valle || "—") + " · " + num(f.valle_total) + " casos"]);
+    filas.push(["Categoría más frecuente", (f.dominante || "—") + " (" + num(f.dominante_pct) + "%)"]);
+    filas.push(["3 categorías más frecuentes", num(f.top3_pct) + "% de las atenciones"]);
     document.getElementById("ficha").innerHTML = filas.map(function (par) {
       return '<div class="ficha-fila"><span>' + par[0] + '</span><b>' + par[1] + "</b></div>";
     }).join("");
@@ -309,7 +306,7 @@
       ? filas.map(function (a, i) {
           return '<div class="ficha-fila"><span>' + (i + 1) + ". " + a.area + "</span><b>" + num(a.total) + "</b></div>";
         }).join("")
-      : '<p class="sin-datos">Sin datos en este scope</p>';
+      : '<p class="sin-datos">Sin datos para este filtro</p>';
   }
 
   /* ---------------- chips + carga ---------------- */
@@ -317,7 +314,7 @@
     var activos = [["padre", scope.padreNombre], ["grupo", scope.grupoNombre], ["area", scope.areaNombre]].filter(function (p) { return p[1]; });
     var cont = document.getElementById("chips");
     if (!activos.length) {
-      cont.innerHTML = '<span class="chip vacio">Sin filtro — haz clic en una barra</span>';
+      cont.innerHTML = '<span class="chip vacio">Sin filtro: se muestra todo el período</span>';
       return;
     }
     cont.innerHTML = activos.map(function (p) {
