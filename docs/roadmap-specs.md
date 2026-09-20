@@ -13,9 +13,18 @@ Rama: `python-experiment` · DB: misma `postgres-dev` (`:5433`) · Convivencia .
 | S7 | Realtime: paridad SignalR WS | aprobada y redactada (`docs/spec-s7-realtime.md`) |
 | S8 | Puesta en marcha: uvicorn live + smoke + convivencia .NET | aprobada y redactada (`docs/spec-s8-live.md`) |
 | S9 | Django templates: base + atenciones (wireframe→mockup→template) | **completada** — 4 pantallas (login, lista, registrar con batch, modal ticket editar/eliminar), sidebar global con gating por rol, apartado auxiliares navegable |
-| S10 | Django templates: dashboard + resto pantallas | pendiente: dashboard, reportes, horarios, perfil, launcher, bloc de notas (wireframe por pantalla antes de código) |
+| S10 | Django templates: dashboard + resto pantallas | **en curso** — dashboard ✅; pendiente: reportes, horarios, perfil, launcher, bloc de notas (wireframe por pantalla antes de código) |
 | S11 | Cutover: paridad final, apagado .NET/Next, compose definitivo | pendiente |
 | S12 | Migración datos prod: backup → mapeo → transform → carga (mapeo del usuario) | pendiente |
+
+## Diferidos (anotados por el usuario)
+
+- **Apartado `/perfil` (para spec futura).** Cada usuario debe poder ver su **propio** perfil y jugar con sus
+  estadísticas. Los **Jefes** entran a `/perfil` y pueden ver el suyo **y** el de los técnicos.
+  Ahí se retrabajan los 3 gráficos de técnicos que hoy viven en el dashboard
+  (scatter "carga vs fuera de turno", "rendimiento por técnico", "colaboraciones") más el radar,
+  que se aplana cuando el filtro tiene una sola categoría dominante.
+  Decidido el 2026-09-20: no tocarlos en el dashboard; salen del dashboard cuando exista `/perfil`.
 
 Decisiones globales: Python 3.13 · pip+venv+requirements · SQLAlchemy sync+psycopg · alembic aditivo ·
 `backend-fastapi/` · dev host uvicorn `:5002` · starbucks como referencia visual · IA = tooling, sin features IA ·
