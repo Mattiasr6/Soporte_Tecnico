@@ -3,12 +3,13 @@
 from typing import Annotated
 
 import jwt
+from fastapi import Depends, Header
+
 from app.core.config import settings
 from app.core.errors import unauthorized
 from app.db.base import SessionLocal
 from app.models.usuario import Usuario
 from app.services.tokens import validar_token
-from fastapi import Depends, Header
 
 
 def require_user(authorization: str | None = Header(default=None)) -> Usuario:

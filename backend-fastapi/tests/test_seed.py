@@ -1,4 +1,5 @@
 import bcrypt
+
 from scripts.seed import PADRES, USUARIOS, hash_password
 
 

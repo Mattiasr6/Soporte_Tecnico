@@ -2,12 +2,13 @@
 
 import os
 
+from fastapi.testclient import TestClient
+
 from app.db.base import SessionLocal
 from app.main import app
 from app.models.horario import Horario
 from app.models.usuario import Usuario
 from app.services.estados import estado_efectivo
-from fastapi.testclient import TestClient
 
 UID_MATTIAS = 1
 UID_DIEGO = 2

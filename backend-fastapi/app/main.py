@@ -1,5 +1,10 @@
 from typing import Annotated
 
+from fastapi import Depends, FastAPI
+from sqlalchemy import text
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.orm import Session
+
 from app.db.session import get_db
 from app.realtime.ws import router as ws_router
 from app.routers import (
@@ -11,10 +16,6 @@ from app.routers import (
     jerarquia,
     usuarios,
 )
-from fastapi import Depends, FastAPI
-from sqlalchemy import text
-from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.orm import Session
 
 app = FastAPI(title="Soporte Tecnico API (Python)")
 app.include_router(ws_router)

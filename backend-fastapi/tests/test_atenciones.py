@@ -4,8 +4,9 @@ import os
 from datetime import datetime, timezone
 
 import pytest
-from app.main import app
 from fastapi.testclient import TestClient
+
+from app.main import app
 
 UID_MATTIAS = 1
 UID_DIEGO = 2

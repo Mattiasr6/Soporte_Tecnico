@@ -3,9 +3,10 @@
 import os
 from datetime import datetime, timezone
 
+from fastapi.testclient import TestClient
+
 from app.main import app
 from app.services.csv_import import detectar_encoding, parse_csv
-from fastapi.testclient import TestClient
 
 UID_MATTIAS = 1
 UID_JEFE = 8
