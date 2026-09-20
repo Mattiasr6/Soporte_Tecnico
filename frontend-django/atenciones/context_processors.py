@@ -2,7 +2,13 @@
 
 from django.conf import settings
 
-ASSETS = ("css/tokens.css", "css/navbar.css", "js/navbar.js", "js/jerarquia.js")
+ASSETS = (
+    "css/tokens.css",
+    "css/navbar.css",
+    "js/navbar.js",
+    "js/jerarquia.js",
+    "js/dashboard.js",
+)
 
 
 def asset_version() -> int:
@@ -28,6 +34,7 @@ def sesion(request):
         "atenciones_lista": "lista",
         "atenciones_nueva": "nueva",
         "auxiliares": "auxiliares",
+        "dashboard": "dashboard",
     }.get(url_name or "", "")
     rol = (usuario or {}).get("role", "")
     can_dashboard = rol == "Jefe" or bool((usuario or {}).get("can_view_dashboard"))

@@ -1,0 +1,131 @@
+{% extends "atenciones/base.html" %}
+{% block titulo %}Dashboard — Soporte Técnico{% endblock %}
+{% block contenido %}
+<div class="page-wide dash">
+  <div class="page-head">
+    <div>
+      <h1>Dashboard</h1>
+      <p class="sub">Vista general del área de soporte</p>
+    </div>
+    <a class="btn" href="{% url 'dashboard' %}">Actualizar</a>
+  </div>
+
+  <form method="get" class="filtros filtros-dash">
+    <div class="ruta3" id="ruta3-dash" data-ruta3
+         data-padre="{{ filtros.grupo_padre_id }}"
+         data-grupo="{{ filtros.grupo_id }}"
+         data-area="{{ filtros.area_id }}">
+      <script type="application/json" class="arbol-data">{{ arbol_json|safe }}</script>
+      <div>
+        <label for="f_padre">Grupo Padre</label>
+        <select id="f_padre" name="grupo_padre_id"><option value="">Todos</option></select>
+      </div>
+      <div>
+        <label for="f_grupo">Grupo</label>
+        <select id="f_grupo" name="grupo_id"><option value="">Todos</option></select>
+      </div>
+      <div>
+        <label for="f_area">Área</label>
+        <select id="f_area" name="area_id"><option value="">Todas</option></select>
+      </div>
+    </div>
+    <div class="filtros-fila">
+      <div>
+        <label for="f_desde">Desde</label>
+        <input type="month" id="f_desde" name="desde" value="{{ filtros.desde|default:'' }}">
+      </div>
+      <div>
+        <label for="f_hasta">Hasta</label>
+        <input type="month" id="f_hasta" name="hasta" value="{{ filtros.hasta|default:'' }}">
+      </div>
+      <button type="submit" class="btn">Aplicar</button>
+      <a class="btn ghost" href="{% url 'dashboard' %}">Limpiar</a>
+    </div>
+  </form>
+
+  <div class="kpis">
+    <div class="kpi"><span>Total de casos</span><b>{{ charts.total }}</b></div>
+    <div class="kpi"><span>Fuera de turno</span><b>{{ charts.fuera_de_turno }}</b></div>
+    <div class="kpi"><span>Técnicos activos</span><b>{{ conteo.disponible }} / {{ tecnicos|length }}</b></div>
+    <div class="kpi"><span>Área top</span><b>{{ top_areas.0.area|default:"—" }}</b></div>
+  </div>
+
+  <section class="bloque" data-estados-url="{% url 'panel_estados' %}">
+    <header><h2>Presencia en vivo</h2><small>actualiza cada 20s</small></header>
+    <div class="presencia" id="presencia-conteo">
+      <div class="p-chip" data-estado="disponible"><span>Disponible</span><b>{{ conteo.disponible }}</b></div>
+      <div class="p-chip" data-estado="ocupado"><span>Ocupado</span><b>{{ conteo.ocupado }}</b></div>
+      <div class="p-chip" data-estado="extraturno"><span>Fuera de turno</span><b>{{ conteo.extraturno }}</b></div>
+      <div class="p-chip" data-estado="ausente"><span>Ausente</span><b>{{ conteo.ausente }}</b></div>
+    </div>
+    <div class="tecnicos" id="presencia-lista">
+      {% for t in tecnicos %}
+      <div class="t-card">
+        <div><strong>{{ t.nombre }}</strong><small>{{ t.rol }}</small></div>
+        <span class="estado estado-{{ t.estado }}">{{ t.estado }}</span>
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+
+  <section class="bloque">
+    <header><h2>Casos por categoría</h2><small>según filtros</small></header>
+    <div class="chart" id="chart-categoria"></div>
+  </section>
+
+  <section class="bloque">
+    <header><h2>Heatmap categoría × mes</h2><small>densidad de casos</small></header>
+    <div class="chart" id="chart-categoria-mes"></div>
+  </section>
+
+  <div class="dos-col">
+    <section class="bloque">
+      <header><h2>Rendimiento por técnico</h2></header>
+      <div class="chart" id="chart-rendimiento"></div>
+    </section>
+    <section class="bloque">
+      <header><h2>Colaboraciones</h2></header>
+      <div class="chart" id="chart-colaboraciones"></div>
+    </section>
+  </div>
+
+  <section class="bloque">
+    <header><h2>Evolución mensual</h2></header>
+    <div class="chart" id="chart-evolucion"></div>
+  </section>
+
+  <div class="dos-col">
+    <section class="bloque">
+      <header><h2>Pareto de categorías</h2><small>80% del volumen</small></header>
+      <div class="chart" id="chart-pareto"></div>
+    </section>
+    <section class="bloque">
+      <header><h2>Top 10 áreas solicitantes</h2></header>
+      <table class="tabla tabla-compacta">
+        <thead><tr><th>#</th><th>Área</th><th>Casos</th></tr></thead>
+        <tbody>
+          {% for a in top_areas %}
+          <tr><td>{{ forloop.counter }}</td><td>{{ a.area }}</td><td>{{ a.total }}</td></tr>
+          {% empty %}
+          <tr><td colspan="3">Sin datos.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      <h3 class="mini-titulo">Medio de solicitud</h3>
+      <table class="tabla tabla-compacta">
+        <tbody>
+          {% for m in por_medio %}
+          <tr><td>{{ m.medio }}</td><td>{{ m.total }}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </section>
+  </div>
+</div>
+
+{{ charts|json_script:"charts-data" }}
+{% endblock %}
+{% block scripts %}
+<script src="/static/js/vendor/echarts.min.js?v={{ asset_version }}"></script>
+<script src="/static/js/dashboard.js?v={{ asset_version }}" defer></script>
+{% endblock %}

@@ -22,8 +22,10 @@ from app.schemas.atencion import (
     AtencionCreate,
     AtencionOut,
     AtencionUpdate,
+    CategoriaMes,
     PorArea,
     PorCategoria,
+    PorMedio,
     PorMes,
     PorTecnico,
     StatsOut,
@@ -173,10 +175,19 @@ def _filtros(
     hasta_dia: int | None,
     hasta_mes: int | None,
     hasta_anio: int | None,
+    grupo_padre_id: int | None = None,
+    grupo_id: int | None = None,
+    area_id: int | None = None,
 ) -> list[Any]:
     filtros: list[Any] = []
     if usuario_id is not None:
         filtros.append(Atencion.usuario_id == usuario_id)
+    if grupo_padre_id is not None:
+        filtros.append(Atencion.grupo_padre_id == grupo_padre_id)
+    if grupo_id is not None:
+        filtros.append(Atencion.grupo_id == grupo_id)
+    if area_id is not None:
+        filtros.append(Atencion.area_id == area_id)
     if desde_anio is not None and desde_mes is not None:
         filtros.append(
             Atencion.fecha_registro >= date(desde_anio, desde_mes, desde_dia or 1)
@@ -194,6 +205,9 @@ def get_stats(
     db: DbSession,
     user: CurrentUser,
     usuario_id: int | None = None,
+    grupo_padre_id: int | None = None,
+    grupo_id: int | None = None,
+    area_id: int | None = None,
     desde_dia: int | None = None,
     desde_mes: int | None = None,
     desde_anio: int | None = None,
@@ -203,6 +217,7 @@ def get_stats(
 ):
     if not is_privileged(user):
         raise unauthorized("Sin permiso")
+    jerarquia = (grupo_padre_id, grupo_id, area_id)
     f = _filtros(
         usuario_id,
         desde_dia,
@@ -211,6 +226,7 @@ def get_stats(
         hasta_dia,
         hasta_mes,
         hasta_anio,
+        *jerarquia,
     )
     total = db.scalar(select(func.count()).select_from(Atencion).where(*f)) or 0
     fuera = (
@@ -276,8 +292,41 @@ def get_stats(
             .order_by(func.count().desc())
         ).all()
     ]
+    por_medio = [
+        PorMedio(medio=r[0], total=r[1])
+        for r in db.execute(
+            select(Atencion.medio_solicitud, func.count())
+            .where(*f)
+            .group_by(Atencion.medio_solicitud)
+            .order_by(func.count().desc())
+        ).all()
+    ]
+    por_categoria_mes = [
+        CategoriaMes(categoria=r[0], anio=int(r[1]), mes=int(r[2]), total=r[3])
+        for r in db.execute(
+            select(
+                Atencion.categoria,
+                extract("year", Atencion.fecha_registro),
+                extract("month", Atencion.fecha_registro),
+                func.count(),
+            )
+            .where(*f)
+            .group_by(
+                Atencion.categoria,
+                extract("year", Atencion.fecha_registro),
+                extract("month", Atencion.fecha_registro),
+            )
+        ).all()
+    ]
     f_asis = _filtros(
-        None, desde_dia, desde_mes, desde_anio, hasta_dia, hasta_mes, hasta_anio
+        None,
+        desde_dia,
+        desde_mes,
+        desde_anio,
+        hasta_dia,
+        hasta_mes,
+        hasta_anio,
+        *jerarquia,
     )
     if usuario_id is not None:
         f_asis.append(Atencion.colaborador_id == usuario_id)
@@ -307,6 +356,8 @@ def get_stats(
         por_categoria=por_categoria,
         por_mes=por_mes,
         por_area=por_area,
+        por_medio=por_medio,
+        por_categoria_mes=por_categoria_mes,
         asistencias=asistencias,
     )
 

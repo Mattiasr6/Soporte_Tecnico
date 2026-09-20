@@ -57,6 +57,20 @@ ATENCIONES = [
     }
 ]
 
+STATS = {
+    "total": 12,
+    "fuera_de_turno": 2,
+    "por_tecnico": [{"usuario_id": 2, "display_name": "Diego", "total": 7}],
+    "por_categoria": [{"categoria": "Impresión", "total": 5}],
+    "por_mes": [{"anio": 2026, "mes": 9, "total": 12}],
+    "por_area": [{"area": "Sistemas", "total": 4}],
+    "por_medio": [{"medio": "Interno", "total": 12}],
+    "por_categoria_mes": [
+        {"categoria": "Impresión", "anio": 2026, "mes": 9, "total": 5}
+    ],
+    "asistencias": [{"usuario_id": 3, "display_name": "Paul", "total": 2}],
+}
+
 TECNICO = {
     "id": 2,
     "display_name": "Diego",
@@ -304,3 +318,53 @@ class VistasTest(TestCase):
         r = self.client.get("/atenciones/")
         self.assertContains(r, 'data-ver="9"')
         self.assertContains(r, "modal-ticket")
+
+    # --- dashboard ---
+
+    @patch("atenciones.views.api_get")
+    def test_dashboard_jefe(self, mock_get):
+        self._como(JEFE)
+        mock_get.side_effect = [STATS, USUARIOS, ARBOL]
+        r = self.client.get("/dashboard/")
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, "Casos por categoría")
+        self.assertContains(r, "Presencia en vivo")
+        self.assertContains(r, "charts-data")
+        self.assertContains(r, "Top 10 áreas")
+
+    def test_dashboard_tecnico_redirige(self):
+        self.assertRedirects(
+            self.client.get("/dashboard/"),
+            "/atenciones/",
+            fetch_redirect_response=False,
+        )
+
+    @patch("atenciones.views.api_get")
+    def test_dashboard_pasa_filtros(self, mock_get):
+        self._como(JEFE)
+        mock_get.side_effect = [STATS, USUARIOS, ARBOL]
+        r = self.client.get(
+            "/dashboard/?grupo_padre_id=1&desde=2026-01&hasta=2026-09&area_id=28"
+        )
+        self.assertEqual(r.status_code, 200)
+        params = mock_get.call_args_list[0][0][2]
+        self.assertEqual(params["grupo_padre_id"], "1")
+        self.assertEqual(params["area_id"], "28")
+        self.assertEqual(params["desde_anio"], "2026")
+        self.assertEqual(params["desde_mes"], "01")
+        self.assertEqual(params["hasta_mes"], "09")
+
+    @patch("atenciones.views.api_get")
+    def test_panel_estados_json(self, mock_get):
+        self._como(JEFE)
+        mock_get.return_value = USUARIOS
+        r = self.client.get("/panel/estados/")
+        self.assertEqual(r.status_code, 200)
+        data = r.json()
+        self.assertIn("conteo", data)
+        self.assertEqual(data["conteo"]["ausente"], 1)
+        self.assertEqual(len(data["tecnicos"]), 1)
+
+    def test_panel_estados_sin_permiso(self):
+        r = self.client.get("/panel/estados/")
+        self.assertEqual(r.status_code, 403)

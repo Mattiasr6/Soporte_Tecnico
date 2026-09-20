@@ -92,6 +92,18 @@ class PorArea(BaseModel):
     total: int
 
 
+class PorMedio(BaseModel):
+    medio: str
+    total: int
+
+
+class CategoriaMes(BaseModel):
+    categoria: str
+    anio: int
+    mes: int
+    total: int
+
+
 class StatsOut(BaseModel):
     total: int
     fuera_de_turno: int
@@ -99,4 +111,6 @@ class StatsOut(BaseModel):
     por_categoria: list[PorCategoria]
     por_mes: list[PorMes]
     por_area: list[PorArea]
+    por_medio: list[PorMedio]
+    por_categoria_mes: list[CategoriaMes]
     asistencias: list[PorTecnico]

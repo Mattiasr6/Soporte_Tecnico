@@ -23,5 +23,7 @@ urlpatterns = [
         views.atencion_eliminar_vista,
         name="atencion_eliminar",
     ),
+    path("dashboard/", views.dashboard_vista, name="dashboard"),
+    path("panel/estados/", views.panel_estados_vista, name="panel_estados"),
     path("auxiliares/", views.auxiliares_vista, name="auxiliares"),
 ]

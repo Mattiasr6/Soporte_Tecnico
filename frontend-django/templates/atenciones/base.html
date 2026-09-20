@@ -14,5 +14,6 @@
 <main class="content{% if usuario %} with-nav{% endif %}">{% block contenido %}{% endblock %}</main>
 <script src="/static/js/navbar.js?v={{ asset_version }}" defer></script>
 <script src="/static/js/jerarquia.js?v={{ asset_version }}" defer></script>
+{% block scripts %}{% endblock %}
 </body>
 </html>

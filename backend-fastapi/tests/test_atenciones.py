@@ -175,6 +175,66 @@ def test_fecha_default_hoy(filas_prueba):
     )
 
 
+def test_stats_por_medio(filas_prueba):
+    s = client.get("/api/atenciones/stats", headers=h(UID_JEFE)).json()
+    assert len(s["por_medio"]) > 0
+    assert all(set(m) == {"medio", "total"} for m in s["por_medio"])
+    assert sum(m["total"] for m in s["por_medio"]) == s["total"]
+
+
+def test_stats_categoria_mes(filas_prueba):
+    s = client.get("/api/atenciones/stats", headers=h(UID_JEFE)).json()
+    assert len(s["por_categoria_mes"]) > 0
+    assert all(
+        set(c) == {"categoria", "anio", "mes", "total"} for c in s["por_categoria_mes"]
+    )
+    assert sum(c["total"] for c in s["por_categoria_mes"]) == s["total"]
+
+
+def test_stats_filtro_jerarquia(filas_prueba):
+    sin_filtro = client.get("/api/atenciones/stats", headers=h(UID_JEFE)).json()
+    arbol = client.get("/api/jerarquia/arbol", headers=h(UID_JEFE)).json()
+    padre = next(p for p in arbol["padres"] if p["id"] == 1)
+    con_padre = client.get(
+        "/api/atenciones/stats",
+        params={"grupo_padre_id": padre["id"]},
+        headers=h(UID_JEFE),
+    ).json()
+    assert 0 < con_padre["total"] < sin_filtro["total"]
+    assert sum(c["total"] for c in con_padre["por_categoria"]) == con_padre["total"]
+
+    areas = [
+        a
+        for a in arbol["areas"]
+        if a["grupo_padre_id"] == padre["id"] and a["grupo_id"]
+    ]
+    if areas:
+        area = areas[0]
+        con_area = client.get(
+            "/api/atenciones/stats",
+            params={"area_id": area["id"]},
+            headers=h(UID_JEFE),
+        ).json()
+        assert con_area["total"] <= con_padre["total"]
+        assert sum(c["total"] for c in con_area["por_categoria"]) == con_area["total"]
+        con_grupo = client.get(
+            "/api/atenciones/stats",
+            params={"grupo_id": area["grupo_id"]},
+            headers=h(UID_JEFE),
+        ).json()
+        assert con_area["total"] <= con_grupo["total"] <= con_padre["total"]
+
+
+def test_stats_filtro_sin_resultados(filas_prueba):
+    s = client.get(
+        "/api/atenciones/stats", params={"area_id": 999999}, headers=h(UID_JEFE)
+    ).json()
+    assert s["total"] == 0
+    assert s["por_categoria"] == []
+    assert s["por_medio"] == []
+    assert s["por_categoria_mes"] == []
+
+
 def test_stats_delta(filas_prueba):
     antes = client.get("/api/atenciones/stats", headers=h(UID_JEFE)).json()
     assert set(antes) == {
@@ -184,6 +244,8 @@ def test_stats_delta(filas_prueba):
         "por_categoria",
         "por_mes",
         "por_area",
+        "por_medio",
+        "por_categoria_mes",
         "asistencias",
     }
     assert antes["total"] >= 2
