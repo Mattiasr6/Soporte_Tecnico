@@ -11,6 +11,7 @@ class Atencion(Base):
     __tablename__: str = "Atenciones"
     __table_args__: tuple[Any, ...] = (
         Index("IX_Atenciones_UsuarioId", "UsuarioId"),
+        Index("IX_Atenciones_ColaboradorId", "ColaboradorId"),
         Index("IX_Atenciones_FechaRegistro", "FechaRegistro"),
         Index("IX_Atenciones_GrupoPadreId", "GrupoPadreId"),
         Index("IX_Atenciones_GrupoId", "GrupoId"),
