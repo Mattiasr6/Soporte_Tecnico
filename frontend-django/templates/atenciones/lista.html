@@ -55,6 +55,7 @@
 
   async function abrir(id) {
     cuerpo.innerHTML = '<p class="sub">Cargando…</p>';
+    dlg.classList.remove("editing");
     dlg.showModal();
     try {
       const res = await fetch("/atenciones/" + id + "/ticket/");
@@ -77,6 +78,7 @@
       editar.addEventListener("click", () => {
         ver.hidden = true;
         edit.hidden = false;
+        dlg.classList.add("editing");
       });
     }
     const cancelar = edit.querySelector("[data-cancelar]");
@@ -84,6 +86,7 @@
       cancelar.addEventListener("click", () => {
         edit.hidden = true;
         ver.hidden = false;
+        dlg.classList.remove("editing");
       });
     }
   }
