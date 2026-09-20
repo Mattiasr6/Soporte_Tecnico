@@ -165,6 +165,22 @@
   margin: 10px 12px 0;
   line-height: 1.4;
 }
+.sistema-panel[hidden] {
+  display: none;
+}
+.soon-panel {
+  margin: 24px 12px;
+  padding: 14px;
+  border: 1px dashed rgba(255, 255, 255, 0.25);
+  border-radius: 10px;
+  font-size: 12px;
+  line-height: 1.5;
+  text-align: center;
+  opacity: 0.75;
+}
+body.nav-collapsed .soon-panel {
+  display: none;
+}
 .side-footer {
   display: flex;
   align-items: center;

@@ -55,6 +55,7 @@ class VistasTest(TestCase):
         self.assertContains(r, "data-navbar")
         self.assertContains(r, "Soporte")
         self.assertNotContains(r, "Dashboard")
+        self.assertNotContains(r, "data-system-view")
 
     @patch("atenciones.views.api_get")
     def test_navbar_jefe(self, mock_get):
@@ -75,6 +76,8 @@ class VistasTest(TestCase):
         self.assertEqual(r.status_code, 200)
         self.assertContains(r, "Dashboard")
         self.assertContains(r, "SOPORTE")
+        self.assertContains(r, "data-sistema-panel=\"SOPORTE\"")
+        self.assertContains(r, "Próximamente sidebar completo para auxiliares")
 
     def test_lista_sin_login(self):
         self.client.session.flush()

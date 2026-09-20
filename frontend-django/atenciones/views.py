@@ -23,6 +23,8 @@ SOLICITANTES = ["ADM", "BEC", "DOC", "EST"]
 
 
 def login_vista(request: HttpRequest) -> HttpResponse:
+    if request.session.get("jwt") and request.method == "GET":
+        return redirect("atenciones_lista")
     error = ""
     if request.method == "POST":
         form = LoginForm(request.POST)

@@ -68,6 +68,10 @@ function mountNavbar(root) {
     sysBtns.forEach(function (b) {
       b.setAttribute("aria-selected", String(b.getAttribute("data-system-view") === s));
     });
+    el.querySelectorAll("[data-sistema-panel]").forEach(function (p) {
+      p.hidden = p.getAttribute("data-sistema-panel") !== s;
+    });
+    el.setAttribute("data-sistema", s);
     try {
       localStorage.setItem(SYS, s);
     } catch (e) {}
@@ -80,7 +84,11 @@ function mountNavbar(root) {
       );
     });
   });
-  if (sysBtns.length) applySys(currentSys());
+  if (sysBtns.length) {
+    applySys(currentSys());
+  } else {
+    el.setAttribute("data-sistema", "SOPORTE");
+  }
 
   var notes = el.querySelector("[data-navbar-notes]");
   if (notes) {
