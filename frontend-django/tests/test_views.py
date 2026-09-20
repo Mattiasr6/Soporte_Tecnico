@@ -79,6 +79,26 @@ class VistasTest(TestCase):
         self.assertContains(r, "data-sistema-panel=\"SOPORTE\"")
         self.assertContains(r, "Próximamente sidebar completo para auxiliares")
 
+    @patch("atenciones.views.api_get")
+    def test_navbar_can_view_dashboard(self, mock_get):
+        from django.conf import settings as _settings
+
+        session = self.client.session
+        session["jwt"] = "t"
+        session["usuario"] = {
+            "id": 1,
+            "display_name": "Mattias",
+            "role": "Tecnico",
+            "can_view_dashboard": True,
+        }
+        session.save()
+        self.client.cookies[_settings.SESSION_COOKIE_NAME] = session.session_key
+        mock_get.return_value = []
+        r = self.client.get("/atenciones/")
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, "data-system-view")
+        self.assertContains(r, "Dashboard")
+
     def test_lista_sin_login(self):
         self.client.session.flush()
         r = Client().get("/atenciones/")
