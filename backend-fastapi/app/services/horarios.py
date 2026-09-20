@@ -1,6 +1,6 @@
 """Port de HorarioHelper .NET: cálculo de fuera-de-turno en America/La_Paz."""
 
-from datetime import datetime, time, timezone
+from datetime import UTC, datetime, time
 from zoneinfo import ZoneInfo
 
 LA_PAZ = ZoneInfo("America/La_Paz")
@@ -39,7 +39,7 @@ def esta_fuera_de_horario(
 ) -> bool:
     dt = fecha_utc
     if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
+        dt = dt.replace(tzinfo=UTC)
     hora_local = dt.astimezone(LA_PAZ).timetz().replace(tzinfo=None)
     return not _dentro_de_bloques(
         hora_inicio1, hora_fin1, hora_inicio2, hora_fin2, hora_local

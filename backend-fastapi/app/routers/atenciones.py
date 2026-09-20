@@ -1,7 +1,7 @@
 """Paridad de AtencionesController .NET (S3). Identidad temporal X-User-Id (RN-S3-01)."""
 
 import calendar
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from typing import Annotated, Any
 
 from fastapi import APIRouter, File, HTTPException, UploadFile
@@ -105,7 +105,7 @@ def _serializar(db: DbSession, atenciones: list[Atencion]) -> list[dict[str, obj
 
 
 def _horario_del_mes(db: DbSession, usuario_id: int) -> Horario | None:
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     return db.scalars(
         select(Horario).where(
             Horario.usuario_id == usuario_id,
@@ -325,7 +325,7 @@ def create_batch(dto: AtencionBatchIn, db: DbSession, user: CurrentUser):
             f"Use: {', '.join(sorted(CATEGORIAS_VALIDAS))}"
         )
     horario = _horario_del_mes(db, user.id)
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     nuevas = []
     for a in dto.atenciones:
         gp_id, g_id, ar_id, legacy = _resolver_jerarquia(db, a)
@@ -444,7 +444,7 @@ def import_csv(
             },
         )
     horario = _horario_del_mes(db, user.id)
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     nuevas = []
     for f in filas:
         gp_id, g_id, ar_id, _ = _resolver_jerarquia(

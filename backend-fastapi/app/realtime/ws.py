@@ -1,6 +1,6 @@
 import json
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import jwt
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
@@ -20,7 +20,7 @@ router = APIRouter()
 
 
 def _hhmm() -> str:
-    return datetime.now(timezone.utc).strftime("%H:%M")
+    return datetime.now(UTC).strftime("%H:%M")
 
 
 def _autenticar(access_token: str | None) -> Usuario | None:
@@ -40,7 +40,7 @@ def _autenticar(access_token: str | None) -> Usuario | None:
 
 
 def _flip_connect(user: Usuario) -> str:
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     with SessionLocal() as db:
         actual = db.get(Usuario, user.id)
         estado = "ausente"
@@ -61,7 +61,7 @@ def _flip_connect(user: Usuario) -> str:
 
 
 def _flip_disconnect(user_id: int) -> str | None:
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     with SessionLocal() as db:
         actual = db.get(Usuario, user_id)
         if actual is None or actual.estado_actual != "Disponible":

@@ -1,6 +1,7 @@
 """Tests S6 contra postgres-dev real. Limpieza total al final."""
 
 import os
+from datetime import UTC
 
 from fastapi.testclient import TestClient
 
@@ -36,9 +37,9 @@ def h(uid: int) -> dict[str, str]:
 
 
 def test_estado_efectivo_puro():
-    from datetime import datetime, timezone
+    from datetime import datetime
 
-    ahora = datetime.now(timezone.utc)
+    ahora = datetime.now(UTC)
     assert estado_efectivo("Ausente", None, ahora) == "ausente"
     assert estado_efectivo("Extraturno", None, ahora) == "extraturno"
     assert estado_efectivo("Disponible", None, ahora) == "disponible"

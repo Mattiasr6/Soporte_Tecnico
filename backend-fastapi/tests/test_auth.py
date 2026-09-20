@@ -1,7 +1,7 @@
 """Tests S5: login JWT compatible .NET + guards. Contra postgres-dev real."""
 
 import os
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import jwt
 from fastapi.testclient import TestClient
@@ -46,8 +46,8 @@ def test_login_ok_y_claims():
     assert payload[CLAIM_ROL] == "Tecnico"
     assert payload[CLAIM_EMAIL] == EMAIL
     assert CLAIM_NOMBRE in payload
-    exp = datetime.fromtimestamp(payload["exp"], timezone.utc)
-    iat = datetime.fromtimestamp(payload["iat"], timezone.utc)
+    exp = datetime.fromtimestamp(payload["exp"], UTC)
+    iat = datetime.fromtimestamp(payload["iat"], UTC)
     assert (exp - iat).days == 365
 
 
@@ -111,7 +111,7 @@ def test_guards_token_malo():
 
 
 def test_guard_token_expirado_e_inexistente():
-    ahora = datetime.now(timezone.utc)
+    ahora = datetime.now(UTC)
     expirado = jwt.encode(
         {
             "sub": "1",

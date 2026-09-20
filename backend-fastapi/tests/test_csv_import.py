@@ -1,7 +1,7 @@
 """Tests S4 contra postgres-dev real. Filas marcadas TEST-S4, con limpieza."""
 
 import os
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from fastapi.testclient import TestClient
 
@@ -90,7 +90,7 @@ def test_parse_puro_sin_db():
     assert filas[1].categoria == "Otros"
     assert filas[1].medio == "Interno"
     assert filas[1].usuario_solicitante == "ADM"
-    assert filas[1].fecha == datetime.now(timezone.utc).date()
+    assert filas[1].fecha == datetime.now(UTC).date()
     assert len(errores) == 2  # categoría rara + campos faltantes
 
 

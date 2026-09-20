@@ -1,7 +1,7 @@
 """Parseo puro del CSV legacy (RN-S4-01..04). Sin DB: testeable sin efectos."""
 
 from dataclasses import dataclass
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 
 from app.services.categorias import CATEGORIAS_VALIDAS, normalizar_categoria
 
@@ -37,7 +37,7 @@ def _fecha_o_hoy(raw: str) -> date:
         dia, mes, anio = raw.split("/")
         return date(int(anio), int(mes), int(dia))
     except ValueError:
-        return datetime.now(timezone.utc).date()
+        return datetime.now(UTC).date()
 
 
 def _o_null(valor: str) -> str | None:

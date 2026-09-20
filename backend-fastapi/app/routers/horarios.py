@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from fastapi import APIRouter
 from sqlalchemy import select
@@ -99,7 +99,7 @@ def asignar(dto: AsignarIn, db: DbSession, user: CurrentUser) -> None:
                 hora_fin2=dto.hora_fin2,
                 mes=dto.mes,
                 anio=dto.anio,
-                created_at=datetime.now(timezone.utc),
+                created_at=datetime.now(UTC),
             )
         )
     db.commit()
@@ -123,7 +123,7 @@ def get_cobertura(
     mes: int | None = None,
     anio: int | None = None,
 ):
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     target_mes = mes if mes is not None else now.month
     target_anio = anio if anio is not None else now.year
     rows = db.execute(

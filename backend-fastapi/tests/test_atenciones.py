@@ -1,7 +1,7 @@
 """Tests S3 contra postgres-dev real. Filas marcadas TEST-S3 bajo usuario 1, con limpieza."""
 
 import os
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 from fastapi.testclient import TestClient
@@ -169,7 +169,7 @@ def test_batch_legacy_y_fk(filas_prueba):
 
 def test_fecha_default_hoy(filas_prueba):
     todas = client.get("/api/atenciones", headers=h(UID_JEFE)).json()
-    hoy = datetime.now(timezone.utc).date().isoformat()
+    hoy = datetime.now(UTC).date().isoformat()
     assert any(
         a["descripcion"] == f"{MARK}a" and a["fecha_registro"] == hoy for a in todas
     )

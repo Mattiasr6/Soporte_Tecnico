@@ -1,6 +1,6 @@
 """JWT compatible .NET: HS256, mismos claims/iss/aud/expiración. Puro, sin DB."""
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import jwt
 
@@ -18,7 +18,7 @@ CLAIM_EMAIL = "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddres
 def crear_token(
     usuario_id: int, display_name: str, role: str, email: str, secret: str
 ) -> str:
-    ahora = datetime.now(timezone.utc)
+    ahora = datetime.now(UTC)
     return jwt.encode(
         {
             CLAIM_ID: str(usuario_id),

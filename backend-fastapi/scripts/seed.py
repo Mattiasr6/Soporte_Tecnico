@@ -7,7 +7,7 @@ Nunca borra; solo inserta o actualiza por PK (RN-S1-02).
 
 import os
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import bcrypt
 
@@ -45,7 +45,7 @@ def run_seed() -> dict[str, int]:
     password = os.getenv("SEED_PASSWORD")
     if not password:
         raise RuntimeError("Falta SEED_PASSWORD")
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     hashed = hash_password(password)
     stats = {"usuarios_insertados": 0, "usuarios_actualizados": 0, "padres": 0}
     with SessionLocal() as db:

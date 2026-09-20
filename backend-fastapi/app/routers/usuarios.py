@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from fastapi import APIRouter
 from sqlalchemy import select
@@ -24,7 +24,7 @@ ESTADOS_VALIDOS = {"disponible": "Disponible", "ocupado": "Ocupado"}
 
 
 def _horarios_mes(db: DbSession) -> dict[int, Horario]:
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     rows = db.scalars(
         select(Horario).where(Horario.mes == now.month, Horario.anio == now.year)
     ).all()
@@ -33,7 +33,7 @@ def _horarios_mes(db: DbSession) -> dict[int, Horario]:
 
 @router.get("", response_model=list[UsuarioOut])
 def get_all(db: DbSession, user: CurrentUser):
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     usuarios = db.scalars(
         select(Usuario).where(Usuario.role.in_(["Tecnico", "Jefe"]))
     ).all()
@@ -52,7 +52,7 @@ def get_all(db: DbSession, user: CurrentUser):
 
 @router.get("/me", response_model=UsuarioOut)
 def get_me(db: DbSession, user: CurrentUser):
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     usuario = db.get(Usuario, user.id)
     if usuario is None:
         raise not_found("Usuario no registrado en el sistema.")
@@ -113,9 +113,9 @@ async def toggle_estado(dto: EstadoIn, db: DbSession, user: CurrentUser) -> None
     if nuevo == "Ausente":
         raise bad_request("No puedes cambiarte a ausente manualmente.")
     usuario.estado_actual = nuevo
-    usuario.updated_at = datetime.now(timezone.utc)
+    usuario.updated_at = datetime.now(UTC)
     db.commit()
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     horario = db.scalars(
         select(Horario).where(
             Horario.usuario_id == user.id,
