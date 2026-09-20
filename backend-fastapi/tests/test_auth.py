@@ -4,8 +4,6 @@ import os
 from datetime import datetime, timedelta, timezone
 
 import jwt
-from fastapi.testclient import TestClient
-
 from app.db.base import SessionLocal
 from app.main import app
 from app.models.usuario import Usuario
@@ -18,6 +16,7 @@ from app.services.tokens import (
     ISSUER,
     crear_token,
 )
+from fastapi.testclient import TestClient
 
 client = TestClient(app)
 EMAIL = "mattias.ribera@upds.edu.bo"

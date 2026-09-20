@@ -1,9 +1,8 @@
 from typing import Any
 
+from app.db.base import Base
 from sqlalchemy import Boolean, ForeignKey, Integer, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
-
-from app.db.base import Base
 
 
 class Area(Base):

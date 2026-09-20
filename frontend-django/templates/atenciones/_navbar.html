@@ -5,7 +5,7 @@
   <aside class="sidebar" data-navbar-sidebar aria-label="Navegación principal">
     <div class="side-head">
       <div class="side-toprow">
-        <a class="side-brand" href="{% url 'atenciones_lista' %}" aria-label="Ir a atenciones">
+        <a class="side-brand" href="{% url 'inicio' %}" aria-label="Ir al inicio">
           <span class="brand-mark">◉</span>
           <span class="side-brand-copy"><b>Soporte Técnico</b><small>UPDS · Django</small></span>
         </a>
@@ -64,6 +64,10 @@
       <div class="mock-note">Sistema y notas: solo visual por ahora (S10).</div>
       </div>
       <div class="sistema-panel" data-sistema-panel="AUXILIARES"{% if sistema != 'AUXILIARES' %} hidden{% endif %}>
+        <a class="side-link{% if nav_page == 'auxiliares' %} active{% endif %}" href="{% url 'auxiliares' %}" {% if nav_page == 'auxiliares' %}aria-current="page"{% endif %} data-nav-page="auxiliares">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 3l9 5-9 5-9-5 9-5zM5 12v6l7 4 7-4v-6"/></svg>
+          <span class="side-link-label">Auxiliares</span>
+        </a>
         <p class="soon-panel">Próximamente sidebar completo para auxiliares</p>
       </div>
     </nav>

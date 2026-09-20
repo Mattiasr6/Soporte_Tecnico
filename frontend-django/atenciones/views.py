@@ -22,9 +22,23 @@ MEDIOS = ["Interno", "Presencial", "WhatsApp", "E-ticket"]
 SOLICITANTES = ["ADM", "BEC", "DOC", "EST"]
 
 
+def _rol(request: HttpRequest) -> str:
+    usuario = request.session.get("usuario") or {}
+    return str(usuario.get("role", ""))
+
+
+def _es_auxiliar(request: HttpRequest) -> bool:
+    return _rol(request) == "Auxiliar"
+
+
+def _puede_dashboard(request: HttpRequest) -> bool:
+    usuario = request.session.get("usuario") or {}
+    return _rol(request) == "Jefe" or bool(usuario.get("can_view_dashboard"))
+
+
 def login_vista(request: HttpRequest) -> HttpResponse:
     if request.session.get("jwt") and request.method == "GET":
-        return redirect("atenciones_lista")
+        return redirect(_destino(request))
     error = ""
     if request.method == "POST":
         form = LoginForm(request.POST)
@@ -35,12 +49,22 @@ def login_vista(request: HttpRequest) -> HttpResponse:
                 )
                 request.session["jwt"] = data["token"]
                 request.session["usuario"] = data["user"]
-                return redirect("atenciones_lista")
+                return redirect(_destino(request))
             except ApiError as e:
                 error = str(e.detail) if e.detail else "No se pudo entrar"
     else:
         form = LoginForm()
     return render(request, "atenciones/login.html", {"form": form, "error": error})
+
+
+def _destino(request: HttpRequest) -> str:
+    return "auxiliares" if _es_auxiliar(request) else "atenciones_lista"
+
+
+def inicio_vista(request: HttpRequest) -> HttpResponse:
+    if not request.session.get("jwt"):
+        return redirect("login")
+    return redirect(_destino(request))
 
 
 def logout_vista(request: HttpRequest) -> HttpResponse:
@@ -50,6 +74,8 @@ def logout_vista(request: HttpRequest) -> HttpResponse:
 
 @con_login
 def lista_vista(request: HttpRequest) -> HttpResponse:
+    if _es_auxiliar(request):
+        return redirect("auxiliares")
     token = request.session["jwt"]
     usuario = request.session["usuario"]
     q = request.GET.get("q", "").strip().lower()
@@ -85,6 +111,8 @@ def lista_vista(request: HttpRequest) -> HttpResponse:
 
 @con_login
 def nueva_vista(request: HttpRequest) -> HttpResponse:
+    if _es_auxiliar(request):
+        return redirect("auxiliares")
     token = request.session["jwt"]
     error = ""
     batch = request.session.get("batch", [])
@@ -199,3 +227,12 @@ def _int_o_none(valor: object) -> int | None:
 
 def _hoy_iso() -> str:
     return _dt.datetime.now(_dt.timezone.utc).date().isoformat()
+
+
+@con_login
+def auxiliares_vista(request: HttpRequest) -> HttpResponse:
+    if not (_es_auxiliar(request) or _puede_dashboard(request)):
+        return redirect("atenciones_lista")
+    return render(
+        request, "atenciones/auxiliares.html", {"usuario": request.session["usuario"]}
+    )

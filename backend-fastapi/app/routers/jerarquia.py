@@ -1,12 +1,11 @@
-from fastapi import APIRouter
-from sqlalchemy import select
-
 from app.core.security import CurrentUser
 from app.db.session import DbSession
 from app.models.area import Area
 from app.models.grupo import Grupo
 from app.models.grupo_padre import GrupoPadre
 from app.schemas.jerarquia import ArbolOut, AreaOut, GrupoOut, GrupoPadreOut
+from fastapi import APIRouter
+from sqlalchemy import select
 
 router = APIRouter(prefix="/api/jerarquia", tags=["jerarquia"])
 

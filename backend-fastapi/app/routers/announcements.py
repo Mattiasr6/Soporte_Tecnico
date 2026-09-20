@@ -1,11 +1,10 @@
-from fastapi import APIRouter
-
 from app.core.errors import forbidden
 from app.core.security import CurrentUser, is_privileged
 from app.db.session import DbSession
 from app.models.usuario import Usuario
 from app.realtime.hub import broadcast
 from app.schemas.announcement import AnnouncementIn, AnnouncementOut
+from fastapi import APIRouter
 
 router = APIRouter(prefix="/api/announcements", tags=["announcements"])
 

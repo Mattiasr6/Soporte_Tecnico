@@ -1,8 +1,5 @@
 from datetime import datetime, timezone
 
-from fastapi import APIRouter
-from sqlalchemy import select
-
 from app.core.errors import bad_request, forbidden, not_found
 from app.core.security import CurrentUser, is_privileged
 from app.db.session import DbSession
@@ -17,6 +14,8 @@ from app.schemas.usuario import (
     UsuarioOut,
 )
 from app.services.estados import estado_efectivo
+from fastapi import APIRouter
+from sqlalchemy import select
 
 router = APIRouter(prefix="/api/usuarios", tags=["usuarios"])
 

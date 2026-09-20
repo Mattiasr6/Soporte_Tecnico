@@ -1,9 +1,8 @@
 from datetime import datetime
 
+from app.db.base import Base
 from sqlalchemy import Boolean, DateTime, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
-
-from app.db.base import Base
 
 
 class Usuario(Base):

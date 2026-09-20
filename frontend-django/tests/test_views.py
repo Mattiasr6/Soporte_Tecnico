@@ -10,6 +10,7 @@ django.setup()
 
 from unittest.mock import patch
 
+from django.conf import settings as _settings
 from django.test import Client, TestCase
 
 ARBOL = {
@@ -29,14 +30,35 @@ USUARIOS = [
     {"id": 1, "display_name": "M", "role": "Tecnico", "estado_actual": "ausente"}
 ]
 
+TECNICO = {
+    "id": 2,
+    "display_name": "Diego",
+    "role": "Tecnico",
+    "can_view_dashboard": False,
+}
+MATTIAS = {
+    "id": 1,
+    "display_name": "Mattias",
+    "role": "Tecnico",
+    "can_view_dashboard": True,
+}
+JEFE = {"id": 8, "display_name": "Jefe", "role": "Jefe", "can_view_dashboard": True}
+AUXILIAR = {
+    "id": 10,
+    "display_name": "Auxiliar Soporte",
+    "role": "Auxiliar",
+    "can_view_dashboard": False,
+}
+
 
 class VistasTest(TestCase):
     def setUp(self):
-        from django.conf import settings as _settings
+        self._como(TECNICO)
 
+    def _como(self, usuario):
         session = self.client.session
         session["jwt"] = "t"
-        session["usuario"] = {"id": 1}
+        session["usuario"] = usuario
         session.save()
         self.client.cookies[_settings.SESSION_COOKIE_NAME] = session.session_key
 
@@ -45,6 +67,15 @@ class VistasTest(TestCase):
         r = Client().get("/login/")
         self.assertEqual(r.status_code, 200)
         self.assertNotContains(r, "data-navbar")
+
+    def test_login_redirige_si_hay_sesion(self):
+        self.assertRedirects(
+            self.client.get("/login/"), "/atenciones/", fetch_redirect_response=False
+        )
+        self._como(AUXILIAR)
+        self.assertRedirects(
+            self.client.get("/login/"), "/auxiliares/", fetch_redirect_response=False
+        )
 
     @patch("atenciones.views.api_get")
     def test_lista(self, mock_get):
@@ -57,74 +88,81 @@ class VistasTest(TestCase):
         self.assertNotContains(r, "Dashboard")
         self.assertNotContains(r, "data-system-view")
 
+    def test_lista_sin_login(self):
+        self.client.session.flush()
+        r = Client().get("/atenciones/")
+        self.assertEqual(r.status_code, 302)
+
     @patch("atenciones.views.api_get")
     def test_navbar_jefe(self, mock_get):
-        from django.conf import settings as _settings
-
-        session = self.client.session
-        session["jwt"] = "t"
-        session["usuario"] = {
-            "id": 8,
-            "display_name": "Jefe",
-            "role": "Jefe",
-            "can_view_dashboard": True,
-        }
-        session.save()
-        self.client.cookies[_settings.SESSION_COOKIE_NAME] = session.session_key
+        self._como(JEFE)
         mock_get.return_value = []
         r = self.client.get("/atenciones/")
         self.assertEqual(r.status_code, 200)
         self.assertContains(r, "Dashboard")
         self.assertContains(r, "SOPORTE")
-        self.assertContains(r, "data-sistema-panel=\"SOPORTE\"")
+        self.assertContains(r, 'data-sistema-panel="SOPORTE"')
         self.assertContains(r, "Próximamente sidebar completo para auxiliares")
 
     @patch("atenciones.views.api_get")
     def test_navbar_can_view_dashboard(self, mock_get):
-        from django.conf import settings as _settings
-
-        session = self.client.session
-        session["jwt"] = "t"
-        session["usuario"] = {
-            "id": 1,
-            "display_name": "Mattias",
-            "role": "Tecnico",
-            "can_view_dashboard": True,
-        }
-        session.save()
-        self.client.cookies[_settings.SESSION_COOKIE_NAME] = session.session_key
+        self._como(MATTIAS)
         mock_get.return_value = []
         r = self.client.get("/atenciones/")
         self.assertEqual(r.status_code, 200)
         self.assertContains(r, "data-system-view")
         self.assertContains(r, "Dashboard")
 
-    @patch("atenciones.views.api_get")
-    def test_navbar_auxiliar(self, mock_get):
-        from django.conf import settings as _settings
-
-        session = self.client.session
-        session["jwt"] = "t"
-        session["usuario"] = {
-            "id": 10,
-            "display_name": "Auxiliar Soporte",
-            "role": "Auxiliar",
-            "can_view_dashboard": False,
-        }
-        session.save()
-        self.client.cookies[_settings.SESSION_COOKIE_NAME] = session.session_key
-        mock_get.return_value = []
-        r = self.client.get("/atenciones/")
+    def test_navbar_auxiliar(self):
+        self._como(AUXILIAR)
+        r = self.client.get("/auxiliares/")
         self.assertEqual(r.status_code, 200)
         self.assertContains(r, 'data-sistema="AUXILIARES"')
-        self.assertContains(r, "Próximamente sidebar completo para auxiliares")
+        self.assertContains(r, "Próximamente apartado completo para auxiliares")
         self.assertNotContains(r, "data-system-view")
         self.assertNotContains(r, "Dashboard")
+        self.assertContains(r, 'data-sistema-panel="SOPORTE" hidden')
 
-    def test_lista_sin_login(self):
+    def test_auxiliar_fuera_de_soporte(self):
+        self._como(AUXILIAR)
+        self.assertRedirects(
+            self.client.get("/atenciones/"),
+            "/auxiliares/",
+            fetch_redirect_response=False,
+        )
+        self.assertRedirects(
+            self.client.get("/atenciones/nueva/"),
+            "/auxiliares/",
+            fetch_redirect_response=False,
+        )
+
+    def test_tecnico_no_entra_a_auxiliares(self):
+        self.assertRedirects(
+            self.client.get("/auxiliares/"),
+            "/atenciones/",
+            fetch_redirect_response=False,
+        )
+
+    @patch("atenciones.views.api_get")
+    def test_jefe_entra_a_auxiliares(self, mock_get):
+        self._como(JEFE)
+        mock_get.return_value = []
+        self.assertEqual(self.client.get("/auxiliares/").status_code, 200)
+
+    def test_inicio_rutea_por_rol(self):
+        self.assertRedirects(
+            self.client.get("/"), "/atenciones/", fetch_redirect_response=False
+        )
+        self._como(AUXILIAR)
+        self.assertRedirects(
+            self.client.get("/"), "/auxiliares/", fetch_redirect_response=False
+        )
+
+    def test_inicio_sin_sesion(self):
         self.client.session.flush()
-        r = Client().get("/atenciones/")
-        self.assertEqual(r.status_code, 302)
+        self.assertRedirects(
+            Client().get("/"), "/login/", fetch_redirect_response=False
+        )
 
     @patch("atenciones.views.api_get")
     def test_nueva_get(self, mock_get):

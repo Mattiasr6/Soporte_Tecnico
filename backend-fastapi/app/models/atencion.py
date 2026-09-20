@@ -1,10 +1,9 @@
 from datetime import date, datetime
 from typing import Any
 
+from app.db.base import Base
 from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Index, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
-
-from app.db.base import Base
 
 
 class Atencion(Base):

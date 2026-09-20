@@ -1,8 +1,7 @@
 import os
 
-from fastapi.testclient import TestClient
-
 from app.main import app
+from fastapi.testclient import TestClient
 
 
 def _token() -> str:

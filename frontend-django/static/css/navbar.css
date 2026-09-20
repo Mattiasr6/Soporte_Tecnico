@@ -178,6 +178,15 @@
   text-align: center;
   opacity: 0.75;
 }
+.soon-block {
+  margin: 24px 0;
+  padding: 28px;
+  border: 2px dashed var(--color-border);
+  border-radius: var(--radius-card);
+  text-align: center;
+  color: var(--color-text-secondary);
+  font-size: 15px;
+}
 body.nav-collapsed .soon-panel {
   display: none;
 }

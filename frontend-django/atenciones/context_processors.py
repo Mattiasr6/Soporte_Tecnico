@@ -13,13 +13,16 @@ def sesion(request):
         "login": "login",
         "atenciones_lista": "lista",
         "atenciones_nueva": "nueva",
+        "auxiliares": "auxiliares",
     }.get(url_name or "", "")
     rol = (usuario or {}).get("role", "")
     can_dashboard = rol == "Jefe" or bool((usuario or {}).get("can_view_dashboard"))
-    sistema = "AUXILIARES" if rol == "Auxiliar" else "SOPORTE"
+    es_auxiliar = rol == "Auxiliar"
+    sistema = "AUXILIARES" if es_auxiliar else "SOPORTE"
     return {
         "usuario": usuario,
         "nav_page": pagina,
         "can_dashboard": can_dashboard,
+        "es_auxiliar": es_auxiliar,
         "sistema": sistema,
     }

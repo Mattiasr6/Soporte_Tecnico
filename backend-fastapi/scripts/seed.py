@@ -27,6 +27,7 @@ USUARIOS = [
     (7, "samira.barrientos@upds.edu.bo", "Samira Barrientos", "Tecnico", False),
     (8, "josue.huayllas@upds.edu.bo", "Josue Huayllas", "Jefe", False),
     (9, "wilmer.cerruto@upds.edu.bo", "Wilmer Cerruto", "Jefe", False),
+    (10, "auxiliar.soporte@upds.edu.bo", "Auxiliar Soporte", "Auxiliar", False),
 ]
 
 PADRES = [

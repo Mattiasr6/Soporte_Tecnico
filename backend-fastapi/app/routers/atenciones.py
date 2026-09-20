@@ -4,9 +4,6 @@ import calendar
 from datetime import date, datetime, timezone
 from typing import Annotated, Any
 
-from fastapi import APIRouter, File, HTTPException, UploadFile
-from sqlalchemy import extract, func, select
-
 from app.core.errors import bad_request, forbidden, not_found, unauthorized
 from app.core.security import CurrentUser, is_privileged
 from app.db.session import DbSession
@@ -31,6 +28,8 @@ from app.schemas.atencion import (
 from app.services.categorias import CATEGORIAS_VALIDAS, normalizar_categoria
 from app.services.csv_import import parse_csv
 from app.services.horarios import esta_fuera_de_horario
+from fastapi import APIRouter, File, HTTPException, UploadFile
+from sqlalchemy import extract, func, select
 
 router = APIRouter(prefix="/api/atenciones", tags=["atenciones"])
 

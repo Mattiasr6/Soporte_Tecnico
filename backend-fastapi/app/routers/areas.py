@@ -1,11 +1,10 @@
 """GET /api/areas legacy: réplica exacta del AreasController .NET (RN-S2-02)."""
 
-from fastapi import APIRouter
-from sqlalchemy import select
-
 from app.core.security import CurrentUser
 from app.db.session import DbSession
 from app.models.atencion import Atencion
+from fastapi import APIRouter
+from sqlalchemy import select
 
 router = APIRouter(prefix="/api/areas", tags=["areas"])
 

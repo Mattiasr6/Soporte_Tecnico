@@ -1,0 +1,11 @@
+{% extends "atenciones/base.html" %}
+{% block titulo %}Auxiliares — Soporte Técnico{% endblock %}
+{% block contenido %}
+<div class="page-wide">
+  <h1>Auxiliares</h1>
+  <p class="sub">{{ usuario.display_name|default:"Auxiliar" }} · {{ usuario.role|default:"" }}</p>
+  <div class="soon-block">
+    <p>Próximamente apartado completo para auxiliares.</p>
+  </div>
+</div>
+{% endblock %}

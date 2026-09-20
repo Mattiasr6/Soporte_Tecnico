@@ -3,12 +3,11 @@
 import os
 
 import pytest
-from fastapi.testclient import TestClient
-from starlette.websockets import WebSocketDisconnect
-
 from app.db.base import SessionLocal
 from app.main import app
 from app.models.usuario import Usuario
+from fastapi.testclient import TestClient
+from starlette.websockets import WebSocketDisconnect
 
 UID_MATTIAS = 1
 UID_DIEGO = 2

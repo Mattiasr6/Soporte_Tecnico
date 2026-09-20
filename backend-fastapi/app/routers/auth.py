@@ -1,12 +1,11 @@
 import bcrypt
-from fastapi import APIRouter
-from sqlalchemy import func, select
-
 from app.core.errors import unauthorized
 from app.db.session import DbSession
 from app.models.usuario import Usuario
 from app.schemas.auth import LoginIn, LoginOut
 from app.services.tokens import crear_token
+from fastapi import APIRouter
+from sqlalchemy import func, select
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 

@@ -3,9 +3,6 @@ import logging
 from datetime import datetime, timezone
 
 import jwt
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
-from sqlalchemy import select
-
 from app.core.config import settings
 from app.db.base import SessionLocal
 from app.models.horario import Horario
@@ -13,6 +10,8 @@ from app.models.usuario import Usuario
 from app.realtime import hub
 from app.services.estados import estado_efectivo
 from app.services.tokens import validar_token
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from sqlalchemy import select
 
 log = logging.getLogger("realtime")
 
