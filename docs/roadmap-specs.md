@@ -12,8 +12,8 @@ Rama: `python-experiment` · DB: misma `postgres-dev` (`:5433`) · Convivencia .
 | S6 | Resto v2: horarios, usuarios, announcements | aprobada y redactada (`docs/spec-s6-resto.md`) |
 | S7 | Realtime: paridad SignalR WS | aprobada y redactada (`docs/spec-s7-realtime.md`) |
 | S8 | Puesta en marcha: uvicorn live + smoke + convivencia .NET | aprobada y redactada (`docs/spec-s8-live.md`) |
-| S9 | Django templates: base + atenciones (wireframe→mockup→template) | aprobada y redactada (`docs/spec-s9-django-base.md`) |
-| S10 | Django templates: dashboard + resto pantallas | pendiente |
+| S9 | Django templates: base + atenciones (wireframe→mockup→template) | **completada** — 4 pantallas (login, lista, registrar con batch, modal ticket editar/eliminar), sidebar global con gating por rol, apartado auxiliares navegable |
+| S10 | Django templates: dashboard + resto pantallas | pendiente: dashboard, reportes, horarios, perfil, launcher, bloc de notas (wireframe por pantalla antes de código) |
 | S11 | Cutover: paridad final, apagado .NET/Next, compose definitivo | pendiente |
 | S12 | Migración datos prod: backup → mapeo → transform → carga (mapeo del usuario) | pendiente |
 
