@@ -372,8 +372,8 @@ def update_atencion(
     a = db.get(Atencion, atencion_id)
     if a is None:
         raise not_found("Atención no encontrada")
-    if a.usuario_id != user.id and user.role != "Jefe":
-        raise forbidden("Solo el dueño o un Jefe puede editar")
+    if a.usuario_id != user.id:
+        raise forbidden("Solo el dueño puede editar la atención")
     if dto.area_solicitante is not None:
         a.area_solicitante = dto.area_solicitante
     if dto.grupo_padre_id is not None:
@@ -410,6 +410,12 @@ def update_atencion(
         a.observaciones = dto.observaciones
     if dto.enlace_apoyo is not None:
         a.enlace_apoyo = dto.enlace_apoyo
+    if dto.colaborador_id is not None:
+        if db.get(Usuario, dto.colaborador_id) is None:
+            raise bad_request(f"ColaboradorId {dto.colaborador_id} no existe")
+        a.colaborador_id = dto.colaborador_id
+    if dto.fecha_registro is not None:
+        a.fecha_registro = dto.fecha_registro
     db.commit()
 
 
@@ -418,8 +424,8 @@ def delete_atencion(atencion_id: int, db: DbSession, user: CurrentUser) -> None:
     a = db.get(Atencion, atencion_id)
     if a is None:
         raise not_found("Atención no encontrada")
-    if a.usuario_id != user.id and user.role != "Jefe":
-        raise forbidden("Solo el dueño o un Jefe puede eliminar")
+    if a.usuario_id != user.id:
+        raise forbidden("Solo el dueño puede eliminar la atención")
     db.delete(a)
     db.commit()
 

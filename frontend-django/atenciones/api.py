@@ -64,3 +64,11 @@ def api_get(path: str, token: str, params: dict[str, str] | None = None) -> obje
 
 def api_post(path: str, token: str, body: dict[str, Any]) -> object:
     return _request("POST", path, token=token, body=body)
+
+
+def api_put(path: str, token: str, body: dict[str, Any]) -> object:
+    return _request("PUT", path, token=token, body=body)
+
+
+def api_delete(path: str, token: str) -> object:
+    return _request("DELETE", path, token=token)

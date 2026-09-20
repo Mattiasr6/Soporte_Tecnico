@@ -8,5 +8,20 @@ urlpatterns = [
     path("logout/", views.logout_vista, name="logout"),
     path("atenciones/", views.lista_vista, name="atenciones_lista"),
     path("atenciones/nueva/", views.nueva_vista, name="atenciones_nueva"),
+    path(
+        "atenciones/<int:atencion_id>/ticket/",
+        views.ticket_vista,
+        name="atencion_ticket",
+    ),
+    path(
+        "atenciones/<int:atencion_id>/editar/",
+        views.atencion_editar_vista,
+        name="atencion_editar",
+    ),
+    path(
+        "atenciones/<int:atencion_id>/eliminar/",
+        views.atencion_eliminar_vista,
+        name="atencion_eliminar",
+    ),
     path("auxiliares/", views.auxiliares_vista, name="auxiliares"),
 ]

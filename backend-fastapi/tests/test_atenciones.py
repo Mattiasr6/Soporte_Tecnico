@@ -206,6 +206,14 @@ def test_put_sync_y_permisos(filas_prueba):
         client.put(
             f"/api/atenciones/{target}",
             json={"area_id": area["id"]},
+            headers=h(UID_JEFE),
+        ).status_code
+        == 403
+    )
+    assert (
+        client.put(
+            f"/api/atenciones/{target}",
+            json={"area_id": area["id"]},
             headers=h(UID_MATTIAS),
         ).status_code
         == 204
@@ -223,9 +231,40 @@ def test_delete_permiso_y_borrado(filas_prueba):
         == 403
     )
     assert (
+        client.delete(f"/api/atenciones/{target}", headers=h(UID_JEFE)).status_code
+        == 403
+    )
+    assert (
         client.delete(f"/api/atenciones/{target}", headers=h(UID_MATTIAS)).status_code
         == 204
     )
     todas = client.get("/api/atenciones", headers=h(UID_JEFE)).json()
     assert target not in [a["id"] for a in todas]
     filas_prueba.remove(target)
+
+
+def test_put_fecha_y_colaborador(filas_prueba):
+    target = filas_prueba[0]
+    colegas = client.get("/api/usuarios", headers=h(UID_JEFE)).json()
+    colab = next(u for u in colegas if u["id"] == UID_DIEGO)
+    assert (
+        client.put(
+            f"/api/atenciones/{target}",
+            json={"fecha_registro": "2026-01-15", "colaborador_id": colab["id"]},
+            headers=h(UID_MATTIAS),
+        ).status_code
+        == 204
+    )
+    todas = client.get("/api/atenciones", headers=h(UID_JEFE)).json()
+    editada = next(a for a in todas if a["id"] == target)
+    assert editada["fecha_registro"] == "2026-01-15"
+    assert editada["colaborador_id"] == colab["id"]
+    assert editada["colaborador_nombre"] == colab["display_name"]
+    assert (
+        client.put(
+            f"/api/atenciones/{target}",
+            json={"colaborador_id": 999999},
+            headers=h(UID_MATTIAS),
+        ).status_code
+        == 400
+    )

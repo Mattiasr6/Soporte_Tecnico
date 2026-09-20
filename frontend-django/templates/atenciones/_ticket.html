@@ -1,0 +1,101 @@
+<div class="ticket" id="ticket-view">
+  <header class="ticket-head">
+    <span class="ticket-folio">#{{ a.id }}</span>
+    <span class="ticket-fecha">{{ a.fecha_registro }}</span>
+    {% if a.fuera_de_turno %}<span class="badge-turno">fuera turno</span>{% endif %}
+  </header>
+  <p class="ticket-ruta">{% if a.grupo_padre_nombre %}{{ a.grupo_padre_nombre }} › {% endif %}{% if a.grupo_nombre %}{{ a.grupo_nombre }} › {% endif %}{{ a.area_nombre|default:a.area_solicitante }}</p>
+  <dl class="ticket-grid">
+    <div><dt>Medio</dt><dd>{{ a.medio_solicitud }}</dd></div>
+    <div><dt>Solicitante</dt><dd>{{ a.usuario_solicitante }}</dd></div>
+    <div><dt>Categoría</dt><dd>{{ a.categoria }}</dd></div>
+    <div><dt>Técnico</dt><dd>{{ a.usuario_nombre }}</dd></div>
+    <div><dt>Colaborador</dt><dd>{{ a.colaborador_nombre|default:"—" }}</dd></div>
+  </dl>
+  <section class="ticket-block">
+    <h3>Descripción</h3>
+    <p>{{ a.descripcion }}</p>
+  </section>
+  <section class="ticket-block">
+    <h3>Solución</h3>
+    <p>{{ a.solucion }}</p>
+  </section>
+  {% if a.observaciones %}
+  <section class="ticket-block">
+    <h3>Observaciones</h3>
+    <p>{{ a.observaciones }}</p>
+  </section>
+  {% endif %}
+  {% if a.enlace_apoyo %}
+  <section class="ticket-block">
+    <h3>Enlace de apoyo</h3>
+    <p><a href="{{ a.enlace_apoyo }}" target="_blank" rel="noopener">{{ a.enlace_apoyo }}</a></p>
+  </section>
+  {% endif %}
+  <footer class="ticket-actions">
+    {% if puede_editar %}<button type="button" class="btn" data-editar>Editar</button>{% endif %}
+    {% if puede_eliminar %}
+    <form method="post" action="{% url 'atencion_eliminar' a.id %}" onsubmit="return confirm('¿Eliminar la atención #{{ a.id }}? No se puede deshacer.');">
+      {% csrf_token %}
+      <button type="submit" class="btn danger">Eliminar</button>
+    </form>
+    {% endif %}
+  </footer>
+</div>
+{% if puede_editar %}
+<form method="post" action="{% url 'atencion_editar' a.id %}" class="ticket-edit" id="ticket-edit" hidden>
+  {% csrf_token %}
+  {% include "atenciones/_selector_jerarquia.html" %}
+  <div class="grid2">
+    <div>
+      <label for="ed_medio">Medio</label>
+      <select id="ed_medio" name="medio_solicitud">
+        {% for m in medios %}<option value="{{ m }}"{% if a.medio_solicitud == m %} selected{% endif %}>{{ m }}</option>{% endfor %}
+      </select>
+    </div>
+    <div>
+      <label for="ed_solicitante">Solicitante</label>
+      <select id="ed_solicitante" name="usuario_solicitante">
+        {% for s in solicitantes %}<option value="{{ s }}"{% if a.usuario_solicitante == s %} selected{% endif %}>{{ s }}</option>{% endfor %}
+      </select>
+    </div>
+  </div>
+  <label>Categoría</label>
+  <div class="pills">
+    {% for c in categorias %}
+    <label class="pill"><input type="radio" name="categoria" value="{{ c }}" required{% if a.categoria == c %} checked{% endif %}> {{ c }}</label>
+    {% endfor %}
+  </div>
+  <label for="ed_desc">Descripción</label>
+  <textarea id="ed_desc" name="descripcion" rows="3" required>{{ a.descripcion }}</textarea>
+  <label for="ed_sol">Solución</label>
+  <textarea id="ed_sol" name="solucion" rows="3" required>{{ a.solucion }}</textarea>
+  <div class="grid2">
+    <div>
+      <label for="ed_obs">Observaciones</label>
+      <input type="text" id="ed_obs" name="observaciones" value="{{ a.observaciones|default:'' }}">
+    </div>
+    <div>
+      <label for="ed_enl">Enlace de apoyo</label>
+      <input type="text" id="ed_enl" name="enlace_apoyo" value="{{ a.enlace_apoyo|default:'' }}">
+    </div>
+  </div>
+  <div class="grid2">
+    <div>
+      <label for="ed_col">Colaborador</label>
+      <select id="ed_col" name="colaborador_id">
+        <option value="">— Sin colaborador —</option>
+        {% for u in usuarios %}<option value="{{ u.id }}"{% if a.colaborador_id == u.id %} selected{% endif %}>{{ u.display_name }}</option>{% endfor %}
+      </select>
+    </div>
+    <div>
+      <label for="ed_fec">Fecha</label>
+      <input type="date" id="ed_fec" name="fecha_registro" value="{{ a.fecha_registro }}">
+    </div>
+  </div>
+  <footer class="ticket-actions">
+    <button type="submit" class="btn">Guardar cambios</button>
+    <button type="button" class="btn ghost" data-cancelar>Cancelar</button>
+  </footer>
+</form>
+{% endif %}

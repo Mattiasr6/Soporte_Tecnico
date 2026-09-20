@@ -39,6 +39,8 @@ class AtencionUpdate(BaseModel):
     solucion: str | None = None
     observaciones: str | None = None
     enlace_apoyo: str | None = None
+    colaborador_id: int | None = None
+    fecha_registro: date | None = None
 
 
 class AtencionOut(BaseModel):

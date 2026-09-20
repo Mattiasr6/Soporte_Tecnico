@@ -1,10 +1,10 @@
 import datetime as _dt
 import json as _json
 
-from django.http import HttpRequest, HttpResponse
+from django.http import Http404, HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
 
-from .api import ApiError, api_get, api_post, login_api
+from .api import ApiError, api_delete, api_get, api_post, api_put, login_api
 from .auth import con_login
 from .forms import LoginForm
 
@@ -105,6 +105,7 @@ def lista_vista(request: HttpRequest) -> HttpResponse:
             "q": request.GET.get("q", ""),
             "categoria": categoria,
             "mes": mes,
+            "flash": request.session.pop("flash", None),
         },
     )
 
@@ -226,7 +227,7 @@ def _int_o_none(valor: object) -> int | None:
 
 
 def _hoy_iso() -> str:
-    return _dt.datetime.now(_dt.timezone.utc).date().isoformat()
+    return _dt.datetime.now(_dt.UTC).date().isoformat()
 
 
 @con_login
@@ -236,3 +237,92 @@ def auxiliares_vista(request: HttpRequest) -> HttpResponse:
     return render(
         request, "atenciones/auxiliares.html", {"usuario": request.session["usuario"]}
     )
+
+
+def _flash(request: HttpRequest, tipo: str, texto: str) -> None:
+    request.session["flash"] = {"tipo": tipo, "texto": texto}
+
+
+def _buscar(request: HttpRequest, atencion_id: int) -> dict[str, object]:
+    data = api_get("/api/atenciones", request.session["jwt"])
+    assert isinstance(data, list)
+    for item in data:
+        if isinstance(item, dict) and item.get("id") == atencion_id:
+            return item
+    raise Http404("Atención no encontrada")
+
+
+@con_login
+def ticket_vista(request: HttpRequest, atencion_id: int) -> HttpResponse:
+    if _es_auxiliar(request):
+        return redirect("auxiliares")
+    token = request.session["jwt"]
+    usuario = request.session["usuario"]
+    atencion = _buscar(request, atencion_id)
+    es_dueno = atencion.get("usuario_id") == usuario.get("id")
+    ctx: dict[str, object] = {
+        "a": atencion,
+        "puede_editar": es_dueno,
+        "puede_eliminar": es_dueno,
+        "categorias": CATEGORIAS,
+        "medios": MEDIOS,
+        "solicitantes": SOLICITANTES,
+        "edit_item": atencion,
+        "hoy": _hoy_iso(),
+    }
+    if ctx["puede_editar"]:
+        ctx["arbol_json"] = _json.dumps(api_get("/api/jerarquia/arbol", token))
+        ctx["usuarios"] = api_get("/api/usuarios", token)
+    return render(request, "atenciones/_ticket.html", ctx)
+
+
+def _cuerpo_edicion(request: HttpRequest) -> dict[str, object]:
+    cuerpo: dict[str, object] = {
+        "medio_solicitud": request.POST.get("medio_solicitud", ""),
+        "usuario_solicitante": request.POST.get("usuario_solicitante", ""),
+        "categoria": request.POST.get("categoria", ""),
+        "descripcion": request.POST.get("descripcion", ""),
+        "solucion": request.POST.get("solucion", ""),
+        "observaciones": request.POST.get("observaciones", ""),
+        "enlace_apoyo": request.POST.get("enlace_apoyo", ""),
+        "fecha_registro": request.POST.get("fecha_registro", ""),
+    }
+    for campo in ("grupo_padre_id", "grupo_id", "area_id", "colaborador_id"):
+        valor = _int_o_none(request.POST.get(campo))
+        if valor is not None:
+            cuerpo[campo] = valor
+    return {k: v for k, v in cuerpo.items() if v != ""}
+
+
+@con_login
+def atencion_editar_vista(request: HttpRequest, atencion_id: int) -> HttpResponse:
+    if _es_auxiliar(request):
+        return redirect("auxiliares")
+    if request.method != "POST":
+        return redirect("atenciones_lista")
+    try:
+        api_put(
+            f"/api/atenciones/{atencion_id}",
+            request.session["jwt"],
+            _cuerpo_edicion(request),
+        )
+    except ApiError as e:
+        _flash(request, "error", str(e.detail) if e.detail else "No se pudo guardar")
+    else:
+        _flash(request, "ok", f"Atención #{atencion_id} actualizada")
+    return redirect("atenciones_lista")
+
+
+@con_login
+def atencion_eliminar_vista(request: HttpRequest, atencion_id: int) -> HttpResponse:
+    if _es_auxiliar(request):
+        return redirect("auxiliares")
+    if request.method != "POST":
+        return redirect("atenciones_lista")
+    try:
+        api_delete(f"/api/atenciones/{atencion_id}", request.session["jwt"])
+    except ApiError as e:
+        _flash(request, "error", str(e.detail) if e.detail else "No se pudo eliminar")
+    else:
+        _flash(request, "ok", f"Atención #{atencion_id} eliminada")
+    return redirect("atenciones_lista")

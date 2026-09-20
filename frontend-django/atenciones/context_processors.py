@@ -1,5 +1,19 @@
 """Expone sesión a templates: usuario, página activa y permisos de nav."""
 
+from django.conf import settings
+
+ASSETS = ("css/tokens.css", "css/navbar.css", "js/navbar.js", "js/jerarquia.js")
+
+
+def asset_version() -> int:
+    version = 0
+    for raiz in settings.STATICFILES_DIRS:
+        for nombre in ASSETS:
+            ruta = raiz / nombre
+            if ruta.exists():
+                version = max(version, int(ruta.stat().st_mtime))
+    return version
+
 
 def sesion(request):
     usuario = request.session.get("usuario")
@@ -25,4 +39,5 @@ def sesion(request):
         "can_dashboard": can_dashboard,
         "es_auxiliar": es_auxiliar,
         "sistema": sistema,
+        "asset_version": asset_version(),
     }

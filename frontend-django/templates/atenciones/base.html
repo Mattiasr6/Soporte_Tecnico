@@ -5,13 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{% block titulo %}Soporte Técnico{% endblock %}</title>
 <link rel="icon" href="data:,">
-<link rel="stylesheet" href="/static/css/tokens.css">
-<link rel="stylesheet" href="/static/css/navbar.css">
+<link rel="stylesheet" href="/static/css/tokens.css?v={{ asset_version }}">
+<link rel="stylesheet" href="/static/css/navbar.css?v={{ asset_version }}">
 <script src="https://code.iconify.design/iconify-icon/2.1.0/iconify-icon.min.js" async></script>
 </head>
 <body data-page="{{ nav_page|default:'' }}">
 {% if usuario %}{% include "atenciones/_navbar.html" %}{% endif %}
 <main class="content{% if usuario %} with-nav{% endif %}">{% block contenido %}{% endblock %}</main>
-<script src="/static/js/navbar.js" defer></script>
+<script src="/static/js/navbar.js?v={{ asset_version }}" defer></script>
+<script src="/static/js/jerarquia.js?v={{ asset_version }}" defer></script>
 </body>
 </html>

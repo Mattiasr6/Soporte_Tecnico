@@ -8,10 +8,10 @@ import django
 
 django.setup()
 
-from unittest.mock import patch
+from unittest.mock import patch  # noqa: E402
 
-from django.conf import settings as _settings
-from django.test import Client, TestCase
+from django.conf import settings as _settings  # noqa: E402
+from django.test import Client, TestCase  # noqa: E402
 
 ARBOL = {
     "padres": [{"id": 1, "nombre": "Administrativos", "descripcion": None, "orden": 1}],
@@ -28,6 +28,33 @@ ARBOL = {
 }
 USUARIOS = [
     {"id": 1, "display_name": "M", "role": "Tecnico", "estado_actual": "ausente"}
+]
+
+ATENCIONES = [
+    {
+        "id": 9,
+        "usuario_id": 2,
+        "usuario_nombre": "Diego Orihuela Herrera",
+        "area_solicitante": "Biblioteca",
+        "grupo_padre_id": 2,
+        "grupo_padre_nombre": "Académicos",
+        "grupo_id": 3,
+        "grupo_nombre": "Biblioteca",
+        "area_id": 40,
+        "area_nombre": "Biblioteca",
+        "medio_solicitud": "Interno",
+        "usuario_solicitante": "ADM",
+        "categoria": "Hardware",
+        "descripcion": "PC sin red",
+        "solucion": "Se cambió patchcord",
+        "observaciones": None,
+        "enlace_apoyo": None,
+        "colaborador_id": None,
+        "colaborador_nombre": None,
+        "fecha_registro": "2026-09-01",
+        "fuera_de_turno": True,
+        "created_at": "2026-09-01T10:00:00Z",
+    }
 ]
 
 TECNICO = {
@@ -201,3 +228,79 @@ class VistasTest(TestCase):
         body = mock_post.call_args[0][2]
         self.assertEqual(body["atenciones"][0]["area_id"], 1)
         self.assertEqual(body["atenciones"][0]["fecha_registro"], "2026-09-18")
+
+    # --- modal de ticket ---
+
+    @patch("atenciones.views.api_get")
+    def test_ticket_dueno_puede_editar_y_eliminar(self, mock_get):
+        mock_get.side_effect = [ATENCIONES, ARBOL, USUARIOS]
+        r = self.client.get("/atenciones/9/ticket/")
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, "#9")
+        self.assertContains(r, "Biblioteca")
+        self.assertContains(r, "data-editar")
+        self.assertContains(r, "ticket-edit")
+        self.assertContains(r, "/atenciones/9/eliminar/")
+
+    @patch("atenciones.views.api_get")
+    def test_ticket_ajeno_solo_lectura(self, mock_get):
+        self._como({"id": 3, "display_name": "Paul", "role": "Tecnico"})
+        mock_get.side_effect = [ATENCIONES]
+        r = self.client.get("/atenciones/9/ticket/")
+        self.assertEqual(r.status_code, 200)
+        self.assertNotContains(r, "data-editar")
+        self.assertNotContains(r, "/atenciones/9/eliminar/")
+
+    @patch("atenciones.views.api_get")
+    def test_ticket_jefe_no_edita_ni_elimina(self, mock_get):
+        self._como(JEFE)
+        mock_get.side_effect = [ATENCIONES]
+        r = self.client.get("/atenciones/9/ticket/")
+        self.assertEqual(r.status_code, 200)
+        self.assertNotContains(r, "data-editar")
+        self.assertNotContains(r, "/atenciones/9/eliminar/")
+
+    @patch("atenciones.views.api_get")
+    def test_ticket_inexistente_404(self, mock_get):
+        mock_get.return_value = ATENCIONES
+        self.assertEqual(self.client.get("/atenciones/12345/ticket/").status_code, 404)
+
+    @patch("atenciones.views.api_get")
+    @patch("atenciones.views.api_put")
+    def test_editar_guardar(self, mock_put, mock_get):
+        mock_get.return_value = []
+        mock_put.return_value = None
+        r = self.client.post(
+            "/atenciones/9/editar/",
+            {
+                "area_id": "1",
+                "medio_solicitud": "Interno",
+                "usuario_solicitante": "ADM",
+                "categoria": "Hardware",
+                "descripcion": "D",
+                "solucion": "S",
+                "fecha_registro": "2026-01-15",
+                "colaborador_id": "2",
+            },
+        )
+        self.assertRedirects(r, "/atenciones/", fetch_redirect_response=False)
+        body = mock_put.call_args[0][2]
+        self.assertEqual(body["area_id"], 1)
+        self.assertEqual(body["colaborador_id"], 2)
+        self.assertEqual(body["fecha_registro"], "2026-01-15")
+
+    @patch("atenciones.views.api_get")
+    @patch("atenciones.views.api_delete")
+    def test_eliminar(self, mock_delete, mock_get):
+        mock_get.return_value = []
+        mock_delete.return_value = None
+        r = self.client.post("/atenciones/9/eliminar/")
+        self.assertRedirects(r, "/atenciones/", fetch_redirect_response=False)
+        mock_delete.assert_called_once()
+
+    @patch("atenciones.views.api_get")
+    def test_lista_muestra_ojo(self, mock_get):
+        mock_get.return_value = ATENCIONES
+        r = self.client.get("/atenciones/")
+        self.assertContains(r, 'data-ver="9"')
+        self.assertContains(r, "modal-ticket")
