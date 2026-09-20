@@ -118,5 +118,22 @@ document.querySelectorAll(".plantillas button").forEach((b) => {
     document.getElementById("id_sol").value = P[2];
   };
 });
+
+[
+  ["tick_obs", "wrap_obs"],
+  ["tick_enl", "wrap_enl"],
+].forEach(([tickId, wrapId]) => {
+  const tick = document.getElementById(tickId);
+  const wrap = document.getElementById(wrapId);
+  if (!tick || !wrap) return;
+  const sync = () => {
+    wrap.hidden = !tick.checked;
+    wrap.querySelectorAll("input").forEach((i) => {
+      i.disabled = !tick.checked;
+    });
+  };
+  tick.addEventListener("change", sync);
+  sync();
+});
 </script>
 {% endblock %}

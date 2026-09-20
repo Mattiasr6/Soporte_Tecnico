@@ -241,3 +241,50 @@ body {
   margin: 8px 0;
   font-size: 13px;
 }
+.opcionales {
+  margin: 10px 0;
+}
+.tick {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  color: var(--color-accent) !important;
+  font-size: 14px;
+  margin: 0 !important;
+}
+.tick input {
+  accent-color: var(--color-accent-deep);
+  width: auto;
+}
+.opcionales > div {
+  margin-top: 6px;
+}
+.batch-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+.batch-actions button {
+  background: none;
+  border: 0;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--color-accent-deep);
+  padding: 2px 4px;
+}
+.batch-actions button[value="quitar"] {
+  font-size: 18px;
+  color: var(--color-danger);
+}
+.link-btn {
+  background: none;
+  border: 0;
+  color: var(--color-accent-deep);
+  text-decoration: underline;
+  cursor: pointer;
+  font-size: 13px;
+  font-family: inherit;
+  padding: 0;
+}
