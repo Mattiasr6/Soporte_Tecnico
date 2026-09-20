@@ -126,6 +126,18 @@
   cursor: pointer;
   font-family: inherit;
 }
+.side-link iconify-icon,
+.icon-button iconify-icon,
+.side-collapse iconify-icon,
+.nav-mobile-toggle iconify-icon {
+  font-size: 18px;
+  line-height: 1;
+  flex-shrink: 0;
+  display: block;
+}
+.nav-mobile-toggle iconify-icon {
+  font-size: 22px;
+}
 .side-link-label {
   flex: 1;
   min-width: 0;

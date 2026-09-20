@@ -1,4 +1,7 @@
-<div class="ruta3">
+<div class="ruta3" id="ruta3"
+     data-padre="{{ edit_item.grupo_padre_id }}"
+     data-grupo="{{ edit_item.grupo_id }}"
+     data-area="{{ edit_item.area_id }}">
   <div>
     <label for="sel-padre">Grupo Padre</label>
     <select id="sel-padre" name="grupo_padre_id">
@@ -19,28 +22,49 @@
   </div>
 </div>
 <script>
-const ARBOL = {{ arbol_json|safe }};
-const selP = document.getElementById("sel-padre");
-const selG = document.getElementById("sel-grupo");
-const selA = document.getElementById("sel-area");
-ARBOL.padres.forEach((p) => selP.add(new Option(p.nombre, p.id)));
-function gruposDe(pid) { return ARBOL.grupos.filter((g) => g.grupo_padre_id == pid); }
-function areasDe(gid, pid) {
-  return ARBOL.areas.filter(
-    (a) => (gid ? a.grupo_id == gid : a.grupo_padre_id == pid && !a.grupo_id)
-  );
-}
-selP.onchange = () => {
-  selG.length = 1; selA.length = 1;
-  gruposDe(selP.value).forEach((g) => selG.add(new Option(g.nombre, g.id)));
-  if (!selG.options.length || gruposDe(selP.value).length === 0) {
-    ARBOL.areas
-      .filter((a) => a.grupo_padre_id == selP.value && !a.grupo_id)
-      .forEach((a) => selA.add(new Option(a.nombre, a.id)));
+(function () {
+  const ARBOL = {{ arbol_json|safe }};
+  const root = document.getElementById("ruta3");
+  const selP = root.querySelector("#sel-padre");
+  const selG = root.querySelector("#sel-grupo");
+  const selA = root.querySelector("#sel-area");
+
+  const gruposDe = (pid) => ARBOL.grupos.filter((g) => g.grupo_padre_id == pid);
+  const areasDe = (gid, pid) =>
+    ARBOL.areas.filter((a) =>
+      gid ? a.grupo_id == gid : a.grupo_padre_id == pid && !a.grupo_id
+    );
+
+  function llenarGrupos(pid) {
+    selG.length = 1;
+    gruposDe(pid).forEach((g) => selG.add(new Option(g.nombre, g.id)));
   }
-};
-selG.onchange = () => {
-  selA.length = 1;
-  areasDe(selG.value, selP.value).forEach((a) => selA.add(new Option(a.nombre, a.id)));
-};
+  function llenarAreas(gid, pid) {
+    selA.length = 1;
+    areasDe(gid, pid).forEach((a) => selA.add(new Option(a.nombre, a.id)));
+  }
+
+  selP.onchange = () => {
+    llenarGrupos(selP.value);
+    llenarAreas("", selP.value);
+  };
+  selG.onchange = () => llenarAreas(selG.value, selP.value);
+
+  ARBOL.padres.forEach((p) => selP.add(new Option(p.nombre, p.id)));
+
+  const preP = root.dataset.padre;
+  const preG = root.dataset.grupo;
+  const preA = root.dataset.area;
+  if (preP) {
+    selP.value = preP;
+    llenarGrupos(preP);
+    if (preG) {
+      selG.value = preG;
+      llenarAreas(preG, preP);
+    } else {
+      llenarAreas("", preP);
+    }
+    if (preA) selA.value = preA;
+  }
+})();
 </script>
