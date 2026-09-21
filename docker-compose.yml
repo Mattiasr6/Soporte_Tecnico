@@ -32,16 +32,21 @@ services:
       PGDATABASE: soporte
     volumes:
       - soporte-pgbackups:/backups
+    networks:
+      - soporte-network
     command: >
       sh -c "
-        echo 'Backup container started, waiting 60s for postgres...' &&
-        sleep 60 &&
+        echo 'Backup container started, waiting 60s for postgres...';
+        sleep 60;
         while true; do
-          DATE=$$(date +%Y%m%d_%H%M%S) &&
-          pg_dump -Fc > /backups/soporte_$$DATE.dump &&
-          echo \"Backup created: soporte_$$DATE.dump\" &&
-          find /backups -name \"soporte_*.dump\" -type f -mtime +7 -delete &&
-          echo \"Cleaned up backups older than 7 days\" &&
+          DATE=$$(date +%Y%m%d_%H%M%S);
+          if pg_dump -Fc > /backups/soporte_$$DATE.dump; then
+            echo \"Backup created: soporte_$$DATE.dump\";
+          else
+            rm -f /backups/soporte_$$DATE.dump;
+            echo 'Backup FAILED: no se pudo volcar la base' >&2;
+          fi;
+          find /backups -name \"soporte_*.dump\" -type f -mtime +7 -delete || true;
           sleep 86400;
         done
       "
