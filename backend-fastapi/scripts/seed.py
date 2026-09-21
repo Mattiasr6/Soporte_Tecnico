@@ -1,21 +1,37 @@
-"""Seed idempotente: upsert de 9 usuarios + 3 grupos padres (espejo del seed EF).
+"""Seed idempotente: 10 usuarios + 3 grupos padres + catalogo de areas + atenciones.
 
 Uso desde backend-fastapi/:  python scripts/seed.py
 Requiere .env con DATABASE_URL, JWT_SECRET y SEED_PASSWORD.
-Nunca borra; solo inserta o actualiza por PK (RN-S1-02).
+Requiere haber creado el esquema antes: alembic upgrade head.
+
+Nunca borra; solo inserta o actualiza (RN-S1-02). Las atenciones se cargan solo si
+la tabla esta vacia: es una carga inicial, no un import incremental.
+
+El catalogo y las atenciones salen de los CSV de la raiz del repo, que se regeneran
+con scripts/extraer_septiembre.py (prod sigue recibiendo atenciones todos los dias).
 """
 
+import csv
 import os
 import sys
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
+from pathlib import Path
 
 import bcrypt
+from sqlalchemy import func, select
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from app.db.base import SessionLocal
+from app.models.area import Area
+from app.models.atencion import Atencion
+from app.models.grupo import Grupo
 from app.models.grupo_padre import GrupoPadre
 from app.models.usuario import Usuario
+
+RAIZ = Path(__file__).resolve().parents[2]
+CATALOGO_CSV = RAIZ / "mapeo-areas-dedup.csv"
+ATENCIONES_CSV = RAIZ / "atenciones_septiembre.csv"
 
 USUARIOS = [
     (1, "mattias.ribera@upds.edu.bo", "Mattias Ribera Rojas", "Tecnico", True),
@@ -39,6 +55,112 @@ PADRES = [
 
 def hash_password(plain: str) -> str:
     return bcrypt.hashpw(plain.encode(), bcrypt.gensalt()).decode()
+
+
+def _leer_csv(path: Path) -> list[dict[str, str]]:
+    with open(path, encoding="utf-8-sig", newline="") as f:
+        return list(csv.DictReader(f))
+
+
+def seed_catalogo(db) -> dict[str, int]:
+    """4 grupos + 53 areas desde mapeo-areas-dedup.csv. Idempotente por nombre."""
+    filas = _leer_csv(CATALOGO_CSV)
+    padres = {nombre: pid for pid, nombre, _ in PADRES}
+    # los modelos no declaran relationship(), asi que el unit of work no puede ordenar
+    # los INSERT por si solo: hay que meter los padres antes que los grupos que los citan
+    db.flush()
+    stats = {"grupos": 0, "areas": 0}
+
+    for padre_nombre, grupo_nombre in dict.fromkeys(
+        (f["grupo_padre"].strip(), f["grupo"].strip()) for f in filas
+    ):
+        if not grupo_nombre:
+            continue
+        pid = padres[padre_nombre]
+        existe = db.scalars(
+            select(Grupo).where(
+                Grupo.nombre == grupo_nombre, Grupo.grupo_padre_id == pid
+            )
+        ).first()
+        if existe is None:
+            db.add(Grupo(nombre=grupo_nombre, grupo_padre_id=pid, activo=True))
+            stats["grupos"] += 1
+    db.flush()
+
+    gids = {(g.grupo_padre_id, g.nombre): g.id for g in db.scalars(select(Grupo)).all()}
+    for f in filas:
+        pid = padres[f["grupo_padre"].strip()]
+        nombre = f["nombre"].strip()
+        existe = db.scalars(
+            select(Area).where(Area.nombre == nombre, Area.grupo_padre_id == pid)
+        ).first()
+        if existe is not None:
+            continue
+        grupo_nombre = f["grupo"].strip()
+        db.add(
+            Area(
+                nombre=nombre,
+                grupo_padre_id=pid,
+                grupo_id=gids.get((pid, grupo_nombre)) if grupo_nombre else None,
+                activo=f["activo"].strip() == "1",
+            )
+        )
+        stats["areas"] += 1
+    db.flush()
+    return stats
+
+
+def seed_atenciones(db) -> dict[str, int]:
+    """Carga inicial desde el CSV. Deriva los 3 FK desde el area, no se teclea jerarquia.
+
+    Si un area, tecnico o colaborador no existe, falla ruidosamente: una fila con
+    jerarquia NULL o colaborador NULL es exactamente el bug que estamos cerrando.
+    """
+    filas = _leer_csv(ATENCIONES_CSV)
+    ya = db.scalar(select(func.count()).select_from(Atencion)) or 0
+    if ya:
+        return {"atenciones": 0, "atenciones_omitidas": ya}
+
+    usuarios = {u.email: u.id for u in db.scalars(select(Usuario)).all()}
+    areas = {a.nombre: a for a in db.scalars(select(Area)).all()}
+    stats = {"atenciones": 0, "con_colaborador": 0, "fuera_de_turno": 0}
+
+    for f in filas:
+        area = areas.get(f["area"].strip())
+        if area is None:
+            raise RuntimeError(f"Area '{f['area']}' no existe en el catalogo")
+        email = f["tecnico_email"].strip()
+        if email not in usuarios:
+            raise RuntimeError(f"Tecnico '{email}' no existe en Usuarios")
+        colab_email = f["colaborador_email"].strip()
+        if colab_email and colab_email not in usuarios:
+            raise RuntimeError(f"Colaborador '{colab_email}' no existe en Usuarios")
+        fuera = f["fuera_de_turno"].strip() == "true"
+        db.add(
+            Atencion(
+                usuario_id=usuarios[email],
+                grupo_padre_id=area.grupo_padre_id,
+                grupo_id=area.grupo_id,
+                area_id=area.id,
+                area_solicitante=area.nombre,
+                medio_solicitud=f["medio_solicitud"].strip(),
+                usuario_solicitante=f["usuario_solicitante"].strip(),
+                categoria=f["categoria"].strip(),
+                descripcion=f["descripcion"],
+                solucion=f["solucion"],
+                observaciones=f["observaciones"] or None,
+                enlace_apoyo=f["enlace_apoyo"] or None,
+                colaborador_id=usuarios[colab_email] if colab_email else None,
+                fuera_de_turno=fuera,
+                fecha_registro=date.fromisoformat(f["fecha_registro"].strip()),
+                created_at=datetime.fromisoformat(f["created_at"].strip()),
+            )
+        )
+        stats["atenciones"] += 1
+        stats["con_colaborador"] += 1 if colab_email else 0
+        stats["fuera_de_turno"] += 1 if fuera else 0
+    db.flush()
+    return stats
 
 
 def run_seed() -> dict[str, int]:
@@ -78,6 +200,8 @@ def run_seed() -> dict[str, int]:
             if db.get(GrupoPadre, pid) is None:
                 db.add(GrupoPadre(id=pid, nombre=nombre, orden=orden))
                 stats["padres"] += 1
+        stats |= seed_catalogo(db)
+        stats |= seed_atenciones(db)
         db.commit()
     return stats
 
