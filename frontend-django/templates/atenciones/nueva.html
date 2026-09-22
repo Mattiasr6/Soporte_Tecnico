@@ -5,7 +5,7 @@
   <h1>Nueva atención</h1>
   <p class="sub">Padre → Grupo → Área</p>
   {% if error %}<p class="error">{{ error }}</p>{% endif %}
-  {% if edit_idx is not None %}<p class="sub">Editando atención #{{ edit_idx|add:1 }} del batch. <button type="submit" form="form-cancel" class="link-btn">Cancelar edición</button></p>{% endif %}
+  {% if edit_idx is not None %}<p class="sub">Editando la atención #{{ edit_idx|add:1 }} de la lista. <button type="submit" form="form-cancel" class="link-btn">Cancelar edición</button></p>{% endif %}
   <form method="post" id="form-atencion">
     {% csrf_token %}
     {% include "atenciones/_selector_jerarquia.html" %}
@@ -64,7 +64,7 @@
         <input type="date" id="id_fec" name="fecha_registro" value="{{ edit_item.fecha_registro|default:hoy }}">
       </div>
     </div>
-    <button type="submit" name="action" value="agregar" class="btn">{% if edit_idx is not None %}Guardar cambios{% else %}Agregar al batch{% endif %}</button>
+    <button type="submit" name="action" value="agregar" class="btn">{% if edit_idx is not None %}Guardar cambios{% else %}Agregar a la lista{% endif %}</button>
   </form>
   {% if edit_idx is not None %}
   <form method="post" id="form-cancel">
@@ -73,7 +73,7 @@
   </form>
   {% endif %}
 
-  <h2>Batch ({{ batch|length }})</h2>
+  <h2>Lista ({{ batch|length }})</h2>
   {% for item in batch %}
   <form method="post" class="batch-item">
     {% csrf_token %}
@@ -85,12 +85,12 @@
     <input type="hidden" name="idx" value="{{ forloop.counter0 }}">
   </form>
   {% empty %}
-  <p class="sub">Batch vacío.</p>
+  <p class="sub">Todavía no agregaste ninguna atención.</p>
   {% endfor %}
   {% if batch %}
   <form method="post">
     {% csrf_token %}
-    <button type="submit" name="action" value="enviar" class="btn">Enviar batch</button>
+    <button type="submit" name="action" value="enviar" class="btn">{% if batch|length == 1 %}Registrar la atención{% else %}Registrar las {{ batch|length }} atenciones{% endif %}</button>
   </form>
   {% endif %}
 

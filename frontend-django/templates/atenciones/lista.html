@@ -18,7 +18,7 @@
   </form>
   <table class="tabla">
     <thead>
-      <tr><th>Fecha</th><th>Área</th><th>Categoría</th><th>Fuera de turno</th><th></th></tr>
+      <tr><th>Fecha</th><th>Área</th><th>Categoría</th><th>Técnico</th><th>Fuera de turno</th><th></th></tr>
     </thead>
     <tbody>
       {% for a in atenciones %}
@@ -26,6 +26,7 @@
         <td>{{ a.fecha_registro }}</td>
         <td>{{ a.area_solicitante }}</td>
         <td>{{ a.categoria }}</td>
+        <td>{{ a.usuario_nombre }}</td>
         <td>{% include "atenciones/_badge_turno.html" with atencion=a %}</td>
         <td>
           <button type="button" class="ver-btn" data-ver="{{ a.id }}" title="Ver detalle" aria-label="Ver detalle de la atención {{ a.id }}">
@@ -34,7 +35,7 @@
         </td>
       </tr>
       {% empty %}
-      <tr><td colspan="5">Sin registros.</td></tr>
+      <tr><td colspan="6">Sin registros.</td></tr>
       {% endfor %}
     </tbody>
   </table>
