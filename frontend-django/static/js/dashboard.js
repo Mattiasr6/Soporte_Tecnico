@@ -135,9 +135,11 @@
     if (padre && f.delta_padre !== null) {
       filas.push(["Fuera de turno vs " + padre, (f.delta_padre > 0 ? "+" : "−") + num(Math.abs(f.delta_padre)) + " puntos"]);
     }
-    filas.push(["Media por mes", num(f.promedio_mes) + " en " + f.meses_activos + " meses"]);
-    filas.push(["Mes más cargado", (f.pico || "—") + " · " + num(f.pico_total) + " casos"]);
-    filas.push(["Mes más tranquilo", (f.valle || "—") + " · " + num(f.valle_total) + " casos"]);
+    filas.push(["Media por mes", num(f.promedio_mes) + " en " + f.meses_activos + (f.meses_activos === 1 ? " mes" : " meses")]);
+    if (f.meses_activos > 1) {
+      filas.push(["Mes más cargado", (f.pico || "—") + " · " + num(f.pico_total) + " casos"]);
+      filas.push(["Mes más tranquilo", (f.valle || "—") + " · " + num(f.valle_total) + " casos"]);
+    }
     filas.push(["Categoría más frecuente", (f.dominante || "—") + " (" + num(f.dominante_pct) + "%)"]);
     filas.push(["3 categorías más frecuentes", num(f.top3_pct) + "% de las atenciones"]);
     document.getElementById("ficha").innerHTML = filas.map(function (par) {
