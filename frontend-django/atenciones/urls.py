@@ -24,6 +24,8 @@ urlpatterns = [
         name="atencion_eliminar",
     ),
     path("dashboard/", views.dashboard_vista, name="dashboard"),
+    path("jerarquia/", views.jerarquia_vista, name="jerarquia"),
+    path("jerarquia/accion/", views.jerarquia_accion_vista, name="jerarquia_accion"),
     path("panel/estados/", views.panel_estados_vista, name="panel_estados"),
     path("panel/stats/", views.panel_stats_vista, name="panel_stats"),
     path("auxiliares/", views.auxiliares_vista, name="auxiliares"),

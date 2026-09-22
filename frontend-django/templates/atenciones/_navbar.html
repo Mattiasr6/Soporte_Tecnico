@@ -38,6 +38,10 @@
         <span class="side-link-label">Atenciones</span>
       </a>
       {% if can_dashboard %}
+      <a class="side-link{% if nav_page == 'jerarquia' %} active{% endif %}" href="{% url 'jerarquia' %}" {% if nav_page == 'jerarquia' %}aria-current="page"{% endif %} data-nav-page="jerarquia">
+        <iconify-icon icon="mdi:sitemap-outline" aria-hidden="true"></iconify-icon>
+        <span class="side-link-label">Jerarquía</span>
+      </a>
       <span class="side-link soon" title="Pronto (S10)">
         <iconify-icon icon="mdi:file-document-outline" aria-hidden="true"></iconify-icon>
         <span class="side-link-label">Reportes</span><small>pronto</small>

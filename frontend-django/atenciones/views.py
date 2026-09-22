@@ -4,6 +4,8 @@ import json as _json
 
 from django.http import Http404, HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import redirect, render
+from django.urls import reverse
+from django.views.decorators.http import require_POST
 
 from .api import (
     ApiError,
@@ -679,3 +681,221 @@ def panel_estados_vista(request: HttpRequest) -> JsonResponse:
     assert isinstance(usuarios, list)
     conteo, tecnicos = _presencia(usuarios)
     return JsonResponse({"conteo": conteo, "tecnicos": tecnicos})
+
+
+PASOS_JERARQUIA = {
+    "sector": "grupos-padres",
+    "dependencia": "grupos",
+    "area": "areas",
+}
+
+
+def _parse_nodo(valor: str) -> dict[str, object] | None:
+    tipo, _, ident = (valor or "").partition(":")
+    if tipo not in PASOS_JERARQUIA or not ident.isdigit():
+        return None
+    return {"tipo": tipo, "id": int(ident), "clave": f"{tipo}:{ident}"}
+
+
+def _armar_arbol(arbol: dict, conteos: dict) -> list[dict]:
+    def cuenta(lista: str, ident: int) -> int:
+        for c in conteos.get(lista) or []:
+            if c.get("id") == ident:
+                return int(c.get("total") or 0)
+        return 0
+
+    areas = [dict(a, total=cuenta("areas", a["id"])) for a in arbol.get("areas") or []]
+    grupos = [dict(g, total=cuenta("grupos", g["id"])) for g in arbol.get("grupos") or []]
+    ramas: list[dict] = []
+    for padre in arbol.get("padres") or []:
+        suyos = [g for g in grupos if g["grupo_padre_id"] == padre["id"]]
+        for grupo in suyos:
+            grupo["areas"] = [a for a in areas if a["grupo_id"] == grupo["id"]]
+        ramas.append(
+            {
+                "sector": dict(padre, total=cuenta("padres", padre["id"])),
+                "grupos": suyos,
+                "directas": [
+                    a
+                    for a in areas
+                    if a["grupo_padre_id"] == padre["id"] and not a["grupo_id"]
+                ],
+            }
+        )
+    return ramas
+
+
+def _detalle(ramas: list[dict], sel: dict | None) -> dict | None:
+    if not sel:
+        return None
+    for rama in ramas:
+        sector = rama["sector"]
+        if sel["tipo"] == "sector" and sector["id"] == sel["id"]:
+            return {
+                "tipo": "sector",
+                "nodo": sector,
+                "sector": sector,
+                "dependencia": None,
+            }
+        for grupo in rama["grupos"]:
+            if sel["tipo"] == "dependencia" and grupo["id"] == sel["id"]:
+                return {
+                    "tipo": "dependencia",
+                    "nodo": grupo,
+                    "sector": sector,
+                    "dependencia": grupo,
+                }
+            for area in grupo["areas"]:
+                if sel["tipo"] == "area" and area["id"] == sel["id"]:
+                    return {
+                        "tipo": "area",
+                        "nodo": area,
+                        "sector": sector,
+                        "dependencia": grupo,
+                    }
+        for area in rama["directas"]:
+            if sel["tipo"] == "area" and area["id"] == sel["id"]:
+                return {
+                    "tipo": "area",
+                    "nodo": area,
+                    "sector": sector,
+                    "dependencia": None,
+                }
+    return None
+
+
+def _datos_jerarquia(token: str) -> tuple[dict, dict]:
+    arbol = api_get("/api/jerarquia/arbol", token, {"incluir_inactivas": "true"})
+    stats = api_get("/api/atenciones/stats", token)
+    conteos: dict[str, object] = {"padres": [], "grupos": [], "areas": []}
+    if isinstance(stats, dict):
+        conteos = {
+            "padres": stats.get("por_padre") or [],
+            "grupos": stats.get("por_grupo") or [],
+            "areas": stats.get("por_area_id") or [],
+        }
+    if not isinstance(arbol, dict):
+        arbol = {"padres": [], "grupos": [], "areas": []}
+    return arbol, conteos
+
+
+@con_login
+def jerarquia_vista(request: HttpRequest) -> HttpResponse:
+    if not _puede_dashboard(request):
+        return redirect("atenciones_lista")
+    arbol, conteos = _datos_jerarquia(str(request.session["jwt"]))
+    ramas = _armar_arbol(arbol, conteos)
+    sel = _parse_nodo(request.GET.get("nodo", ""))
+    nombre_sector = {r["sector"]["id"]: r["sector"]["nombre"] for r in ramas}
+    detalle = _detalle(ramas, sel)
+    abrir_grupo = None
+    if detalle and detalle["dependencia"]:
+        abrir_grupo = detalle["dependencia"]["id"]
+    return render(
+        request,
+        "atenciones/jerarquia.html",
+        {
+            "ramas": ramas,
+            "detalle": detalle,
+            "abrir_grupo": abrir_grupo,
+            "nodo_sel": sel,
+            "sectores": [r["sector"] for r in ramas],
+            "dependencias": [
+                {
+                    "id": g["id"],
+                    "nombre": g["nombre"],
+                    "sector_nombre": nombre_sector.get(g["grupo_padre_id"], "?"),
+                }
+                for r in ramas
+                for g in r["grupos"]
+            ],
+            "sueltas": [
+                dict(a, sector_nombre=nombre_sector.get(a["grupo_padre_id"], "?"))
+                for r in ramas
+                for a in r["directas"]
+            ],
+            "ver_sueltas": request.GET.get("sueltas") == "1",
+            "flash": request.session.pop("flash", None),
+        },
+    )
+
+
+def _crear_jerarquia(request: HttpRequest, token: str, tipo: str) -> None:
+    cuerpo: dict[str, object] = {"nombre": request.POST.get("nombre", "")}
+    if tipo in ("dependencia", "area"):
+        cuerpo["grupo_padre_id"] = _int_o_none(request.POST.get("sector_id")) or 0
+    if tipo == "area":
+        cuerpo["grupo_id"] = _int_o_none(request.POST.get("grupo_id"))
+    api_post(f"/api/jerarquia/{PASOS_JERARQUIA[tipo]}", token, cuerpo)
+
+
+def _renombrar_jerarquia(
+    request: HttpRequest, token: str, tipo: str, ruta: str, ident: int | None
+) -> None:
+    cuerpo: dict[str, object] = {"nombre": request.POST.get("nombre", "")}
+    if tipo == "area":
+        cuerpo["actualizar_texto_legado"] = request.POST.get("texto_legado") == "1"
+    api_put(f"{ruta}/{ident}", token, cuerpo)
+
+
+def _mover_jerarquia(
+    request: HttpRequest, token: str, tipo: str, ruta: str, ident: int | None
+) -> None:
+    destino = _int_o_none(request.POST.get("sector_id")) or 0
+    if tipo == "area":
+        api_put(
+            f"{ruta}/{ident}",
+            token,
+            {"grupo_padre_id": destino, "grupo_id": _int_o_none(request.POST.get("grupo_id"))},
+        )
+    else:
+        api_put(f"{ruta}/{ident}", token, {"grupo_padre_id": destino})
+
+
+@con_login
+@require_POST
+def jerarquia_accion_vista(request: HttpRequest) -> HttpResponse:
+    if not _puede_dashboard(request):
+        return redirect("atenciones_lista")
+    token = str(request.session["jwt"])
+    accion = request.POST.get("accion", "")
+    tipo = request.POST.get("tipo", "")
+    ident = _int_o_none(request.POST.get("id"))
+    volver = request.POST.get("volver", "")
+    destino = reverse("jerarquia")
+    if volver:
+        destino = f"{destino}?nodo={volver}"
+    if tipo not in PASOS_JERARQUIA:
+        request.session["flash"] = {"tipo": "error", "texto": "Tipo inválido."}
+        return redirect(destino)
+
+    ruta = f"/api/jerarquia/{PASOS_JERARQUIA[tipo]}"
+    try:
+        if accion == "crear":
+            _crear_jerarquia(request, token, tipo)
+            texto = "Creado."
+        elif accion == "renombrar":
+            _renombrar_jerarquia(request, token, tipo, ruta, ident)
+            texto = "Nombre actualizado."
+        elif accion == "mover":
+            _mover_jerarquia(request, token, tipo, ruta, ident)
+            texto = "Movido. Las atenciones se re-apuntaron."
+        elif accion in ("activar", "desactivar"):
+            api_put(f"{ruta}/{ident}", token, {"activo": accion == "activar"})
+            texto = "Activado." if accion == "activar" else "Desactivado."
+        elif accion == "borrar":
+            api_delete(f"{ruta}/{ident}", token)
+            texto = "Eliminado."
+            if volver == f"{tipo}:{ident}":
+                destino = reverse("jerarquia")
+        else:
+            texto = "Acción desconocida."
+    except ApiError as e:
+        request.session["flash"] = {
+            "tipo": "error",
+            "texto": str(e.detail) if e.detail else "No se pudo completar.",
+        }
+    else:
+        request.session["flash"] = {"tipo": "ok", "texto": texto}
+    return redirect(destino)
+
