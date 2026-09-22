@@ -11,6 +11,9 @@ class GrupoPadre(Base):
     nombre: Mapped[str] = mapped_column(
         "Nombre", String(50), unique=True, nullable=False
     )
+    codigo: Mapped[str] = mapped_column(
+        "Codigo", String(60), unique=True, nullable=False
+    )
     descripcion: Mapped[str | None] = mapped_column(
         "Descripcion", String(200), nullable=True
     )

@@ -20,6 +20,9 @@ class Area(Base):
         "GrupoId", Integer, ForeignKey("Grupos.Id"), nullable=True
     )
     nombre: Mapped[str] = mapped_column("Nombre", String(200), nullable=False)
+    codigo: Mapped[str] = mapped_column(
+        "Codigo", String(60), unique=True, nullable=False
+    )
     activo: Mapped[bool] = mapped_column(
         "Activo", Boolean, nullable=False, default=True
     )

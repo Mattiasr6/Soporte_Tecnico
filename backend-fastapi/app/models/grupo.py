@@ -15,6 +15,9 @@ class Grupo(Base):
         "GrupoPadreId", Integer, ForeignKey("GruposPadres.Id"), nullable=False
     )
     nombre: Mapped[str] = mapped_column("Nombre", String(100), nullable=False)
+    codigo: Mapped[str] = mapped_column(
+        "Codigo", String(60), unique=True, nullable=False
+    )
     activo: Mapped[bool] = mapped_column(
         "Activo", Boolean, nullable=False, default=True
     )
