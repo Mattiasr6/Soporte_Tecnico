@@ -4,7 +4,7 @@ import calendar
 from datetime import UTC, date, datetime
 from typing import Annotated, Any
 
-from fastapi import APIRouter, File, HTTPException, UploadFile
+from fastapi import APIRouter, File, HTTPException, Query, UploadFile
 from sqlalchemy import case, extract, func, select
 
 from app.core.errors import bad_request, forbidden, not_found, unauthorized
@@ -161,15 +161,24 @@ def _resolver_jerarquia(
 
 
 @router.get("", response_model=list[AtencionOut])
-def get_all(db: DbSession, user: CurrentUser, usuario_id: int | None = None):
+def get_all(
+    db: DbSession,
+    user: CurrentUser,
+    usuario_id: int | None = None,
+    limit: Annotated[int | None, Query(ge=1, le=2000)] = None,
+    offset: Annotated[int, Query(ge=0)] = 0,
+):
     q = select(Atencion)
     if (user.role == "Jefe" or user.can_view_dashboard) and usuario_id is not None:
         q = q.where(Atencion.usuario_id == usuario_id)
     elif user.role != "Jefe" and not user.can_view_dashboard:
         q = q.where(Atencion.usuario_id == user.id)
-    rows = db.scalars(
-        q.order_by(Atencion.fecha_registro.desc(), Atencion.id.desc())
-    ).all()
+    q = q.order_by(Atencion.fecha_registro.desc(), Atencion.id.desc())
+    if offset:
+        q = q.offset(offset)
+    if limit is not None:
+        q = q.limit(limit)
+    rows = db.scalars(q).all()
     return _serializar(db, list(rows))
 
 

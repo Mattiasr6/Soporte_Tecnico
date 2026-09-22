@@ -379,3 +379,26 @@ def test_put_fecha_y_colaborador(filas_prueba):
         ).status_code
         == 400
     )
+
+
+def test_lista_limit_offset(filas_prueba):
+    todas = client.get("/api/atenciones", headers=h(UID_JEFE)).json()
+    assert len(todas) > 3
+
+    primeras = client.get("/api/atenciones?limit=2", headers=h(UID_JEFE)).json()
+    assert len(primeras) == 2
+    assert [a["id"] for a in primeras] == [a["id"] for a in todas[:2]]
+
+    salteadas = client.get(
+        "/api/atenciones?limit=2&offset=2", headers=h(UID_JEFE)
+    ).json()
+    assert [a["id"] for a in salteadas] == [a["id"] for a in todas[2:4]]
+
+    assert client.get("/api/atenciones?limit=0", headers=h(UID_JEFE)).status_code == 422
+    assert (
+        client.get("/api/atenciones?offset=-1", headers=h(UID_JEFE)).status_code == 422
+    )
+    assert (
+        client.get("/api/atenciones?limit=99999", headers=h(UID_JEFE)).status_code
+        == 422
+    )
