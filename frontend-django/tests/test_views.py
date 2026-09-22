@@ -123,7 +123,7 @@ class VistasTest(TestCase):
         mock_get.return_value = []
         r = self.client.get("/atenciones/")
         self.assertEqual(r.status_code, 200)
-        self.assertContains(r, "Mostrando 0 registros")
+        self.assertContains(r, "Mostrando 0 de 0 registros")
         self.assertContains(r, "data-navbar")
         self.assertContains(r, "Soporte")
         self.assertNotContains(r, "Dashboard")
@@ -212,10 +212,12 @@ class VistasTest(TestCase):
 
     @patch("atenciones.views.api_get")
     def test_nueva_get(self, mock_get):
-        mock_get.side_effect = [ARBOL, USUARIOS, []]
+        mock_get.side_effect = [ARBOL, USUARIOS, [], STATS]
         r = self.client.get("/atenciones/nueva/")
         self.assertEqual(r.status_code, 200)
         self.assertContains(r, "Colaborador")
+        self.assertContains(r, "arbol")
+        self.assertIn("conteos_json", r.context)
 
     @patch("atenciones.views.api_get")
     @patch("atenciones.views.api_post")
@@ -311,6 +313,24 @@ class VistasTest(TestCase):
         r = self.client.post("/atenciones/9/eliminar/")
         self.assertRedirects(r, "/atenciones/", fetch_redirect_response=False)
         mock_delete.assert_called_once()
+
+    @patch("atenciones.views.api_get")
+    def test_lista_pagina_de_a_50(self, mock_get):
+        self._como(JEFE)
+        muchas = [dict(ATENCIONES[0], id=i) for i in range(60)]
+        mock_get.return_value = muchas
+
+        r = self.client.get("/atenciones/")
+        self.assertEqual(len(r.context["atenciones"]), 50)
+        self.assertTrue(r.context["hay_mas"])
+        self.assertEqual(r.context["restantes"], 10)
+        self.assertContains(r, "Ver más")
+        self.assertContains(r, "Mostrando 50 de 60 registros")
+
+        r2 = self.client.get("/atenciones/?limite=100")
+        self.assertEqual(len(r2.context["atenciones"]), 60)
+        self.assertFalse(r2.context["hay_mas"])
+        self.assertNotContains(r2, "Ver más")
 
     @patch("atenciones.views.api_get")
     def test_lista_muestra_ojo(self, mock_get):

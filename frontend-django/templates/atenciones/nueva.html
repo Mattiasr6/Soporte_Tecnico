@@ -3,7 +3,7 @@
 {% block contenido %}
 <div class="page-wide">
   <h1>Nueva atención</h1>
-  <p class="sub">Padre → Grupo → Área</p>
+  <p class="sub">Sector → Dependencia → Área</p>
   {% if error %}<p class="error">{{ error }}</p>{% endif %}
   {% if edit_idx is not None %}<p class="sub">Editando la atención #{{ edit_idx|add:1 }} de la lista. <button type="submit" form="form-cancel" class="link-btn">Cancelar edición</button></p>{% endif %}
   <form method="post" id="form-atencion">

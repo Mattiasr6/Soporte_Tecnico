@@ -39,7 +39,13 @@
       {% endfor %}
     </tbody>
   </table>
-  <p class="foot">Mostrando {{ total }} registros</p>
+  <p class="foot">Mostrando {{ atenciones|length }} de {{ total }} registros</p>
+  {% if hay_mas %}
+  <p class="ver-mas">
+    <a class="btn" href="?q={{ q|urlencode }}&categoria={{ categoria|urlencode }}&mes={{ mes|urlencode }}&limite={{ siguiente_limite }}">Ver más</a>
+    <span class="sub">quedan {{ restantes }}</span>
+  </p>
+  {% endif %}
 </div>
 
 <dialog id="modal-ticket" class="modal">

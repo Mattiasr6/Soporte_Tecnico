@@ -3,22 +3,22 @@
      data-grupo="{{ edit_item.grupo_id }}"
      data-area="{{ edit_item.area_id }}">
   <script type="application/json" class="arbol-data">{{ arbol_json|safe }}</script>
-  <div>
-    <label for="sel-padre">Grupo Padre</label>
-    <select id="sel-padre" data-rol="padre" name="grupo_padre_id">
-      <option value="">—</option>
-    </select>
+  <script type="application/json" class="conteos-data">{{ conteos_json|default:"{}"|safe }}</script>
+
+  <label for="filtro-area">Área</label>
+  <div class="selector-jerarquia">
+    <input type="text" id="filtro-area" class="filtro-arbol" autocomplete="off"
+           placeholder="Escribí para filtrar: sistemas, aula b, vicerrectorado…">
+    <div class="arbol" role="tree" aria-label="Sector, dependencia y área"></div>
   </div>
-  <div>
-    <label for="sel-grupo">Grupo</label>
-    <select id="sel-grupo" data-rol="grupo" name="grupo_id">
-      <option value="">—</option>
-    </select>
-  </div>
-  <div>
-    <label for="sel-area">Área</label>
-    <select id="sel-area" data-rol="area" name="area_id" required>
-      <option value="">—</option>
-    </select>
-  </div>
+
+  <p class="ruta-elegida" hidden>
+    <span class="ruta-texto"></span>
+    <button type="button" class="link-btn" data-cambiar-area>Cambiar</button>
+  </p>
+  <p class="error" data-error-area hidden>Elegí un área de la lista.</p>
+
+  <input type="hidden" name="grupo_padre_id" data-rol="padre" value="{{ edit_item.grupo_padre_id|default:'' }}">
+  <input type="hidden" name="grupo_id" data-rol="grupo" value="{{ edit_item.grupo_id|default:'' }}">
+  <input type="hidden" name="area_id" data-rol="area" value="{{ edit_item.area_id|default:'' }}">
 </div>

@@ -16,6 +16,8 @@ from .api import (
 from .auth import con_login
 from .forms import LoginForm
 
+PASO_LISTA = 50
+
 CATEGORIAS = [
     "Audio/Video",
     "Cuentas/Accesos",
@@ -107,12 +109,17 @@ def lista_vista(request: HttpRequest) -> HttpResponse:
         filas = [a for a in filas if a.get("categoria") == categoria]
     if mes:
         filas = [a for a in filas if str(a.get("fecha_registro", ""))[:7] == mes]
+    limite = min(max(_int_o_none(request.GET.get("limite")) or PASO_LISTA, PASO_LISTA), 500)
     return render(
         request,
         "atenciones/lista.html",
         {
-            "atenciones": filas,
+            "atenciones": filas[:limite],
             "total": len(filas),
+            "limite": limite,
+            "siguiente_limite": min(limite + PASO_LISTA, 500),
+            "hay_mas": len(filas) > limite,
+            "restantes": max(len(filas) - limite, 0),
             "usuario": usuario,
             "q": request.GET.get("q", ""),
             "categoria": categoria,
@@ -209,14 +216,23 @@ def nueva_vista(request: HttpRequest) -> HttpResponse:
                     return redirect("atenciones_lista")
     arbol = api_get("/api/jerarquia/arbol", token)
     usuarios = api_get("/api/usuarios", token)
-    recientes = api_get("/api/atenciones", token)
+    recientes = api_get("/api/atenciones", token, {"limit": 10})
+    stats = api_get("/api/atenciones/stats", token)
     assert isinstance(arbol, dict) and isinstance(usuarios, list)
     assert isinstance(recientes, list)
+    conteos: dict[str, object] = {"padres": [], "grupos": [], "areas": []}
+    if isinstance(stats, dict):
+        conteos = {
+            "padres": stats.get("por_padre") or [],
+            "grupos": stats.get("por_grupo") or [],
+            "areas": stats.get("por_area_id") or [],
+        }
     return render(
         request,
         "atenciones/nueva.html",
         {
             "arbol_json": _json.dumps(arbol),
+            "conteos_json": _json.dumps(conteos),
             "usuarios": [u for u in usuarios if isinstance(u, dict)],
             "recientes": [a for a in recientes if isinstance(a, dict)][:10],
             "batch": batch,
