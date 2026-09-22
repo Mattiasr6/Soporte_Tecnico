@@ -25,6 +25,7 @@ from app.schemas.atencion import (
     CategoriaMes,
     DiaTotal,
     FlujoSankey,
+    JerarquiaAtencionIn,
     NodoConteo,
     PorArea,
     PorCategoria,
@@ -550,26 +551,30 @@ def update_atencion(
         raise forbidden("Solo el dueño puede editar la atención")
     if dto.area_solicitante is not None:
         a.area_solicitante = dto.area_solicitante
-    if dto.grupo_padre_id is not None:
-        a.grupo_padre_id = dto.grupo_padre_id
-    if dto.grupo_id is not None:
-        a.grupo_id = dto.grupo_id
-    if dto.area_id is not None:
-        a.area_id = dto.area_id
     if dto.area_id is not None:
         area = db.get(Area, dto.area_id)
-        if area is not None:
-            a.area_solicitante = area.nombre
-    elif dto.grupo_id is not None and dto.area_id is None:
-        grupo = db.get(Grupo, dto.grupo_id)
-        if grupo is not None and not dto.area_solicitante:
-            a.area_solicitante = grupo.nombre
-    elif (
-        dto.grupo_padre_id is not None and dto.grupo_id is None and dto.area_id is None
-    ):
-        gp = db.get(GrupoPadre, dto.grupo_padre_id)
-        if gp is not None and not dto.area_solicitante:
-            a.area_solicitante = gp.nombre
+        if area is None:
+            raise bad_request(f"AreaId {dto.area_id} no existe")
+        a.area_id = area.id
+        a.grupo_padre_id = area.grupo_padre_id
+        a.grupo_id = area.grupo_id
+        a.area_solicitante = area.nombre
+    else:
+        if dto.grupo_padre_id is not None:
+            a.grupo_padre_id = dto.grupo_padre_id
+        if dto.grupo_id is not None:
+            a.grupo_id = dto.grupo_id
+            grupo = db.get(Grupo, dto.grupo_id)
+            if grupo is not None and not dto.area_solicitante:
+                a.area_solicitante = grupo.nombre
+        elif (
+            dto.grupo_padre_id is not None
+            and dto.grupo_id is None
+            and dto.area_id is None
+        ):
+            gp = db.get(GrupoPadre, dto.grupo_padre_id)
+            if gp is not None and not dto.area_solicitante:
+                a.area_solicitante = gp.nombre
     if dto.medio_solicitud is not None:
         a.medio_solicitud = dto.medio_solicitud
     if dto.usuario_solicitante is not None:
@@ -590,6 +595,26 @@ def update_atencion(
         a.colaborador_id = dto.colaborador_id
     if dto.fecha_registro is not None:
         a.fecha_registro = dto.fecha_registro
+    db.commit()
+
+
+@router.patch("/{atencion_id}/jerarquia", status_code=204)
+def reclasificar_atencion(
+    atencion_id: int, dto: JerarquiaAtencionIn, db: DbSession, user: CurrentUser
+) -> None:
+    """Un jefe cambia solo la clasificación, sin tocar el contenido de la atención."""
+    if not is_privileged(user):
+        raise forbidden("Solo un jefe puede reclasificar una atención")
+    a = db.get(Atencion, atencion_id)
+    if a is None:
+        raise not_found("Atención no encontrada")
+    area = db.get(Area, dto.area_id)
+    if area is None:
+        raise bad_request(f"AreaId {dto.area_id} no existe")
+    a.area_id = area.id
+    a.grupo_padre_id = area.grupo_padre_id
+    a.grupo_id = area.grupo_id
+    a.area_solicitante = area.nombre
     db.commit()
 
 

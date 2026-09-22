@@ -43,6 +43,12 @@ class AtencionUpdate(BaseModel):
     fecha_registro: date | None = None
 
 
+class JerarquiaAtencionIn(BaseModel):
+    """Solo la clasificación: el jefe elige el área y los 3 FK se derivan de ella."""
+
+    area_id: int
+
+
 class AtencionOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

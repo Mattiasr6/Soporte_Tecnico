@@ -42,6 +42,7 @@ def test_arbol_forma_y_conteos():
         "grupo_padre_id",
         "grupo_id",
         "nombre",
+        "codigo",
         "activo",
     }
 
