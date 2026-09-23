@@ -34,14 +34,10 @@
           {% for t in tecnicos %}
           <tr>
             <td>{{ t.nombre }}</td>
-            <td class="celda-horas">
-              <input type="time" id="lv_{{ t.id }}_h1" name="u{{ t.id }}_h1" value="{{ t.lv.h1 }}">
-              <input type="time" id="lv_{{ t.id }}_f1" name="u{{ t.id }}_f1" value="{{ t.lv.f1 }}">
-            </td>
-            <td class="celda-horas">
-              <input type="time" id="lv_{{ t.id }}_h2" name="u{{ t.id }}_h2" value="{{ t.lv.h2 }}">
-              <input type="time" id="lv_{{ t.id }}_f2" name="u{{ t.id }}_f2" value="{{ t.lv.f2 }}">
-            </td>
+            <td><div class="celda-horas"><input type="time" id="lv_{{ t.id }}_h1" name="u{{ t.id }}_h1" value="{{ t.lv.h1 }}">
+              <input type="time" id="lv_{{ t.id }}_f1" name="u{{ t.id }}_f1" value="{{ t.lv.f1 }}"></div></td>
+            <td><div class="celda-horas"><input type="time" id="lv_{{ t.id }}_h2" name="u{{ t.id }}_h2" value="{{ t.lv.h2 }}">
+              <input type="time" id="lv_{{ t.id }}_f2" name="u{{ t.id }}_f2" value="{{ t.lv.f2 }}"></div></td>
             <td>
               <select class="plantilla" data-fila="lv_{{ t.id }}">
                 <option value="">—</option>
@@ -82,10 +78,8 @@
           {% for t in tecnicos %}
           <tr>
             <td>{{ t.nombre }}</td>
-            <td class="celda-horas">
-              <input type="time" id="sab_{{ t.id }}_h1" name="u{{ t.id }}_h1" value="{{ t.sabado.h1 }}">
-              <input type="time" id="sab_{{ t.id }}_f1" name="u{{ t.id }}_f1" value="{{ t.sabado.f1 }}">
-            </td>
+            <td><div class="celda-horas"><input type="time" id="sab_{{ t.id }}_h1" name="u{{ t.id }}_h1" value="{{ t.sabado.h1 }}">
+              <input type="time" id="sab_{{ t.id }}_f1" name="u{{ t.id }}_f1" value="{{ t.sabado.f1 }}"></div></td>
             <td>
               <select class="plantilla" data-fila="sab_{{ t.id }}">
                 <option value="">—</option>
@@ -124,14 +118,10 @@
           {% for j in jefes %}
           <tr>
             <td>{{ j.nombre }}</td>
-            <td class="celda-horas">
-              <input type="time" id="jef_{{ j.id }}_h1" name="u{{ j.id }}_h1" value="{{ j.lv.h1 }}">
-              <input type="time" id="jef_{{ j.id }}_f1" name="u{{ j.id }}_f1" value="{{ j.lv.f1 }}">
-            </td>
-            <td class="celda-horas">
-              <input type="time" id="jef_{{ j.id }}_h2" name="u{{ j.id }}_h2" value="{{ j.lv.h2 }}">
-              <input type="time" id="jef_{{ j.id }}_f2" name="u{{ j.id }}_f2" value="{{ j.lv.f2 }}">
-            </td>
+            <td><div class="celda-horas"><input type="time" id="jef_{{ j.id }}_h1" name="u{{ j.id }}_h1" value="{{ j.lv.h1 }}">
+              <input type="time" id="jef_{{ j.id }}_f1" name="u{{ j.id }}_f1" value="{{ j.lv.f1 }}"></div></td>
+            <td><div class="celda-horas"><input type="time" id="jef_{{ j.id }}_h2" name="u{{ j.id }}_h2" value="{{ j.lv.h2 }}">
+              <input type="time" id="jef_{{ j.id }}_f2" name="u{{ j.id }}_f2" value="{{ j.lv.f2 }}"></div></td>
             <td>
               <select class="plantilla" data-fila="jef_{{ j.id }}">
                 <option value="">—</option>
