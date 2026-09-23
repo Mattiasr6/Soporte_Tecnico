@@ -51,3 +51,6 @@ __pycache__/
 backups/*.dump
 # Datos: snapshots de prod y mapeos de areas. No se versionan (ver docs/runbook-operacion.md)
 /*.csv
+
+# Logs de los procesos en produccion
+logs/

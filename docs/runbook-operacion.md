@@ -137,6 +137,67 @@ docker exec -i soporte-postgres-dev psql -U soporte -d <base_de_prueba> < dump.s
    Queda **un** warning a propósito: `SECURE_HSTS_PRELOAD`. Es para entrar a la lista de
    precarga de los navegadores, no aplica a un sistema interno, y es difícil de revertir.
 
+## Dónde vive cada cosa (ojo con los nombres)
+
+| | Contenedor | Base | Se llega por |
+|---|---|---|---|
+| **v2 (producción desde el 2026-09-23)** | `soporte-postgres-dev` | `soporte` | host `:5433` |
+| v1 (apagada, queda como evidencia) | `soporte-postgres` | `soporte` | sin puerto al host: `docker exec` |
+
+Las dos bases se llaman `soporte` y el contenedor de producción se llama `-dev`. Es
+confuso y es deuda del arranque: se ordena cuando la v2 tenga su contenedor propio.
+
+**La v1 quedó apagada pero entera**: `docker start soporte-backend soporte-frontend`
+la vuelve a levantar en `:3002`. La base y el backup de la v1 nunca se tocaron.
+Su dump final está en `~/backups/soporte/prod_v1_final_*.dump`.
+
+## Trabajar un cambio sin romper producción
+
+Mientras no haya contenedores, la regla es **una máquina, dos instancias**: producción
+no se toca, el cambio se prueba en una copia.
+
+```
+# 1. una copia de la base de producción, para trabajar sin riesgo
+docker exec soporte-postgres-dev pg_dump -U soporte -d soporte -Fc > /tmp/prod.dump
+docker exec soporte-postgres-dev psql -U soporte -d postgres -c "CREATE DATABASE soporte_dev;"
+docker exec -i soporte-postgres-dev pg_restore -U soporte -d soporte_dev < /tmp/prod.dump
+
+# 2. una rama por cambio, y esa base en la instancia de trabajo
+git checkout -b dev-lo-que-sea
+#    front en :8011 y API en :5012, apuntando a soporte_dev
+```
+
+Para publicar:
+
+```
+git checkout python-experiment && git merge dev-lo-que-sea
+alembic upgrade head                    # migraciones aditivas, nunca destructivas
+bash scripts/arrancar_produccion.sh     # o: systemctl restart soporte-api soporte-web
+```
+
+Tres reglas que no se negocian:
+
+1. **Un dump antes de cada publicación.** Si algo sale mal, se restaura y listo.
+2. **Nunca editar el código de la instancia que está corriendo.** Todo entra por git,
+   aunque sea un cambio de una línea. Lo que corre en producción es lo que está en la
+   rama, no lo que alguien tocó a mano.
+3. **Las migraciones no borran datos.** Agregar columnas sí; renombrar o eliminar
+   requiere una migración en dos pasos (agregar, migrar, y recién después borrar).
+
+## Arranque automático
+
+Hay dos unidades en `deploy/systemd/`. Para instalarlas (una sola vez):
+
+```
+sudo cp deploy/systemd/*.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now soporte-api soporte-web
+```
+
+Quedan con `Restart=always`, así que si un proceso se cae, vuelve. **Hasta que se
+instalen, un reinicio de la máquina deja la v2 abajo**: se levanta a mano con
+`bash scripts/arrancar_produccion.sh`.
+
 ## Lo que todavía no está
 
 - El sidebar de `/auxiliares/`: es un cartel de "próximamente".

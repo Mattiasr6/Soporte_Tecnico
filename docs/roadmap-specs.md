@@ -14,7 +14,7 @@ Rama: `python-experiment` · DB: misma `postgres-dev` (`:5433`) · Convivencia .
 | S8 | Puesta en marcha: uvicorn live + smoke + convivencia .NET | aprobada y redactada (`docs/spec-s8-live.md`) |
 | S9 | Django templates: base + atenciones (wireframe→mockup→template) | **completada** — 4 pantallas (login, lista, registrar con batch, modal ticket editar/eliminar), sidebar global con gating por rol, apartado auxiliares navegable |
 | S10 | Django templates: dashboard + resto pantallas | **en curso** — ✅ dashboard, ✅ `/jerarquia` (admin del catálogo para jefes), ✅ selector de jerarquía en árbol, ✅ paginación de la lista, ✅ `/horarios`, ✅ `/perfil` (etapa 1) y `/notas`, ✅ launcher como pantalla **Inicio** (`/`, con la presencia mudada del dashboard); pendiente: reportes (antes hay que decidir si es un feature real) |
-| S11 | Cutover: paridad final, apagado .NET/Next, compose definitivo | pendiente |
+| S11 | Cutover: paridad final, apagado .NET/Next, compose definitivo | **ejecutado el 2026-09-23** — la v2 es producción con 276 atenciones (septiembre = mes 1), los 9 usuarios con su contraseña de v1 y la v1 apagada (revivible). Pendiente: contenedor propio de la v2 (y un `-dev` nuevo) + las unidades systemd instaladas |
 | S12 | Migración datos prod | **descartada por decisión del usuario**: v2 arranca de 0 desde septiembre (276 atenciones) y v1 queda como evidencia de trabajo. No se migra la historia |
 
 ## Diferidos (anotados por el usuario)

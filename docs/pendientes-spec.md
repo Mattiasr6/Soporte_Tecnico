@@ -242,14 +242,16 @@ backend nuevo: se enriqueció `/api/usuarios` (`horario_hoy`, `entra_a_las`,
   checklist previo a exponerlo a los usuarios.
 - **Backups**: el pipeline quedó arreglado, pero no hay alerta si vuelve a fallar.
   Vale un chequeo (tamaño > 0 y antigüedad < 2 días).
-- **Cutover (S11)**: apagar .NET/Next, contenedor propio de la v2 y un `-dev` nuevo.
-  **Decidido: la v2 estrena base propia** (septiembre = mes 1) y ya está el script de
-  promoción (`scripts/promover_a_produccion.py`), probado de punta a punta contra una
-  base descartable: catálogo idéntico, 9 usuarios con su hash de v1, 276 atenciones y
-  los horarios.
-  Al probarlo aparecieron **dos bugs de la carga inicial, ya corregidos**: `seed_catalogo`
-  no seteaba `Codigo` (NOT NULL desde la migración de slugs) y asumía los sectores ya
-  creados. O sea que un contenedor nuevo habría fallado al sembrar.
+- **Cutover (S11) — ejecutado el 2026-09-23.** La v2 es producción desde esa fecha:
+  arranca con **276 atenciones** (septiembre = mes 1), el catálogo y los horarios de
+  septiembre. Los 9 usuarios entran con **su contraseña de v1** (se copiaron los hashes
+  bcrypt); el auxiliar quedó sin usar y con contraseña aleatoria.
+  - La v1 quedó **apagada pero entera** (`docker start soporte-backend soporte-frontend`
+    la revive en `:3002`) y con dump final en `~/backups/soporte/prod_v1_final_*.dump`.
+  - `DJANGO_DEBUG=0` + `runserver --insecure` (los estáticos con Debug apagado).
+  - Falta instalar las unidades de `deploy/systemd/` para que sobreviva a un reinicio.
+  - La base de producción vive en el contenedor `soporte-postgres-dev` (`:5433`), que es
+    un nombre engañoso heredado: el contenedor `soporte-postgres` es la base vieja de v1.
 
 ---
 

@@ -1,0 +1,17 @@
+[Unit]
+Description=Soporte Tecnico v2 - Web (Django)
+After=network.target soporte-api.service
+Wants=soporte-api.service
+
+[Service]
+Type=simple
+User=mattias
+WorkingDirectory=/home/mattias/Proyectos/Soporte_Tecnico-python/frontend-django
+ExecStart=/bin/bash -c 'set -a; source .env; set +a; exec .venv/bin/python manage.py runserver --insecure 0.0.0.0:8001'
+Restart=always
+RestartSec=3
+StandardOutput=append:/home/mattias/Proyectos/Soporte_Tecnico-python/logs/web.log
+StandardError=append:/home/mattias/Proyectos/Soporte_Tecnico-python/logs/web.log
+
+[Install]
+WantedBy=multi-user.target
