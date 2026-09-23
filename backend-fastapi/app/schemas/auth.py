@@ -6,6 +6,11 @@ class LoginIn(BaseModel):
     password: str
 
 
+class PasswordIn(BaseModel):
+    actual: str
+    nueva: str
+
+
 class LoginUserOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

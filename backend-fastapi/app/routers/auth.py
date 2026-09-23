@@ -1,12 +1,17 @@
+from datetime import UTC, datetime
+
 import bcrypt
 from fastapi import APIRouter
 from sqlalchemy import func, select
 
-from app.core.errors import unauthorized
+from app.core.errors import bad_request, not_found, unauthorized
+from app.core.security import CurrentUser
 from app.db.session import DbSession
 from app.models.usuario import Usuario
-from app.schemas.auth import LoginIn, LoginOut
+from app.schemas.auth import LoginIn, LoginOut, PasswordIn
 from app.services.tokens import crear_token
+
+MINIMO_PASSWORD = 8
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -39,3 +44,24 @@ def login(dto: LoginIn, db: DbSession):
             "can_view_dashboard": user.can_view_dashboard,
         },
     }
+
+
+@router.post("/password", status_code=204)
+def cambiar_password(dto: PasswordIn, db: DbSession, user: CurrentUser) -> None:
+    """Cada uno cambia su propia contraseña: nunca la de otro."""
+    if len(dto.nueva) < MINIMO_PASSWORD:
+        raise bad_request(
+            f"La contraseña nueva necesita al menos {MINIMO_PASSWORD} caracteres"
+        )
+    if dto.nueva == dto.actual:
+        raise bad_request("La contraseña nueva tiene que ser distinta a la actual")
+    usuario = db.get(Usuario, user.id)
+    if usuario is None:
+        raise not_found("Usuario no encontrado")
+    if not usuario.password_hash or not bcrypt.checkpw(
+        dto.actual.encode(), usuario.password_hash.encode()
+    ):
+        raise unauthorized("La contraseña actual no coincide")
+    usuario.password_hash = bcrypt.hashpw(dto.nueva.encode(), bcrypt.gensalt()).decode()
+    usuario.updated_at = datetime.now(UTC)
+    db.commit()
