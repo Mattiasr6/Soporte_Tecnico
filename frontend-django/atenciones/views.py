@@ -283,7 +283,10 @@ def nueva_vista(request: HttpRequest) -> HttpResponse:
     arbol = api_get("/api/jerarquia/arbol", token)
     usuarios = api_get("/api/usuarios", token)
     recientes = api_get("/api/atenciones", token, {"limit": 10})
-    stats = api_get("/api/atenciones/stats", token)
+    try:
+        stats = api_get("/api/atenciones/stats", token)
+    except ApiError:
+        stats = None
     assert isinstance(arbol, dict) and isinstance(usuarios, list)
     assert isinstance(recientes, list)
     conteos: dict[str, object] = {"padres": [], "grupos": [], "areas": []}

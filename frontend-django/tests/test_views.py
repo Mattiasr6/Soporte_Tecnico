@@ -251,6 +251,26 @@ class VistasTest(TestCase):
         )
 
     @patch("atenciones.views.api_get")
+    def test_nueva_no_desloguea_al_tecnico(self, mock_get):
+        """El stats es solo para jefes. Cuando un tecnico abre 'Soporte', ese 401 no puede
+        matarle la sesion: antes lo mandaba al login en vez de al formulario."""
+        from atenciones.api import ApiError
+
+        def responder(path, *args, **kwargs):
+            if path == "/api/atenciones/stats":
+                raise ApiError(401, "Sin permiso")
+            if path == "/api/jerarquia/arbol":
+                return ARBOL
+            if path == "/api/usuarios":
+                return USUARIOS
+            return []
+
+        mock_get.side_effect = responder
+        r = self.client.get("/atenciones/nueva/")
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, "Colaborador")
+
+    @patch("atenciones.views.api_get")
     def test_nueva_get(self, mock_get):
         mock_get.side_effect = [ARBOL, USUARIOS, [], STATS]
         r = self.client.get("/atenciones/nueva/")

@@ -89,6 +89,25 @@ contraseña**. Verificado comparando los 9 contra v1.
 La base destino se crea con `alembic upgrade head` (el script no la crea) y conviene
 probarla antes en una base descartable, no encima de la de trabajo.
 
+## Correr los tests
+
+Los del front crean su propia base descartable, así que no tocan nada.
+
+Los del back **escriben en la base a la que apunte `DATABASE_URL`**, y desde el corte esa
+es la de producción. Por eso `tests/conftest.py` **se niega a correr** si el nombre de la
+base no termina en `_test`. Hay que usar una copia:
+
+```
+# una copia de produccion, con las contrasenas del seed para poder loguearse
+docker exec soporte-postgres-dev psql -U soporte -d postgres -c "CREATE DATABASE soporte_test;"
+docker exec soporte-postgres-dev sh -c "pg_dump -U soporte -d soporte -Fc | pg_restore -U soporte -d soporte_test"
+cd backend-fastapi && DATABASE_URL=<...>/soporte_test python scripts/seed.py
+
+# y los tests, contra esa copia
+cd backend-fastapi && DATABASE_URL=<...>/soporte_test python -m pytest -q
+cd frontend-django && python manage.py test tests
+```
+
 ## Los CSV de datos no están versionados
 
 `atenciones_septiembre.csv`, `mapeo-areas.csv` y `mapeo-areas-dedup.csv` están en el

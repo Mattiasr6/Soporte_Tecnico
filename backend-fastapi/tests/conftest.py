@@ -11,10 +11,12 @@ Ojo: la regla mira el reloj, así que si la suite corre justo al cruzar la
 medianoche estos tests pueden fallar por el cambio de día (ventana de ~1s).
 """
 
+import os
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from datetime import UTC, datetime
 from typing import Any
+from urllib.parse import urlsplit
 
 import pytest
 from sqlalchemy import select
@@ -22,6 +24,20 @@ from sqlalchemy import select
 from app.db.base import SessionLocal
 from app.models.horario import Horario
 from app.routers.usuarios import _hoy_local
+
+
+def _exigir_base_de_pruebas() -> None:
+    """Estos tests escriben en la base a la que apunte DATABASE_URL. Nunca deben correr
+    sobre la de produccion: tienen que usar una copia, y su nombre termina en _test."""
+    base = urlsplit(os.environ.get("DATABASE_URL", "")).path.lstrip("/")
+    if not base.endswith("_test"):
+        raise RuntimeError(
+            f"los tests escriben en la base '{base or '?'}' y no termina en _test. "
+            "Correlos con DATABASE_URL apuntando a una copia de produccion."
+        )
+
+
+_exigir_base_de_pruebas()
 
 CAMPOS = ("label", "hora_inicio1", "hora_fin1", "hora_inicio2", "hora_fin2")
 TEMPORAL = {
