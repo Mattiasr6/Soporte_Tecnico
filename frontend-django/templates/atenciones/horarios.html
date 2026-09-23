@@ -46,7 +46,7 @@
                 {% endfor %}
               </select>
             </td>
-            <td class="sub">{{ t.lv.label }}</td>
+            <td class="sub celda-aporta">{% if t.franjas_lv %}{{ t.franjas_lv|join:" · " }}{% else %}<span class="jerq-off">no cubre</span>{% endif %}</td>
             <td>
               <button type="submit" class="link-btn" formaction="{% url 'horarios_limpiar' %}"
                       name="usuario_id" value="{{ t.id }}">Limpiar</button>
@@ -87,7 +87,7 @@
                 <option value="14:30|18:30||">14:30-18:30 (tarde)</option>
               </select>
             </td>
-            <td class="sub">{{ t.sabado.label }}</td>
+            <td class="sub celda-aporta">{% if t.franjas_sabado %}{{ t.franjas_sabado|join:" · " }}{% else %}<span class="jerq-off">no cubre</span>{% endif %}</td>
             <td>
               <button type="submit" class="link-btn" formaction="{% url 'horarios_limpiar' %}"
                       name="usuario_id" value="{{ t.id }}">Limpiar</button>

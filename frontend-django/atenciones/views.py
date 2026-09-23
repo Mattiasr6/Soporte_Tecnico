@@ -1051,6 +1051,15 @@ def _bloque(fila: dict | None) -> dict[str, str]:
     }
 
 
+def _franjas_por_tecnico(cobertura: dict, clave: str) -> dict[str, list[str]]:
+    """nombre -> bloques que cubre, para ver de un golpe si el escalonado cierra."""
+    mapa: dict[str, list[str]] = {}
+    for franja in cobertura.get(clave) or []:
+        for nombre in franja.get("tecnicos") or []:
+            mapa.setdefault(str(nombre), []).append(str(franja.get("franja")))
+    return mapa
+
+
 def _filas_horarios(token: str, mes: int, anio: int) -> list[dict]:
     filas = api_get("/api/horarios", token, {"mes": str(mes), "anio": str(anio)})
     return [f for f in filas if isinstance(f, dict)] if isinstance(filas, list) else []
@@ -1078,19 +1087,25 @@ def horarios_vista(request: HttpRequest) -> HttpResponse:
         else []
     )
 
-    def armar(persona: dict) -> dict:
-        dias = por_persona.get(int(persona["id"]), {})
-        return {
-            "id": persona["id"],
-            "nombre": persona["display_name"],
-            "lv": _bloque(dias.get(LUNES)),
-            "sabado": _bloque(dias.get(SABADO)),
-            "tiene_horario": bool(dias),
-        }
-
     cobertura = api_get(
         "/api/horarios/cobertura", token, {"mes": str(mes), "anio": str(anio)}
     )
+    cobertura = cobertura if isinstance(cobertura, dict) else {}
+    franjas_lv = _franjas_por_tecnico(cobertura, "laborable")
+    franjas_sab = _franjas_por_tecnico(cobertura, "sabado")
+
+    def armar(persona: dict) -> dict:
+        dias = por_persona.get(int(persona["id"]), {})
+        nombre = str(persona["display_name"])
+        return {
+            "id": persona["id"],
+            "nombre": nombre,
+            "lv": _bloque(dias.get(LUNES)),
+            "sabado": _bloque(dias.get(SABADO)),
+            "franjas_lv": franjas_lv.get(nombre, []),
+            "franjas_sabado": franjas_sab.get(nombre, []),
+            "tiene_horario": bool(dias),
+        }
     previo, siguiente = _mes_vecino(mes, anio, -1), _mes_vecino(mes, anio, 1)
     return render(
         request,
@@ -1098,7 +1113,7 @@ def horarios_vista(request: HttpRequest) -> HttpResponse:
         {
             "tecnicos": [armar(p) for p in personas if p.get("role") == "Tecnico"],
             "jefes": [armar(p) for p in personas if p.get("role") == "Jefe"],
-            "cobertura": cobertura if isinstance(cobertura, dict) else {},
+            "cobertura": cobertura,
             "plantillas": PLANTILLAS,
             "mes": mes,
             "anio": anio,

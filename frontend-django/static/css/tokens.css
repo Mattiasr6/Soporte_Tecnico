@@ -518,8 +518,14 @@ html.a11y-contraste-alto textarea {
 }
 .horarios-tabla th:nth-child(5),
 .horarios-tabla td:nth-child(5) {
-  white-space: nowrap;
-  font-size: 12px;
+  font-size: 11.5px;
+  max-width: 120px;
+}
+.celda-aporta {
+  line-height: 1.3;
+}
+.horarios-tabla {
+  width: 100%;
 }
 .celda-horas {
   display: flex;
