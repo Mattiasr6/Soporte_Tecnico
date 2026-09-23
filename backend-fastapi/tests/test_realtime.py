@@ -67,7 +67,7 @@ def test_connect_flip_y_disconnect():
                 propio = diego.receive_json()
                 assert propio["type"] == "status_changed"
                 assert propio["usuario_id"] == UID_DIEGO
-                assert propio["estado"] == "disponible"
+                assert propio["estado"] == "extraturno"
                 ajeno = obs.receive_json()
                 assert ajeno["usuario_id"] == UID_DIEGO
             # Diego cerró su última conexión → ausente

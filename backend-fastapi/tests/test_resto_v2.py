@@ -51,13 +51,23 @@ def test_estado_efectivo_puro():
     ahora = datetime.now(UTC)
     assert estado_efectivo("Ausente", None, ahora) == "ausente"
     assert estado_efectivo("Extraturno", None, ahora) == "extraturno"
-    assert estado_efectivo("Disponible", None, ahora) == "disponible"
+    # sin horario ese dia = fuera de turno: asi funciona el domingo
+    assert estado_efectivo("Disponible", None, ahora) == "extraturno"
+
+
+def _limpiar_horarios_2099() -> None:
+    filas = client.get(
+        "/api/horarios", params={"mes": 1, "anio": 2099}, headers=h(UID_JEFE)
+    ).json()
+    for fila in filas:
+        client.delete(f"/api/horarios/{fila['id']}", headers=h(UID_JEFE))
 
 
 def test_horarios_crud_2099():
+    _limpiar_horarios_2099()
     dto = {
         "usuario_id": UID_DIEGO,
-        "label": "TEST-S6",
+        "dia_semana": 1,
         "hora_inicio1": "08:00",
         "hora_fin1": "16:00",
         "hora_inicio2": None,
@@ -71,43 +81,73 @@ def test_horarios_crud_2099():
             == 403
         )
         assert (
+            client.post("/api/horarios", json=dto, headers=h(UID_JEFE)).status_code
+            == 204
+        )
+        rows = client.get(
+            "/api/horarios", params={"mes": 1, "anio": 2099}, headers=h(UID_JEFE)
+        ).json()
+        assert len(rows) == 1
+        assert rows[0]["label"] == "08:00-16:00"
+        assert rows[0]["dia_semana"] == 1
+        assert rows[0]["nombre"] == "Diego Orihuela Herrera"
+        hid = rows[0]["id"]
+
+        propios = client.get(
+            "/api/horarios", params={"mes": 1, "anio": 2099}, headers=h(UID_DIEGO)
+        ).json()
+        assert len(propios) == 1
+
+        assert (
+            client.post(
+                "/api/horarios", json={**dto, "hora_fin1": "17:00"}, headers=h(UID_JEFE)
+            ).status_code
+            == 204
+        )
+        rows = client.get(
+            "/api/horarios", params={"mes": 1, "anio": 2099}, headers=h(UID_JEFE)
+        ).json()
+        assert len(rows) == 1 and rows[0]["label"] == "08:00-17:00"
+
+        assert (
+            client.post(
+                "/api/horarios",
+                json={**dto, "dia_semana": 6, "hora_fin1": "12:00"},
+                headers=h(UID_JEFE),
+            ).status_code
+            == 204
+        )
+        assert (
+            len(
+                client.get(
+                    "/api/horarios",
+                    params={"mes": 1, "anio": 2099},
+                    headers=h(UID_JEFE),
+                ).json()
+            )
+            == 2
+        )
+
+        # los jefes ahora SI pueden tener horario (su turno fijo); antes daba 400
+        assert (
             client.post(
                 "/api/horarios",
                 json={**dto, "usuario_id": UID_JEFE},
                 headers=h(UID_JEFE),
             ).status_code
-            == 400
-        )
-        assert (
-            client.post("/api/horarios", json=dto, headers=h(UID_JEFE)).status_code
             == 204
         )
-        rows = client.get(
-            "/api/horarios",
-            params={"mes": 1, "anio": 2099},
-            headers=h(UID_JEFE),
-        ).json()
-        assert len(rows) == 1
-        assert rows[0]["label"] == "TEST-S6"
-        assert rows[0]["nombre"] == "Diego Orihuela Herrera"
-        hid = rows[0]["id"]
-        propios = client.get(
-            "/api/horarios",
-            params={"mes": 1, "anio": 2099},
-            headers=h(UID_DIEGO),
-        ).json()
-        assert len(propios) == 1
-        dto2 = {**dto, "label": "TEST-S6-B"}
         assert (
-            client.post("/api/horarios", json=dto2, headers=h(UID_JEFE)).status_code
-            == 204
+            len(
+                client.get(
+                    "/api/horarios",
+                    params={"mes": 1, "anio": 2099},
+                    headers=h(UID_JEFE),
+                ).json()
+            )
+            == 3
         )
-        rows = client.get(
-            "/api/horarios",
-            params={"mes": 1, "anio": 2099},
-            headers=h(UID_JEFE),
-        ).json()
-        assert len(rows) == 1 and rows[0]["label"] == "TEST-S6-B"
+
         assert (
             client.delete(f"/api/horarios/{hid}", headers=h(UID_DIEGO)).status_code
             == 403
@@ -133,13 +173,16 @@ def test_cobertura_forma():
     r = client.get("/api/horarios/cobertura", headers=h(UID_DIEGO))
     assert r.status_code == 200
     data = r.json()
-    assert [f["franja"] for f in data["cobertura"]] == [
-        "Manana",
-        "Medio dia",
-        "Tarde",
-        "Noche",
-    ]
-    assert all("hora" in f and "tecnicos" in f for f in data["cobertura"])
+    # la cobertura se separa en dos: el sabado tiene otro horario
+    assert set(data) == {"mes", "anio", "laborable", "sabado"}
+    for bloque in (data["laborable"], data["sabado"]):
+        assert [f["franja"] for f in bloque] == [
+            "Manana",
+            "Medio dia",
+            "Tarde",
+            "Noche",
+        ]
+        assert all("hora" in f and "tecnicos" in f for f in bloque)
 
 
 def test_usuarios_lista_y_me():

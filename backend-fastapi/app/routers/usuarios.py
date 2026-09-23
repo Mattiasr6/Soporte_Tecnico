@@ -18,16 +18,25 @@ from app.schemas.usuario import (
     UsuarioOut,
 )
 from app.services.estados import estado_efectivo
+from app.services.horarios import LA_PAZ
 
 router = APIRouter(prefix="/api/usuarios", tags=["usuarios"])
 
 ESTADOS_VALIDOS = {"disponible": "Disponible", "ocupado": "Ocupado"}
 
 
-def _horarios_mes(db: DbSession) -> dict[int, Horario]:
-    now = datetime.now(UTC)
+def _hoy_local() -> tuple[int, int, int]:
+    """(mes, anio, dia ISO) en hora de La Paz, que es donde aplican los horarios."""
+    local = datetime.now(UTC).astimezone(LA_PAZ)
+    return local.month, local.year, local.isoweekday()
+
+
+def _horarios_de_hoy(db: DbSession) -> dict[int, Horario]:
+    mes, anio, dia = _hoy_local()
     rows = db.scalars(
-        select(Horario).where(Horario.mes == now.month, Horario.anio == now.year)
+        select(Horario).where(
+            Horario.mes == mes, Horario.anio == anio, Horario.dia_semana == dia
+        )
     ).all()
     return {h.usuario_id: h for h in rows}
 
@@ -38,7 +47,7 @@ def get_all(db: DbSession, user: CurrentUser):
     usuarios = db.scalars(
         select(Usuario).where(Usuario.role.in_(["Tecnico", "Jefe"]))
     ).all()
-    horarios = _horarios_mes(db)
+    horarios = _horarios_de_hoy(db)
     return [
         {
             "id": u.id,
@@ -57,11 +66,13 @@ def get_me(db: DbSession, user: CurrentUser):
     usuario = db.get(Usuario, user.id)
     if usuario is None:
         raise not_found("Usuario no registrado en el sistema.")
+    mes, anio, dia = _hoy_local()
     horario = db.scalars(
         select(Horario).where(
             Horario.usuario_id == user.id,
-            Horario.mes == now.month,
-            Horario.anio == now.year,
+            Horario.mes == mes,
+            Horario.anio == anio,
+            Horario.dia_semana == dia,
         )
     ).first()
     return {
@@ -117,11 +128,13 @@ async def toggle_estado(dto: EstadoIn, db: DbSession, user: CurrentUser) -> None
     usuario.updated_at = datetime.now(UTC)
     db.commit()
     now = datetime.now(UTC)
+    mes, anio, dia = _hoy_local()
     horario = db.scalars(
         select(Horario).where(
             Horario.usuario_id == user.id,
-            Horario.mes == now.month,
-            Horario.anio == now.year,
+            Horario.mes == mes,
+            Horario.anio == anio,
+            Horario.dia_semana == dia,
         )
     ).first()
     colaborador_nombre = None

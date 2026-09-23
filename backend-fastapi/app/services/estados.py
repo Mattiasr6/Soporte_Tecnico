@@ -15,7 +15,7 @@ def estado_efectivo(
         return "extraturno"
     if estado_actual in ("Disponible", "Ocupado"):
         if horario is None:
-            return estado_actual.lower()
+            return "extraturno"
         if esta_fuera_de_horario(
             horario.hora_inicio1,
             horario.hora_fin1,

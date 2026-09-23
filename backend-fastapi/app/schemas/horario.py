@@ -8,6 +8,7 @@ class HorarioOut(BaseModel):
     usuario_id: int
     nombre: str
     label: str
+    dia_semana: int
     hora_inicio1: str | None
     hora_fin1: str | None
     hora_inicio2: str | None
@@ -18,13 +19,17 @@ class HorarioOut(BaseModel):
 
 class AsignarIn(BaseModel):
     usuario_id: int
-    label: str
+    dia_semana: int
     hora_inicio1: str | None = None
     hora_fin1: str | None = None
     hora_inicio2: str | None = None
     hora_fin2: str | None = None
     mes: int
     anio: int
+
+
+class AsignarLoteIn(BaseModel):
+    asignaciones: list[AsignarIn]
 
 
 class CoberturaFranja(BaseModel):
@@ -36,4 +41,5 @@ class CoberturaFranja(BaseModel):
 class CoberturaOut(BaseModel):
     mes: int
     anio: int
-    cobertura: list[CoberturaFranja]
+    laborable: list[CoberturaFranja]
+    sabado: list[CoberturaFranja]
