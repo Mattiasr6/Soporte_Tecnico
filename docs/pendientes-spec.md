@@ -50,6 +50,52 @@ estructura **actual** (incluidos renombres y movimientos hechos por la GUI).
 
 ---
 
+## E1 · Especialidades / responsabilidades (spec futura)
+
+**Requisito del usuario**: la "especialidad" es un texto libre y no alcanza. Los dos
+jefes tienen **roles distintos**, y entre los técnicos hay encargados de **accesos
+biométricos**, otros de **videovigilancia**, otros de **redes**, etc. Hay que
+modelarlo en serio.
+
+**Preguntas para la spec** (no resueltas):
+- ¿Una sola especialidad por persona o **varias**? (parece que varias: alguien puede
+  estar en redes *y* en videovigilancia)
+- ¿Es lo mismo que "área de responsabilidad" o son dos cosas? (la jerarquía ya modela
+  el lugar; la especialidad es el saber hacer)
+- ¿Sirve para **enrutar** el trabajo (asignar a quien sabe) o solo para mostrarlo?
+- ¿Los jefes necesitan algo distinto, dado que coordinan en vez de ejecutar?
+- ¿Hace falta historial (quién sabía qué y desde cuándo)?
+
+**Hallazgo relacionado**: `Usuarios.Especialidad` es `Text` libre y ya se muestra en
+el listado del equipo (`GET /api/usuarios`). `PATCH /api/usuarios/{id}/especialidad`
+existe y es la base sobre la que construir.
+
+---
+
+## N2 · Bloc de notas flotante (widget)
+
+**Requisito del usuario**: además de la pantalla propia, el bloc de notas debería
+poder ser un **widget flotante**, editable y de **tamaño ajustable**, disponible desde
+cualquier pantalla (hoy el sidebar tiene la entrada, que lleva a `/notas`).
+
+**Lo que hay que decidir**: cómo se abre (botón del sidebar, atajo de teclado), si
+flota sobre el contenido o se ancla a un costado, si recuerda posición y tamaño (otra
+preferencia de presentación → localStorage), y cómo convive con el autoguardado que ya
+tiene.
+
+---
+
+## A1 · Deuda de accesibilidad
+
+- **La CSS está 100% en px** (271 usos de px, 0 de rem). Por eso el tamaño de letra se
+  implementó con `zoom`, que escala todo proporcionalmente. Funciona, pero el control
+  fino (escalar solo el texto, no los espacios) requiere migrar a `rem`.
+- **Pendiente una pasada de accesibilidad** por las pantallas existentes (foco,
+  teclado, contraste, `aria`), no solo por las preferencias del perfil. Hay un skill
+  `accessibility` disponible.
+
+---
+
 ## J2 · Jerarquía, lo que quedó fuera de la v1
 
 - **Movimiento en lote** (seleccionar varias áreas y moverlas juntas). Decisión del
@@ -82,12 +128,13 @@ permitir el self en `get_stats`.
 
 **Permisos**: técnico → solo lo suyo. Jefe → lo suyo y el de cualquier técnico.
 
-**Parte barata, para separar en dos etapas**:
-- **Etapa 1**: perfil como identidad + preferencias (nombre, especialidad —ya existe
-  `PATCH /api/usuarios/{id}/especialidad`—, y preferencias personales). Es el lugar
-  natural para las preferencias de **accesibilidad** (tamaño de fuente, contraste,
-  movimiento reducido).
-- **Etapa 2**: las estadísticas por técnico (los 3 gráficos + radar).
+**Etapa 1 — HECHA**: `/perfil` con identidad, especialidad editable, cambio de
+contraseña propio (`POST /api/auth/password`, mínimo 8 caracteres) y preferencias de
+accesibilidad (tamaño de letra, contraste, movimiento) guardadas en **localStorage**
+—son de presentación, no viajan con la cuenta—. El layout ya deja reservado el lugar
+de la etapa 2.
+
+**Etapa 2 — PENDIENTE**: las estadísticas por técnico (los 3 gráficos + radar).
 
 **Accesibilidad**: es transversal, no solo de `/perfil`. Hay un skill
 `accessibility` disponible. Vale una pasada por todas las pantallas (foco, teclado,

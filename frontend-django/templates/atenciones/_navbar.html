@@ -58,14 +58,14 @@
       {% else %}
       <div class="nav-section">Equipo</div>
       {% endif %}
-      <span class="side-link soon" title="Pronto (S10)">
+      <a class="side-link{% if nav_page == 'perfil' %} active{% endif %}" href="{% url 'perfil' %}" {% if nav_page == 'perfil' %}aria-current="page"{% endif %} data-nav-page="perfil">
         <iconify-icon icon="mdi:account-circle-outline" aria-hidden="true"></iconify-icon>
-        <span class="side-link-label">Perfil</span><small>pronto</small>
-      </span>
-      <button class="side-link" type="button" data-navbar-notes>
+        <span class="side-link-label">Perfil</span>
+      </a>
+      <a class="side-link{% if nav_page == 'notas' %} active{% endif %}" href="{% url 'notas' %}" {% if nav_page == 'notas' %}aria-current="page"{% endif %} data-nav-page="notas">
         <iconify-icon icon="mdi:notebook-outline" aria-hidden="true"></iconify-icon>
         <span class="side-link-label">Bloc de notas</span>
-      </button>
+      </a>
       <div class="mock-note">Sistema y notas: solo visual por ahora (S10).</div>
       </div>
       <div class="sistema-panel" data-sistema-panel="AUXILIARES"{% if sistema != 'AUXILIARES' %} hidden{% endif %}>

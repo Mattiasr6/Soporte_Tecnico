@@ -1,0 +1,23 @@
+{% extends "atenciones/base.html" %}
+{% block titulo %}Bloc de notas — Soporte Técnico{% endblock %}
+{% block contenido %}
+<div class="page-wide notas">
+  <div class="page-head">
+    <div>
+      <h1>Bloc de notas</h1>
+      <p class="sub">Solo vos lo ves</p>
+    </div>
+    <span class="notas-estado" id="notas-estado">—</span>
+  </div>
+
+  <form method="post" action="{% url 'notas_guardar' %}" id="form-notas">
+    {% csrf_token %}
+    <textarea id="notas-texto" name="contenido" rows="20"
+              placeholder="Escribí lo que quieras recordar…">{{ contenido }}</textarea>
+  </form>
+  <p class="sub">Se guarda solo, mientras escribís. Sin botón de guardar: el indicador de arriba dice el estado.</p>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="/static/js/notas.js?v={{ asset_version }}" defer></script>
+{% endblock %}

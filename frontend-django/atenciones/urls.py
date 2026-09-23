@@ -28,5 +28,9 @@ urlpatterns = [
     path("jerarquia/accion/", views.jerarquia_accion_vista, name="jerarquia_accion"),
     path("panel/estados/", views.panel_estados_vista, name="panel_estados"),
     path("panel/stats/", views.panel_stats_vista, name="panel_stats"),
+    path("perfil/", views.perfil_vista, name="perfil"),
+    path("perfil/guardar/", views.perfil_guardar_vista, name="perfil_guardar"),
+    path("notas/", views.notas_vista, name="notas"),
+    path("notas/guardar/", views.notas_guardar_vista, name="notas_guardar"),
     path("auxiliares/", views.auxiliares_vista, name="auxiliares"),
 ]

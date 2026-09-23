@@ -11,6 +11,7 @@ from .api import (
     ApiError,
     api_delete,
     api_get,
+    api_patch,
     api_post,
     api_put,
     login_api,
@@ -111,7 +112,9 @@ def lista_vista(request: HttpRequest) -> HttpResponse:
         filas = [a for a in filas if a.get("categoria") == categoria]
     if mes:
         filas = [a for a in filas if str(a.get("fecha_registro", ""))[:7] == mes]
-    limite = min(max(_int_o_none(request.GET.get("limite")) or PASO_LISTA, PASO_LISTA), 500)
+    limite = min(
+        max(_int_o_none(request.GET.get("limite")) or PASO_LISTA, PASO_LISTA), 500
+    )
     return render(
         request,
         "atenciones/lista.html",
@@ -411,8 +414,18 @@ def _mes_etiqueta(anio: int, mes: int) -> str:
 
 
 MESES_CORTOS = (
-    "ene", "feb", "mar", "abr", "may", "jun",
-    "jul", "ago", "sep", "oct", "nov", "dic",
+    "ene",
+    "feb",
+    "mar",
+    "abr",
+    "may",
+    "jun",
+    "jul",
+    "ago",
+    "sep",
+    "oct",
+    "nov",
+    "dic",
 )
 
 
@@ -690,6 +703,10 @@ PASOS_JERARQUIA = {
 }
 
 
+def _detalle_error(exc: ApiError, por_defecto: str = "No se pudo completar.") -> str:
+    return str(exc.detail) if exc.detail else por_defecto
+
+
 def _parse_nodo(valor: str) -> dict[str, object] | None:
     tipo, _, ident = (valor or "").partition(":")
     if tipo not in PASOS_JERARQUIA or not ident.isdigit():
@@ -705,7 +722,9 @@ def _armar_arbol(arbol: dict, conteos: dict) -> list[dict]:
         return 0
 
     areas = [dict(a, total=cuenta("areas", a["id"])) for a in arbol.get("areas") or []]
-    grupos = [dict(g, total=cuenta("grupos", g["id"])) for g in arbol.get("grupos") or []]
+    grupos = [
+        dict(g, total=cuenta("grupos", g["id"])) for g in arbol.get("grupos") or []
+    ]
     ramas: list[dict] = []
     for padre in arbol.get("padres") or []:
         suyos = [g for g in grupos if g["grupo_padre_id"] == padre["id"]]
@@ -846,7 +865,10 @@ def _mover_jerarquia(
         api_put(
             f"{ruta}/{ident}",
             token,
-            {"grupo_padre_id": destino, "grupo_id": _int_o_none(request.POST.get("grupo_id"))},
+            {
+                "grupo_padre_id": destino,
+                "grupo_id": _int_o_none(request.POST.get("grupo_id")),
+            },
         )
     else:
         api_put(f"{ruta}/{ident}", token, {"grupo_padre_id": destino})
@@ -891,11 +913,88 @@ def jerarquia_accion_vista(request: HttpRequest) -> HttpResponse:
         else:
             texto = "Acción desconocida."
     except ApiError as e:
-        request.session["flash"] = {
-            "tipo": "error",
-            "texto": str(e.detail) if e.detail else "No se pudo completar.",
-        }
+        request.session["flash"] = {"tipo": "error", "texto": _detalle_error(e)}
     else:
         request.session["flash"] = {"tipo": "ok", "texto": texto}
     return redirect(destino)
 
+
+@con_login
+def perfil_vista(request: HttpRequest) -> HttpResponse:
+    token = str(request.session["jwt"])
+    usuario = api_get("/api/usuarios/me", token)
+    assert isinstance(usuario, dict)
+    sesion = request.session.get("usuario") or {}
+    return render(
+        request,
+        "atenciones/perfil.html",
+        {
+            "perfil": usuario,
+            "email": sesion.get("email", ""),
+            "especialidad": usuario.get("especialidad") or "",
+            "flash": request.session.pop("flash", None),
+        },
+    )
+
+
+@con_login
+@require_POST
+def perfil_guardar_vista(request: HttpRequest) -> HttpResponse:
+    token = str(request.session["jwt"])
+    accion = request.POST.get("accion", "")
+    usuario_id = (request.session.get("usuario") or {}).get("id")
+    texto, error = "", ""
+    if accion == "especialidad":
+        try:
+            api_patch(
+                f"/api/usuarios/{usuario_id}/especialidad",
+                token,
+                {"especialidad": request.POST.get("especialidad", "").strip() or None},
+            )
+            texto = "Especialidad guardada."
+        except ApiError as e:
+            error = _detalle_error(e)
+    elif accion == "password":
+        nueva = request.POST.get("nueva", "")
+        if nueva != request.POST.get("repetir", ""):
+            error = "Las dos contraseñas nuevas no coinciden."
+        else:
+            try:
+                api_post(
+                    "/api/auth/password",
+                    token,
+                    {"actual": request.POST.get("actual", ""), "nueva": nueva},
+                )
+                texto = "Contraseña cambiada."
+            except ApiError as e:
+                error = _detalle_error(e)
+    else:
+        error = "Acción desconocida."
+    request.session["flash"] = {
+        "tipo": "error" if error else "ok",
+        "texto": error or texto,
+    }
+    return redirect("perfil")
+
+
+@con_login
+def notas_vista(request: HttpRequest) -> HttpResponse:
+    datos = api_get("/api/usuarios/notas", str(request.session["jwt"]))
+    contenido = ""
+    if isinstance(datos, dict):
+        contenido = str(datos.get("contenido") or "")
+    return render(request, "atenciones/notas.html", {"contenido": contenido})
+
+
+@con_login
+@require_POST
+def notas_guardar_vista(request: HttpRequest) -> JsonResponse:
+    try:
+        api_put(
+            "/api/usuarios/notas",
+            str(request.session["jwt"]),
+            {"contenido": request.POST.get("contenido", "")},
+        )
+    except ApiError as e:
+        return JsonResponse({"ok": False, "error": _detalle_error(e)}, status=502)
+    return JsonResponse({"ok": True})

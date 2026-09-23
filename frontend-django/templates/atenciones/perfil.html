@@ -1,0 +1,99 @@
+{% extends "atenciones/base.html" %}
+{% block titulo %}Perfil — Soporte Técnico{% endblock %}
+{% block contenido %}
+<div class="page-wide">
+  <div class="page-head">
+    <div>
+      <h1>Perfil</h1>
+      <p class="sub">Tu cuenta y cómo querés ver la aplicación</p>
+    </div>
+  </div>
+
+  {% if flash %}<p class="flash {{ flash.tipo }}">{{ flash.texto }}</p>{% endif %}
+
+  <div class="dos-col">
+    <section class="bloque">
+      <header><h2>Tu cuenta</h2></header>
+
+      <div class="perfil-cabecera">
+        <span class="perfil-avatar">{{ perfil.display_name|slice:":1" }}</span>
+        <div class="perfil-datos">
+          <strong>{{ perfil.display_name }}</strong>
+          <small>{{ perfil.role }}{% if perfil.estado_actual %} · {{ perfil.estado_actual }}{% endif %}</small>
+          <small>{{ email }}</small>
+        </div>
+      </div>
+      <p class="sub">El nombre y el correo los maneja el administrador.</p>
+
+      <form method="post" action="{% url 'perfil_guardar' %}" class="jerq-form">
+        {% csrf_token %}
+        <input type="hidden" name="accion" value="especialidad">
+        <label for="perfil-especialidad">Especialidad</label>
+        <input type="text" id="perfil-especialidad" name="especialidad" value="{{ especialidad }}"
+               placeholder="Ej: Redes y servidores">
+        <p class="sub">Es la que se ve en el listado del equipo.</p>
+        <button class="btn" type="submit">Guardar</button>
+      </form>
+
+      <form method="post" action="{% url 'perfil_guardar' %}" class="jerq-form">
+        {% csrf_token %}
+        <input type="hidden" name="accion" value="password">
+        <label for="perfil-actual">Contraseña actual</label>
+        <input type="password" id="perfil-actual" name="actual" required autocomplete="current-password">
+        <label for="perfil-nueva">Contraseña nueva</label>
+        <input type="password" id="perfil-nueva" name="nueva" required minlength="8" autocomplete="new-password">
+        <label for="perfil-repetir">Repetir la nueva</label>
+        <input type="password" id="perfil-repetir" name="repetir" required minlength="8" autocomplete="new-password">
+        <p class="sub">Mínimo 8 caracteres.</p>
+        <button class="btn" type="submit">Cambiar contraseña</button>
+      </form>
+
+      <div class="jerq-nuevo">
+        <strong>Tus estadísticas · etapa 2</strong>
+        <p class="sub">Acá van los 3 gráficos de técnicos (carga vs fuera de turno, rendimiento, colaboraciones)
+          y el radar de perfil. El lugar ya está reservado.</p>
+      </div>
+    </section>
+
+    <section class="bloque">
+      <header>
+        <h2>Accesibilidad</h2>
+        <small>se aplica al instante, en este equipo</small>
+      </header>
+
+      <div class="a11y-grupo" data-a11y="letra">
+        <span class="a11y-titulo">Tamaño de letra</span>
+        <div class="pills">
+          <label class="pill"><input type="radio" name="a11y-letra" value="normal"> Normal</label>
+          <label class="pill"><input type="radio" name="a11y-letra" value="grande"> Grande</label>
+          <label class="pill"><input type="radio" name="a11y-letra" value="xl"> Muy grande</label>
+        </div>
+      </div>
+
+      <div class="a11y-grupo" data-a11y="contraste">
+        <span class="a11y-titulo">Contraste</span>
+        <div class="pills">
+          <label class="pill"><input type="radio" name="a11y-contraste" value="normal"> Normal</label>
+          <label class="pill"><input type="radio" name="a11y-contraste" value="alto"> Alto</label>
+        </div>
+      </div>
+
+      <div class="a11y-grupo">
+        <span class="a11y-titulo">Movimiento</span>
+        <label class="pill"><input type="checkbox" id="a11y-movimiento"> Reducir animaciones</label>
+      </div>
+
+      <div class="a11y-preview">
+        <span class="a11y-titulo">Vista previa</span>
+        <p>Así se va a ver el texto en el sistema.</p>
+        <p class="sub">Un renglón secundario, para comparar.</p>
+      </div>
+
+      <p class="sub">
+        Se guarda en este navegador, no viaja con tu cuenta.
+        <button type="button" class="link-btn" id="a11y-reset">Restablecer</button>
+      </p>
+    </section>
+  </div>
+</div>
+{% endblock %}
