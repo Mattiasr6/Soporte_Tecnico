@@ -4,6 +4,13 @@ from . import views
 
 urlpatterns = [
     path("", views.inicio_vista, name="inicio"),
+    path("inicio/estado/", views.inicio_estado_vista, name="inicio_estado"),
+    path("inicio/anuncio/", views.inicio_anuncio_vista, name="inicio_anuncio"),
+    path(
+        "inicio/anuncio/guardar/",
+        views.inicio_anuncio_guardar_vista,
+        name="inicio_anuncio_guardar",
+    ),
     path("login/", views.login_vista, name="login"),
     path("logout/", views.logout_vista, name="logout"),
     path("atenciones/", views.lista_vista, name="atenciones_lista"),

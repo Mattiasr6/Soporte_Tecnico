@@ -1,6 +1,7 @@
 """Tests S7: WS nativo + broadcasts. Contra postgres-dev real, estados restaurados."""
 
 import os
+import re
 
 import pytest
 from fastapi.testclient import TestClient
@@ -98,11 +99,11 @@ def test_chat_entre_conexiones():
             assert "timestamp" in ajeno
 
 
-def test_rest_emiten_broadcast():
+def test_rest_emiten_broadcast(turno_ahora):
     inicial = client.get("/api/announcements").json()
     set_estado(UID_DIEGO, "Ausente")
     try:
-        with client.websocket_connect(
+        with turno_ahora(UID_DIEGO), client.websocket_connect(
             "/ws", params={"access_token": token(UID_MATTIAS)}
         ) as obs:
             obs.receive_json()
@@ -127,7 +128,10 @@ def test_rest_emiten_broadcast():
                 == 200
             )
             ann = obs.receive_json()
-            assert ann == {"type": "receive_announcement", "message": "TEST-S7-ann"}
+            assert ann["type"] == "receive_announcement"
+            assert ann["message"] == "TEST-S7-ann"
+            assert ann["author"]
+            assert re.fullmatch(r"\d{2}:\d{2}", ann["at"])
     finally:
         set_estado(UID_DIEGO, "Ausente")
         client.post(

@@ -30,6 +30,19 @@ USUARIOS = [
     {"id": 1, "display_name": "M", "role": "Tecnico", "estado_actual": "ausente"}
 ]
 
+YO = {
+    "id": 2,
+    "display_name": "M",
+    "role": "Tecnico",
+    "estado_actual": "disponible",
+    "horario_hoy": "11:00-19:00",
+    "entra_a_las": None,
+    "atenciones_hoy": 3,
+    "puede_cambiar_estado": True,
+}
+
+ANUNCIO = {"message": "Corte de red 15-16", "author": "Josue", "at": "09:12"}
+
 ATENCIONES = [
     {
         "id": 9,
@@ -111,7 +124,7 @@ class VistasTest(TestCase):
 
     def test_login_redirige_si_hay_sesion(self):
         self.assertRedirects(
-            self.client.get("/login/"), "/atenciones/", fetch_redirect_response=False
+            self.client.get("/login/"), "/", fetch_redirect_response=False
         )
         self._como(AUXILIAR)
         self.assertRedirects(
@@ -195,14 +208,41 @@ class VistasTest(TestCase):
         self.assertContains(r, 'data-url-auxiliares="/auxiliares/"')
         self.assertContains(r, 'data-sistema-panel="SOPORTE" hidden')
 
-    def test_inicio_rutea_por_rol(self):
-        self.assertRedirects(
-            self.client.get("/"), "/atenciones/", fetch_redirect_response=False
-        )
+    @patch("atenciones.views.api_get")
+    def test_inicio_rutea_por_rol(self, mock_get):
+        mock_get.side_effect = [USUARIOS, YO, ANUNCIO]
+        r = self.client.get("/")
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, "El equipo ahora")
+        self.assertContains(r, ANUNCIO["message"])
         self._como(AUXILIAR)
         self.assertRedirects(
             self.client.get("/"), "/auxiliares/", fetch_redirect_response=False
         )
+
+    @patch("atenciones.views.api_get")
+    def test_inicio_accesos_segun_permiso(self, mock_get):
+        self._como(JEFE)
+        mock_get.side_effect = [USUARIOS, YO, ANUNCIO]
+        r = self.client.get("/")
+        self.assertContains(r, 'class="acceso" href="/dashboard/"')
+        self.assertContains(r, 'class="acceso" href="/jerarquia/"')
+        self._como(TECNICO)
+        mock_get.side_effect = [USUARIOS, YO, ANUNCIO]
+        r = self.client.get("/")
+        self.assertNotContains(r, 'class="acceso" href="/dashboard/"')
+        self.assertNotContains(r, 'class="acceso" href="/jerarquia/"')
+        self.assertContains(r, 'class="acceso" href="/atenciones/nueva/"')
+
+    @patch("atenciones.views.api_get")
+    def test_inicio_estado_fuera_de_turno_deshabilita(self, mock_get):
+        fuera = dict(YO, estado_actual="extraturno", puede_cambiar_estado=False)
+        equipo = [dict(USUARIOS[0], estado_actual="extraturno")]
+        mock_get.side_effect = [equipo, fuera, ANUNCIO]
+        r = self.client.get("/")
+        self.assertContains(r, 'data-puede-estado="0"')
+        self.assertContains(r, 'id="mi-estado-chip">Fuera de turno<')
+        self.assertContains(r, 'class="estado estado-extraturno">Fuera de turno</span>')
 
     def test_inicio_sin_sesion(self):
         self.client.session.flush()
@@ -344,14 +384,14 @@ class VistasTest(TestCase):
     @patch("atenciones.views.api_get")
     def test_dashboard_jefe(self, mock_get):
         self._como(JEFE)
-        mock_get.side_effect = [USUARIOS, ARBOL, STATS]
+        mock_get.side_effect = [ARBOL, STATS]
         r = self.client.get("/dashboard/")
         self.assertEqual(r.status_code, 200)
         self.assertContains(r, "Casos por categoría")
-        self.assertContains(r, "Presencia en vivo")
         self.assertContains(r, "Casos por día")
         self.assertContains(r, "Resumen del filtro")
         self.assertContains(r, "Top 10 áreas")
+        self.assertNotContains(r, "Presencia en vivo")
         self.assertIn("ficha", r.context["payload"])
         self.assertEqual(r.context["payload"]["ficha"]["casos"], STATS["total"])
 
@@ -365,7 +405,7 @@ class VistasTest(TestCase):
     @patch("atenciones.views.api_get")
     def test_dashboard_pasa_filtros(self, mock_get):
         self._como(JEFE)
-        mock_get.side_effect = [USUARIOS, ARBOL, STATS, STATS]
+        mock_get.side_effect = [ARBOL, STATS, STATS]
         r = self.client.get(
             "/dashboard/?grupo_padre_id=1&desde=2026-01&hasta=2026-09&area_id=28"
         )

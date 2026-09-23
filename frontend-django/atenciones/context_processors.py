@@ -8,6 +8,7 @@ ASSETS = (
     "js/navbar.js",
     "js/jerarquia.js",
     "js/dashboard.js",
+    "js/inicio.js",
 )
 
 
@@ -30,6 +31,7 @@ def sesion(request):
     except AttributeError:
         url_name = None
     pagina = {
+        "inicio": "inicio",
         "login": "login",
         "atenciones_lista": "lista",
         "atenciones_nueva": "nueva",

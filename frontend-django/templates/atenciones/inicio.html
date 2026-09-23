@@ -1,0 +1,96 @@
+{% extends "atenciones/base.html" %}
+{% block titulo %}Inicio — Soporte Técnico{% endblock %}
+{% block contenido %}
+<div class="page-wide inicio" id="inicio"
+     data-url-estado="{% url 'inicio_estado' %}"
+     data-url-estados="{% url 'panel_estados' %}"
+     data-url-anuncio="{% url 'inicio_anuncio' %}"
+     data-url-anuncio-guardar="{% url 'inicio_anuncio_guardar' %}"
+     data-puede-estado="{% if yo.puede_cambiar_estado %}1{% else %}0{% endif %}">
+  {% csrf_token %}
+
+  <div class="page-head">
+    <div>
+      <h1>Inicio</h1>
+      <p class="sub">Tu equipo ahora y lo que necesitás para el día</p>
+    </div>
+    <div class="mi-estado">
+      <span class="estado estado-{{ yo.estado_actual|default:'ausente' }}" id="mi-estado-chip">{{ yo_etiqueta }}</span>
+      <button type="button" class="btn" id="btn-estado"
+              data-estado="{{ yo.estado_actual|default:'ausente' }}"
+              {% if not yo.puede_cambiar_estado %}disabled{% endif %}>
+        {% if yo.estado_actual == 'ocupado' %}Ponerme disponible
+        {% elif yo.estado_actual == 'disponible' %}Ponerme ocupado
+        {% else %}Marcarme disponible{% endif %}
+      </button>
+    </div>
+  </div>
+  {% if not yo.puede_cambiar_estado %}
+  <p class="sub" id="motivo-estado">Estás fuera de turno{% if yo.entra_a_las %} hasta las {{ yo.entra_a_las }}{% endif %}. Tu estado se calcula solo, no hace falta que lo toques.</p>
+  {% endif %}
+
+  <section class="bloque">
+    <header>
+      <h2>Anuncio del equipo</h2>
+      <small id="anuncio-firma">{% if anuncio.author %}{{ anuncio.author }} · {{ anuncio.at }}{% endif %}</small>
+    </header>
+    <div id="anuncio-cuerpo">
+      {% if can_dashboard %}
+      <form id="anuncio-form">
+        <textarea id="anuncio-mensaje" rows="2" maxlength="300"
+                  placeholder="Un aviso para el equipo (corte de red, algo que llegó, recordatorio)…">{{ anuncio.message|default:'' }}</textarea>
+        <div class="anuncio-acciones">
+          <button type="submit" class="btn">Publicar</button>
+          <button type="button" class="link-btn" id="anuncio-borrar"{% if not anuncio.message %} hidden{% endif %}>Borrar</button>
+          <span class="sub" id="anuncio-aviso" hidden></span>
+        </div>
+      </form>
+      {% elif anuncio.message %}
+      <div class="anuncio">
+        <p>{{ anuncio.message }}</p>
+        <small>{{ anuncio.author }} · {{ anuncio.at }}</small>
+      </div>
+      {% else %}
+      <p class="sub">No hay anuncios por ahora.</p>
+      {% endif %}
+    </div>
+  </section>
+
+  <section class="bloque">
+    <header><h2>El equipo ahora</h2><small>actualiza cada 20s</small></header>
+    <div class="presencia" id="presencia-conteo">
+      <div class="p-chip" data-estado="disponible"><span>Disponible</span><b>{{ conteo.disponible }}</b></div>
+      <div class="p-chip" data-estado="ocupado"><span>Ocupado</span><b>{{ conteo.ocupado }}</b></div>
+      <div class="p-chip" data-estado="extraturno"><span>Fuera de turno</span><b>{{ conteo.extraturno }}</b></div>
+      <div class="p-chip" data-estado="ausente"><span>Ausente</span><b>{{ conteo.ausente }}</b></div>
+    </div>
+    <div class="tecnicos" id="presencia-lista">
+      {% for t in tecnicos %}
+      <div class="t-card">
+        <div>
+          <strong>{{ t.nombre }}</strong>
+          <small>{{ t.rol }}{% if t.horario_hoy %} · {{ t.horario_hoy }}{% endif %} · {{ t.atenciones_hoy }} hoy{% if t.entra_a_las %} · entra {{ t.entra_a_las }}{% endif %}</small>
+        </div>
+        <span class="estado estado-{{ t.estado }}">{{ t.etiqueta }}</span>
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+
+  <section class="bloque">
+    <header><h2>Accesos rápidos</h2></header>
+    <div class="accesos">
+      <a class="acceso" href="{% url 'atenciones_nueva' %}">Registrar atención</a>
+      <a class="acceso" href="{% url 'atenciones_lista' %}">Atenciones</a>
+      {% if can_dashboard %}
+      <a class="acceso" href="{% url 'dashboard' %}">Dashboard</a>
+      <a class="acceso" href="{% url 'jerarquia' %}">Jerarquía</a>
+      {% endif %}
+      <a class="acceso" href="{% url 'horarios' %}">Horarios</a>
+    </div>
+  </section>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="/static/js/inicio.js?v={{ asset_version }}" defer></script>
+{% endblock %}

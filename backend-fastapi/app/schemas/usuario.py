@@ -7,6 +7,10 @@ class UsuarioOut(BaseModel):
     especialidad: str | None = None
     role: str
     estado_actual: str
+    horario_hoy: str | None = None
+    entra_a_las: str | None = None
+    atenciones_hoy: int = 0
+    puede_cambiar_estado: bool = False
 
 
 class EspecialidadIn(BaseModel):

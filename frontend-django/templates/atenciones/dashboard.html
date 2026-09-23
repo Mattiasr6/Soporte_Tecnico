@@ -99,30 +99,11 @@
     <header><h2>Evolución mensual</h2></header>
     <div class="chart" id="chart-evolucion"></div>
   </section>
-
-  <section class="bloque">
-    <header><h2>Presencia en vivo</h2><small>actualiza cada 20s</small></header>
-    <div class="presencia" id="presencia-conteo">
-      <div class="p-chip" data-estado="disponible"><span>Disponible</span><b>{{ conteo.disponible }}</b></div>
-      <div class="p-chip" data-estado="ocupado"><span>Ocupado</span><b>{{ conteo.ocupado }}</b></div>
-      <div class="p-chip" data-estado="extraturno"><span>Fuera de turno</span><b>{{ conteo.extraturno }}</b></div>
-      <div class="p-chip" data-estado="ausente"><span>Ausente</span><b>{{ conteo.ausente }}</b></div>
-    </div>
-    <div class="tecnicos" id="presencia-lista">
-      {% for t in tecnicos %}
-      <div class="t-card">
-        <div><strong>{{ t.nombre }}</strong><small>{{ t.rol }}</small></div>
-        <span class="estado estado-{{ t.estado }}">{{ t.estado }}</span>
-      </div>
-      {% endfor %}
-    </div>
-  </section>
 </div>
 
 {{ payload|json_script:"payload" }}
 <script type="application/json" class="arbol-data" id="arbol-data">{{ arbol_json|safe }}</script>
 <div id="dash-config" hidden
-     data-estados-url="{% url 'panel_estados' %}"
      data-stats-url="{% url 'panel_stats' %}"
      data-desde="{{ filtros.desde|default:'' }}"
      data-hasta="{{ filtros.hasta|default:'' }}"></div>

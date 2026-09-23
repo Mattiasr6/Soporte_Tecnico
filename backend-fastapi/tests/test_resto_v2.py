@@ -1,6 +1,7 @@
 """Tests S6 contra postgres-dev real. Limpieza total al final."""
 
 import os
+import re
 from datetime import UTC
 
 from fastapi.testclient import TestClient
@@ -256,7 +257,7 @@ def test_notas_propias_y_restore():
             db.commit()
 
 
-def test_estado_transiciones_y_restore():
+def test_estado_transiciones_y_restore(turno_ahora):
     assert (
         client.patch(
             "/api/usuarios/estado",
@@ -273,23 +274,24 @@ def test_estado_transiciones_y_restore():
         ).status_code
         == 400
     )
-    try:
-        assert (
-            client.patch(
-                "/api/usuarios/estado",
-                json={"estado_actual": "DISPONIBLE"},
-                headers=h(UID_DIEGO),
-            ).status_code
-            == 204
-        )
-        me = client.get("/api/usuarios/me", headers=h(UID_DIEGO)).json()
-        assert me["estado_actual"] in ("disponible", "extraturno")
-    finally:
-        with SessionLocal() as db:
-            u = db.get(Usuario, UID_DIEGO)
-            assert u is not None
-            u.estado_actual = "Ausente"
-            db.commit()
+    with turno_ahora(UID_DIEGO):
+        try:
+            assert (
+                client.patch(
+                    "/api/usuarios/estado",
+                    json={"estado_actual": "DISPONIBLE"},
+                    headers=h(UID_DIEGO),
+                ).status_code
+                == 204
+            )
+            me = client.get("/api/usuarios/me", headers=h(UID_DIEGO)).json()
+            assert me["estado_actual"] == "disponible"
+        finally:
+            with SessionLocal() as db:
+                u = db.get(Usuario, UID_DIEGO)
+                assert u is not None
+                u.estado_actual = "Ausente"
+                db.commit()
 
 
 def test_announcements_flujo_y_restore():
@@ -310,18 +312,21 @@ def test_announcements_flujo_y_restore():
             headers=h(UID_JEFE),
         )
         assert r.status_code == 200
-        assert r.json() == {"message": "TEST-S6"}
+        anuncio = r.json()
+        assert anuncio["message"] == "TEST-S6"
+        assert anuncio["author"]
+        assert re.fullmatch(r"\d{2}:\d{2}", anuncio["at"])
         r = client.post(
             "/api/announcements", json={"message": "   "}, headers=h(UID_JEFE)
         )
-        assert r.json() == {"message": None}
+        assert r.json() == {"message": None, "author": None, "at": None}
     finally:
         client.post(
             "/api/announcements",
             json={"message": inicial["message"]},
             headers=h(UID_JEFE),
         )
-        assert client.get("/api/announcements").json() == inicial
+        assert client.get("/api/announcements").json()["message"] == inicial["message"]
 
 
 def test_sesion_conecta_y_desconecta():

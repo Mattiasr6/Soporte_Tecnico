@@ -51,13 +51,13 @@
         <span class="side-link-label">Horarios</span>
       </a>
       <div class="nav-section">Equipo</div>
-      <span class="side-link soon" title="Pronto (S10)">
-        <iconify-icon icon="mdi:rocket-launch-outline" aria-hidden="true"></iconify-icon>
-        <span class="side-link-label">Launcher</span><small>pronto</small>
-      </span>
       {% else %}
       <div class="nav-section">Equipo</div>
       {% endif %}
+      <a class="side-link{% if nav_page == 'inicio' %} active{% endif %}" href="{% url 'inicio' %}" {% if nav_page == 'inicio' %}aria-current="page"{% endif %} data-nav-page="inicio">
+        <iconify-icon icon="mdi:home-outline" aria-hidden="true"></iconify-icon>
+        <span class="side-link-label">Inicio</span>
+      </a>
       <a class="side-link{% if nav_page == 'perfil' %} active{% endif %}" href="{% url 'perfil' %}" {% if nav_page == 'perfil' %}aria-current="page"{% endif %} data-nav-page="perfil">
         <iconify-icon icon="mdi:account-circle-outline" aria-hidden="true"></iconify-icon>
         <span class="side-link-label">Perfil</span>

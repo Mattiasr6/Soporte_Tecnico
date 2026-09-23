@@ -203,6 +203,7 @@ def test_sin_horario_hoy_figura_fuera_de_turno():
         usuario = db.get(Usuario, UID_DIEGO)
         assert usuario is not None
         estado_previo = usuario.estado_actual
+        usuario.estado_actual = "Disponible"
         db.commit()
 
     try:
@@ -212,7 +213,7 @@ def test_sin_horario_hoy_figura_fuera_de_turno():
                 json={"estado_actual": "disponible"},
                 headers=h(UID_DIEGO),
             ).status_code
-            == 204
+            == 403
         )
         usuarios = client.get("/api/usuarios", headers=h(UID_JEFE)).json()
         diego = next(u for u in usuarios if u["id"] == UID_DIEGO)
@@ -234,3 +235,31 @@ def test_sin_horario_hoy_figura_fuera_de_turno():
             assert usuario is not None
             usuario.estado_actual = estado_previo
             db.commit()
+
+
+def test_entra_a_las_da_el_proximo_bloque_de_hoy():
+    from datetime import UTC, datetime
+
+    from app.models.horario import Horario
+    from app.routers.usuarios import _entra_a_las
+
+    h = Horario(
+        usuario_id=1,
+        label="08:00-12:00 + 14:30-18:30",
+        hora_inicio1="08:00",
+        hora_fin1="12:00",
+        hora_inicio2="14:30",
+        hora_fin2="18:30",
+        dia_semana=1,
+        mes=9,
+        anio=2026,
+        created_at=datetime.now(UTC),
+    )
+    # 13:00 en La Paz: entre bloques, el próximo arranca 14:30
+    assert _entra_a_las(h, datetime(2026, 9, 22, 17, 0, tzinfo=UTC)) == "14:30"
+    # 10:00 en La Paz: ya está en turno, no hay "entra"
+    assert _entra_a_las(h, datetime(2026, 9, 22, 14, 0, tzinfo=UTC)) is None
+    # 21:00 en La Paz: ya no entra más hoy
+    assert _entra_a_las(h, datetime(2026, 9, 23, 1, 0, tzinfo=UTC)) is None
+    # sin horario cargado no hay nada que anunciar
+    assert _entra_a_las(None, datetime(2026, 9, 22, 17, 0, tzinfo=UTC)) is None

@@ -4,8 +4,11 @@ Uso desde backend-fastapi/:  python scripts/seed.py
 Requiere .env con DATABASE_URL, JWT_SECRET y SEED_PASSWORD.
 Requiere haber creado el esquema antes: alembic upgrade head.
 
-Nunca borra; solo inserta o actualiza (RN-S1-02). Las atenciones se cargan solo si
-la tabla esta vacia: es una carga inicial, no un import incremental.
+Nunca borra; solo inserta o actualiza (RN-S1-02). Las atenciones se cargan de forma
+incremental (idempotente por created_at), asi que re-correrlo trae lo nuevo sin duplicar.
+
+Ojo: este seed re-hashea la contrasena de todos los usuarios. Para sumar solo las
+atenciones nuevas de prod esta scripts/actualizar_atenciones.py.
 
 El catalogo y las atenciones salen de los CSV de la raiz del repo, que se regeneran
 con scripts/extraer_septiembre.py (prod sigue recibiendo atenciones todos los dias).
@@ -18,7 +21,7 @@ from datetime import UTC, date, datetime
 from pathlib import Path
 
 import bcrypt
-from sqlalchemy import func, select
+from sqlalchemy import select
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -28,6 +31,7 @@ from app.models.atencion import Atencion
 from app.models.grupo import Grupo
 from app.models.grupo_padre import GrupoPadre
 from app.models.usuario import Usuario
+from app.services.slugs import codigo_unico, slugify
 
 RAIZ = Path(__file__).resolve().parents[2]
 CATALOGO_CSV = RAIZ / "mapeo-areas-dedup.csv"
@@ -63,14 +67,27 @@ def _leer_csv(path: Path) -> list[dict[str, str]]:
 
 
 def seed_catalogo(db) -> dict[str, int]:
-    """4 grupos + 53 areas desde mapeo-areas-dedup.csv. Idempotente por nombre."""
+    """3 sectores + 4 grupos + 53 areas desde mapeo-areas-dedup.csv.
+
+    Idempotente por nombre. Se crea completo: los grupos citan a los sectores, asi que
+    quien lo llame no tiene que acordarse de insertarlos antes.
+    """
     filas = _leer_csv(CATALOGO_CSV)
     padres = {nombre: pid for pid, nombre, _ in PADRES}
     # los modelos no declaran relationship(), asi que el unit of work no puede ordenar
     # los INSERT por si solo: hay que meter los padres antes que los grupos que los citan
     db.flush()
-    stats = {"grupos": 0, "areas": 0}
+    stats = {"padres": 0, "grupos": 0, "areas": 0}
 
+    for pid, nombre, orden in PADRES:
+        if db.get(GrupoPadre, pid) is None:
+            db.add(
+                GrupoPadre(id=pid, nombre=nombre, codigo=slugify(nombre), orden=orden)
+            )
+            stats["padres"] += 1
+    db.flush()
+
+    codigos_grupo = {g.codigo for g in db.scalars(select(Grupo)).all()}
     for padre_nombre, grupo_nombre in dict.fromkeys(
         (f["grupo_padre"].strip(), f["grupo"].strip()) for f in filas
     ):
@@ -83,11 +100,21 @@ def seed_catalogo(db) -> dict[str, int]:
             )
         ).first()
         if existe is None:
-            db.add(Grupo(nombre=grupo_nombre, grupo_padre_id=pid, activo=True))
+            codigo = codigo_unico(slugify(grupo_nombre), codigos_grupo)
+            codigos_grupo.add(codigo)
+            db.add(
+                Grupo(
+                    nombre=grupo_nombre,
+                    codigo=codigo,
+                    grupo_padre_id=pid,
+                    activo=True,
+                )
+            )
             stats["grupos"] += 1
     db.flush()
 
     gids = {(g.grupo_padre_id, g.nombre): g.id for g in db.scalars(select(Grupo)).all()}
+    codigos_area = {a.codigo for a in db.scalars(select(Area)).all()}
     for f in filas:
         pid = padres[f["grupo_padre"].strip()]
         nombre = f["nombre"].strip()
@@ -97,9 +124,12 @@ def seed_catalogo(db) -> dict[str, int]:
         if existe is not None:
             continue
         grupo_nombre = f["grupo"].strip()
+        codigo = codigo_unico(slugify(nombre), codigos_area)
+        codigos_area.add(codigo)
         db.add(
             Area(
                 nombre=nombre,
+                codigo=codigo,
                 grupo_padre_id=pid,
                 grupo_id=gids.get((pid, grupo_nombre)) if grupo_nombre else None,
                 activo=f["activo"].strip() == "1",
@@ -111,21 +141,24 @@ def seed_catalogo(db) -> dict[str, int]:
 
 
 def seed_atenciones(db) -> dict[str, int]:
-    """Carga inicial desde el CSV. Deriva los 3 FK desde el area, no se teclea jerarquia.
+    """Carga el CSV de atenciones. Deriva los 3 FK desde el area, no se teclea jerarquia.
+
+    Idempotente por created_at (con microsegundos alcanza como clave natural): se puede
+    re-extraer el CSV de prod y volver a correrlo para traer lo nuevo sin duplicar.
 
     Si un area, tecnico o colaborador no existe, falla ruidosamente: una fila con
     jerarquia NULL o colaborador NULL es exactamente el bug que estamos cerrando.
     """
     filas = _leer_csv(ATENCIONES_CSV)
-    ya = db.scalar(select(func.count()).select_from(Atencion)) or 0
-    if ya:
-        return {"atenciones": 0, "atenciones_omitidas": ya}
-
+    ya = set(db.scalars(select(Atencion.created_at)).all())
     usuarios = {u.email: u.id for u in db.scalars(select(Usuario)).all()}
     areas = {a.nombre: a for a in db.scalars(select(Area)).all()}
     stats = {"atenciones": 0, "con_colaborador": 0, "fuera_de_turno": 0}
 
     for f in filas:
+        creado = datetime.fromisoformat(f["created_at"].strip())
+        if creado in ya:
+            continue
         area = areas.get(f["area"].strip())
         if area is None:
             raise RuntimeError(f"Area '{f['area']}' no existe en el catalogo")
@@ -153,7 +186,7 @@ def seed_atenciones(db) -> dict[str, int]:
                 colaborador_id=usuarios[colab_email] if colab_email else None,
                 fuera_de_turno=fuera,
                 fecha_registro=date.fromisoformat(f["fecha_registro"].strip()),
-                created_at=datetime.fromisoformat(f["created_at"].strip()),
+                created_at=creado,
             )
         )
         stats["atenciones"] += 1
@@ -169,7 +202,7 @@ def run_seed() -> dict[str, int]:
         raise RuntimeError("Falta SEED_PASSWORD")
     now = datetime.now(UTC)
     hashed = hash_password(password)
-    stats = {"usuarios_insertados": 0, "usuarios_actualizados": 0, "padres": 0}
+    stats = {"usuarios_insertados": 0, "usuarios_actualizados": 0}
     with SessionLocal() as db:
         for uid, email, name, role, can_view in USUARIOS:
             u = db.get(Usuario, uid)
@@ -196,10 +229,6 @@ def run_seed() -> dict[str, int]:
                 u.can_view_dashboard = can_view
                 u.updated_at = now
                 stats["usuarios_actualizados"] += 1
-        for pid, nombre, orden in PADRES:
-            if db.get(GrupoPadre, pid) is None:
-                db.add(GrupoPadre(id=pid, nombre=nombre, orden=orden))
-                stats["padres"] += 1
         stats |= seed_catalogo(db)
         stats |= seed_atenciones(db)
         db.commit()

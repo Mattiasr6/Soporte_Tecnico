@@ -11,6 +11,15 @@ ALLOWED_HOSTS: list[str] = os.environ.get(
 
 FASTAPI_URL = os.environ.get("FASTAPI_URL", "http://localhost:5002").rstrip("/")
 
+# Si el proxy no manda X-Forwarded-Proto, SECURE_SSL_REDIRECT entra en bucle infinito.
+if os.environ.get("DJANGO_HTTPS", "0") == "1":
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    SECURE_SSL_REDIRECT = True
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_HSTS_SECONDS = 3600
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+
 INSTALLED_APPS = ["django.contrib.staticfiles"]
 
 MIDDLEWARE = [

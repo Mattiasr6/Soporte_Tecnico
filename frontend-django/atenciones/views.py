@@ -77,13 +77,71 @@ def login_vista(request: HttpRequest) -> HttpResponse:
 
 
 def _destino(request: HttpRequest) -> str:
-    return "auxiliares" if _es_auxiliar(request) else "atenciones_lista"
+    return "auxiliares" if _es_auxiliar(request) else "inicio"
 
 
+@con_login
 def inicio_vista(request: HttpRequest) -> HttpResponse:
-    if not request.session.get("jwt"):
-        return redirect("login")
-    return redirect(_destino(request))
+    if _es_auxiliar(request):
+        return redirect("auxiliares")
+    _marcar_sesion(request, True)
+    token = str(request.session["jwt"])
+    usuarios = api_get("/api/usuarios", token)
+    assert isinstance(usuarios, list)
+    conteo, tecnicos = _presencia(usuarios)
+    yo = api_get("/api/usuarios/me", token)
+    datos_yo = yo if isinstance(yo, dict) else {}
+    anuncio = api_get("/api/announcements", token)
+    return render(
+        request,
+        "atenciones/inicio.html",
+        {
+            "conteo": conteo,
+            "tecnicos": tecnicos,
+            "yo": datos_yo,
+            "yo_etiqueta": _etiqueta_estado(datos_yo.get("estado_actual", "")),
+            "anuncio": anuncio if isinstance(anuncio, dict) else {},
+        },
+    )
+
+
+@con_login
+def inicio_anuncio_vista(request: HttpRequest) -> JsonResponse:
+    anuncio = api_get("/api/announcements", str(request.session["jwt"]))
+    return JsonResponse(anuncio if isinstance(anuncio, dict) else {})
+
+
+@con_login
+@require_POST
+def inicio_anuncio_guardar_vista(request: HttpRequest) -> JsonResponse:
+    if not _puede_dashboard(request):
+        return JsonResponse(
+            {"ok": False, "error": "Solo un jefe puede publicar el anuncio."}, status=403
+        )
+    try:
+        anuncio = api_post(
+            "/api/announcements",
+            str(request.session["jwt"]),
+            {"message": request.POST.get("mensaje", "")},
+        )
+    except ApiError as e:
+        return JsonResponse({"ok": False, "error": _detalle_error(e)}, status=e.status)
+    return JsonResponse({"ok": True, "anuncio": anuncio})
+
+
+@con_login
+@require_POST
+def inicio_estado_vista(request: HttpRequest) -> JsonResponse:
+    estado = request.POST.get("estado", "").strip().lower()
+    try:
+        api_patch(
+            "/api/usuarios/estado",
+            str(request.session["jwt"]),
+            {"estado_actual": estado},
+        )
+    except ApiError as e:
+        return JsonResponse({"ok": False, "error": _detalle_error(e)}, status=e.status)
+    return JsonResponse({"ok": True, "estado": estado})
 
 
 def logout_vista(request: HttpRequest) -> HttpResponse:
@@ -390,10 +448,24 @@ def _params_stats(request: HttpRequest) -> dict[str, str]:
     return params
 
 
+ORDEN_PRESENCIA = ("disponible", "ocupado", "extraturno", "ausente")
+_PRIORIDAD_PRESENCIA = {estado: i for i, estado in enumerate(ORDEN_PRESENCIA)}
+ETIQUETAS_ESTADO = {
+    "disponible": "Disponible",
+    "ocupado": "Ocupado",
+    "extraturno": "Fuera de turno",
+    "ausente": "Ausente",
+}
+
+
+def _etiqueta_estado(estado: object) -> str:
+    return ETIQUETAS_ESTADO.get(str(estado), str(estado))
+
+
 def _presencia(
     usuarios: list[object],
 ) -> tuple[dict[str, int], list[dict[str, object]]]:
-    conteo = {"disponible": 0, "ocupado": 0, "extraturno": 0, "ausente": 0}
+    conteo: dict[str, int] = dict.fromkeys(ORDEN_PRESENCIA, 0)
     tecnicos: list[dict[str, object]] = []
     for u in usuarios:
         if not isinstance(u, dict):
@@ -406,9 +478,18 @@ def _presencia(
                 "nombre": u.get("display_name", ""),
                 "rol": u.get("role", ""),
                 "estado": estado,
+                "etiqueta": _etiqueta_estado(estado),
+                "horario_hoy": u.get("horario_hoy"),
+                "entra_a_las": u.get("entra_a_las"),
+                "atenciones_hoy": int(u.get("atenciones_hoy") or 0),
             }
         )
-    tecnicos.sort(key=lambda t: (str(t["estado"]) != "disponible", str(t["nombre"])))
+    tecnicos.sort(
+        key=lambda t: (
+            _PRIORIDAD_PRESENCIA.get(str(t["estado"]), 9),
+            str(t["nombre"]),
+        )
+    )
     return conteo, tecnicos
 
 
@@ -671,10 +752,8 @@ def dashboard_vista(request: HttpRequest) -> HttpResponse:
         return redirect("atenciones_lista")
     _marcar_sesion(request, True)
     token = str(request.session["jwt"])
-    usuarios = api_get("/api/usuarios", token)
     arbol = api_get("/api/jerarquia/arbol", token)
-    assert isinstance(usuarios, list) and isinstance(arbol, dict)
-    conteo, tecnicos = _presencia(usuarios)
+    assert isinstance(arbol, dict)
     datos = _payload(request, token)
     return render(
         request,
@@ -682,8 +761,6 @@ def dashboard_vista(request: HttpRequest) -> HttpResponse:
         {
             "payload": datos,
             "arbol_json": _json.dumps(arbol),
-            "conteo": conteo,
-            "tecnicos": tecnicos,
             "filtros": request.GET,
         },
     )

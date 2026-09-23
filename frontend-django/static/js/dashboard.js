@@ -402,25 +402,4 @@
     ancho = window.innerWidth;
     Object.keys(charts).forEach(function (k) { charts[k].resize(); });
   });
-
-  var bloque = document.querySelector("[data-estados-url]");
-  var conteo = document.getElementById("presencia-conteo");
-  var lista = document.getElementById("presencia-lista");
-  function refrescarEstados() {
-    fetch(bloque.dataset.estadosUrl)
-      .then(function (r) { return r.ok ? r.json() : null; })
-      .then(function (d) {
-        if (!d) return;
-        Object.keys(d.conteo).forEach(function (k) {
-          var b = conteo.querySelector('[data-estado="' + k + '"] b');
-          if (b) b.textContent = d.conteo[k];
-        });
-        lista.innerHTML = d.tecnicos.map(function (t) {
-          return '<div class="t-card"><div><strong>' + t.nombre + "</strong><small>" + t.rol +
-                 '</small></div><span class="estado estado-' + t.estado + '">' + t.estado + "</span></div>";
-        }).join("");
-      })
-      .catch(function () {});
-  }
-  setInterval(refrescarEstados, 20000);
 })();

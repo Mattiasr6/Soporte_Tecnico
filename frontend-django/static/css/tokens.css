@@ -857,26 +857,30 @@ html.a11y-contraste-alto textarea {
   margin: 6px 0;
 }
 
-.dash .bloque {
+.dash .bloque,
+.inicio .bloque {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-card);
   padding: 16px 18px 10px;
   margin-top: 18px;
 }
-.dash .bloque > header {
+.dash .bloque > header,
+.inicio .bloque > header {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
   gap: 10px;
   margin-bottom: 7px;
 }
-.dash .bloque h2 {
+.dash .bloque h2,
+.inicio .bloque h2 {
   margin: 0;
   font-size: 16px;
   color: var(--color-accent-deep);
 }
-.dash .bloque small {
+.dash .bloque small,
+.inicio .bloque small {
   color: var(--color-muted);
   font-size: 11px;
 }
@@ -1199,4 +1203,74 @@ html.a11y-contraste-alto textarea {
   #chart-drill {
     height: 340px;
   }
+}
+
+.mi-estado {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+.mi-estado .btn {
+  margin-top: 0;
+  white-space: nowrap;
+}
+.mi-estado .btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.anuncio {
+  background: #fffaf0;
+  border: 1px solid var(--color-gold);
+  border-radius: var(--radius-control);
+  padding: 10px 14px;
+}
+.anuncio p {
+  margin: 0 0 4px;
+  font-size: 14px;
+  color: var(--color-house);
+}
+.anuncio small {
+  color: var(--color-muted);
+  font-size: 11px;
+}
+.anuncio-acciones {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 8px;
+}
+.anuncio-acciones .btn {
+  margin-top: 0;
+  padding: 8px 18px;
+  font-size: 14px;
+}
+#anuncio-mensaje {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  padding: 9px 12px;
+  font: inherit;
+  font-size: 14px;
+  resize: vertical;
+}
+.accesos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-bottom: 8px;
+}
+.acceso {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  padding: 9px 16px;
+  font-size: 13px;
+  color: var(--color-house);
+  text-decoration: none;
+}
+.acceso:hover {
+  border-color: var(--color-accent-deep);
+  color: var(--color-accent-deep);
 }

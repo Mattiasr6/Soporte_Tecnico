@@ -19,7 +19,7 @@
 | Código estable (slug) | columna `Codigo` única en los 3 niveles, backfill hecho, renombrar no la toca |
 | API de escritura de jerarquía | CRUD de los 3 niveles + propagación de FK a las atenciones + `PATCH /atenciones/{id}/jerarquia` |
 | Pantalla `/jerarquia` | árbol + detalle + alta/mover/renombrar/desactivar/eliminar |
-| Carga de datos | 274 atenciones de septiembre, 53 áreas, 3 sectores, 4 grupos · invariante "jerarquía incoherente" = 0 |
+| Carga de datos | 276 atenciones de septiembre (igual que prod al 22-sep), 53 áreas, 3 sectores, 4 grupos · invariante "jerarquía incoherente" = 0 |
 | Backup de prod | pipeline arreglado (estaba generando 1.1M de archivos vacíos) + dump verificado por checksum |
 
 ---
@@ -210,32 +210,60 @@ reportes y en qué formato (Excel, PDF, imprimible).
 
 ---
 
-## L1 · `/launcher`
+## L1 · `/launcher` — **hecho** (pantalla "Inicio")
 
-Portal con tarjetas de enlaces. Referencia en v2:
-`frontend/src/app/launcher/page.tsx` (112 líneas, incluye una referencia de tokens de
-diseño). No necesita backend.
+Quedó como pantalla de entrada (`/`) para técnicos y jefes; el auxiliar sigue yendo a
+`/auxiliares/`. Trae: anuncio del equipo (**uno solo**, con autor y hora, sin persistir
+— se borra al reiniciar), "El equipo ahora" con los chips y las tarjetas del dashboard
+más el turno del día y la carga, accesos rápidos **gateados con `can_dashboard`**
+(Dashboard y Jerarquía solo para jefes), y el toggle de estado, que queda deshabilitado
+**y rechazado por el backend** si estás fuera de turno.
+
+Referencia en v2: `frontend/src/app/launcher/page.tsx` (112 líneas). No hizo falta
+backend nuevo: se enriqueció `/api/usuarios` (`horario_hoy`, `entra_a_las`,
+`atenciones_hoy`, `puede_cambiar_estado`) y `/api/announcements` (autor y hora).
 
 ---
 
 ## O1 · Operación y seguridad
 
-- **HTTPS**: hoy es HTTP plano. El navegador ignora `Cross-Origin-Opener-Policy`
-  (aviso benigno en consola) justamente por eso. `SECURE_SSL_REDIRECT=False`.
+- **HTTPS**: sigue en HTTP plano, pero la config ya está lista detrás de un flag:
+  `DJANGO_HTTPS=1` + un proxy que mande `X-Forwarded-Proto: https` activa cookies
+  seguras, redirección a HTTPS y HSTS. Queda apagado por defecto para no romper el
+  acceso HTTP de la red interna. (Si el proxy no manda ese header, es bucle infinito.)
+- **`SECRET_KEY`**: estaba en 17 caracteres, con lo que se podían falsificar sesiones.
+  Corregido: la de dev se regeneró a 86 y el runbook dice cómo generar la de producción.
+- **Runbook**: [`runbook-operacion.md`](runbook-operacion.md) — cómo correr los dos
+  procesos, las variables de entorno, la carga de datos, los horarios, los backups y el
+  checklist previo a exponerlo a los usuarios.
 - **Backups**: el pipeline quedó arreglado, pero no hay alerta si vuelve a fallar.
   Vale un chequeo (tamaño > 0 y antigüedad < 2 días).
-- **Cutover (S11)**: apagar .NET/Next y el compose definitivo. Sigue pendiente.
+- **Cutover (S11)**: apagar .NET/Next, contenedor propio de la v2 y un `-dev` nuevo.
+  **Decidido: la v2 estrena base propia** (septiembre = mes 1) y ya está el script de
+  promoción (`scripts/promover_a_produccion.py`), probado de punta a punta contra una
+  base descartable: catálogo idéntico, 9 usuarios con su hash de v1, 276 atenciones y
+  los horarios.
+  Al probarlo aparecieron **dos bugs de la carga inicial, ya corregidos**: `seed_catalogo`
+  no seteaba `Codigo` (NOT NULL desde la migración de slugs) y asumía los sectores ya
+  creados. O sea que un contenedor nuevo habría fallado al sembrar.
 
 ---
 
 ## D1 · Datos
 
-- **La historia es solo septiembre (274 de 2212)**. Decisión del usuario: v2 arranca
+- **La historia es solo septiembre (276 de 2214)**. Decisión del usuario: v2 arranca
   de 0 y v1 queda como evidencia de trabajo. Consecuencia: **S12 (migración de
   historia) sale del roadmap**.
 - **`atenciones_septiembre.csv` es un snapshot**: prod sigue recibiendo atenciones
-  (pasó de 253 a 274 en horas). Hay que re-extraerlo con `extraer_septiembre.py` en
-  el momento de cargar, no usarlo tal cual.
+  (253 → 274 → 276, y sigue). El flujo para ponerse al día son dos comandos desde
+  `backend-fastapi/`:
+  ```
+  python scripts/extraer_septiembre.py      # refresca el CSV desde prod
+  python scripts/actualizar_atenciones.py   # suma a la base solo lo que falta
+  ```
+  `seed_atenciones` quedó idempotente por `created_at`, así que ambos se pueden
+  correr las veces que haga falta. **No** hace falta el seed completo, que además
+  re-hashea las contraseñas de todos.
 - **56 filas con duplicados** (`fecha + área + categoría + descripción`, grupos de 2 y
   3). Puede ser legítimo (varias personas pidiendo lo mismo el mismo día). Sin revisar.
 - **2 áreas huérfanas** (0 atenciones): `Sala 2 (Directorio)` y `Sala 3 (Directorio)`.

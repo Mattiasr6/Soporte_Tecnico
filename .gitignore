@@ -49,3 +49,5 @@ __pycache__/
 .omo/
 .opencode/
 backups/*.dump
+# Datos: snapshots de prod y mapeos de areas. No se versionan (ver docs/runbook-operacion.md)
+/*.csv

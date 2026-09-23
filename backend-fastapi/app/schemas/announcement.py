@@ -7,3 +7,5 @@ class AnnouncementIn(BaseModel):
 
 class AnnouncementOut(BaseModel):
     message: str | None = None
+    author: str | None = None
+    at: str | None = None
