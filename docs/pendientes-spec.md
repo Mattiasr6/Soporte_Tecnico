@@ -98,6 +98,10 @@ tiene.
 
 ## J2 · Jerarquía, lo que quedó fuera de la v1
 
+- **El catálogo sigue con "Extras"** y sin los movimientos y renombres ya decididos
+  ("Espacios comunes", subir `Eventos`, mover `Sala Magna` y `Sala de lectura`, las
+  Salas 1/2/3 a Directorio). Verificado el 2026-09-23: **nunca se aplicó**, ni en el
+  catálogo ni en el CSV. Lo hace el usuario desde `/jerarquia`.
 - **Movimiento en lote** (seleccionar varias áreas y moverlas juntas). Decisión del
   usuario: lo hace a mano. Solo tiene sentido si agrupar 24 áreas se vuelve tedioso.
 - **Desactivar sectores**: `GruposPadres` **no tiene columna `Activo`** (solo

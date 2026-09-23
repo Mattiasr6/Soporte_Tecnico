@@ -89,6 +89,17 @@ contraseña**. Verificado comparando los 9 contra v1.
 La base destino se crea con `alembic upgrade head` (el script no la crea) y conviene
 probarla antes en una base descartable, no encima de la de trabajo.
 
+## Los CSV de datos no están versionados
+
+`atenciones_septiembre.csv`, `mapeo-areas.csv` y `mapeo-areas-dedup.csv` están en el
+`.gitignore`: son datos, no código. Consecuencia para un despliegue nuevo: **el repo por
+sí solo no alcanza para sembrar la base**. Cómo se consigue cada uno:
+
+- `atenciones_septiembre.csv`: se regenera de prod con `scripts/extraer_septiembre.py`.
+- `mapeo-areas.csv` y `mapeo-areas-dedup.csv`: son la **definición del catálogo** y no se
+  pueden regenerar (en prod el catálogo está vacío). Hay que copiarlos junto con el
+  despliegue, o sacar el catálogo de una base que ya lo tenga (`GET /api/jerarquia/arbol`).
+
 ## Horarios
 
 La carga es **manual y mensual**: una fila por usuario y día de la semana, desde
