@@ -184,19 +184,28 @@ Tres reglas que no se negocian:
 3. **Las migraciones no borran datos.** Agregar columnas sí; renombrar o eliminar
    requiere una migración en dos pasos (agregar, migrar, y recién después borrar).
 
-## Arranque automático
+## Arranque y control de los servicios
 
-Hay dos unidades en `deploy/systemd/`. Para instalarlas (una sola vez):
+Los dos procesos los maneja systemd (unidades en `deploy/systemd/`, **instaladas el
+2026-09-23**). Antes se levantaban a mano con `scripts/arrancar_produccion.sh`, que
+sigue sirviendo para un arranque de emergencia o para reinstalar.
+
+```
+sudo systemctl status soporte-api soporte-web    # estan vivos?
+sudo systemctl restart soporte-web               # despues de publicar un cambio
+journalctl -u soporte-api -n 50                  # o tail de logs/
+```
+
+Están `enabled` (arrancan solas al reiniciar la máquina) y con `Restart=always`:
+si un proceso se cae, vuelve solo. Probado matando los dos con SIGKILL.
+
+Para instalarlas en otra máquina:
 
 ```
 sudo cp deploy/systemd/*.service /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable --now soporte-api soporte-web
 ```
-
-Quedan con `Restart=always`, así que si un proceso se cae, vuelve. **Hasta que se
-instalen, un reinicio de la máquina deja la v2 abajo**: se levanta a mano con
-`bash scripts/arrancar_produccion.sh`.
 
 ## Lo que todavía no está
 
