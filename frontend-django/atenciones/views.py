@@ -1,6 +1,7 @@
 import contextlib
 import datetime as _dt
 import json as _json
+from zoneinfo import ZoneInfo
 
 from django.http import Http404, HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import redirect, render
@@ -18,6 +19,8 @@ from .api import (
 )
 from .auth import con_login
 from .forms import LoginForm
+
+_ZONA_LA_PAZ = ZoneInfo("America/La_Paz")
 
 PASO_LISTA = 50
 
@@ -998,3 +1001,244 @@ def notas_guardar_vista(request: HttpRequest) -> JsonResponse:
     except ApiError as e:
         return JsonResponse({"ok": False, "error": _detalle_error(e)}, status=502)
     return JsonResponse({"ok": True})
+
+
+MESES = (
+    "Enero",
+    "Febrero",
+    "Marzo",
+    "Abril",
+    "Mayo",
+    "Junio",
+    "Julio",
+    "Agosto",
+    "Septiembre",
+    "Octubre",
+    "Noviembre",
+    "Diciembre",
+)
+
+LUNES, SABADO = 1, 6
+
+PLANTILLAS = (
+    ("08:00", "16:00", "", ""),
+    ("08:00", "12:00", "14:30", "18:30"),
+    ("12:00", "20:00", "", ""),
+    ("07:00", "15:00", "", ""),
+    ("09:00", "17:00", "", ""),
+)
+
+
+def _mes_actual() -> tuple[int, int]:
+    local = _dt.datetime.now(_dt.UTC).astimezone(_ZONA_LA_PAZ)
+    return local.month, local.year
+
+
+def _mes_vecino(mes: int, anio: int, delta: int) -> tuple[int, int]:
+    indice = (anio * 12 + (mes - 1)) + delta
+    return (indice % 12) + 1, indice // 12
+
+
+def _bloque(fila: dict | None) -> dict[str, str]:
+    if not fila:
+        return {"h1": "", "f1": "", "h2": "", "f2": "", "label": "Sin horario"}
+    return {
+        "h1": fila.get("hora_inicio1") or "",
+        "f1": fila.get("hora_fin1") or "",
+        "h2": fila.get("hora_inicio2") or "",
+        "f2": fila.get("hora_fin2") or "",
+        "label": fila.get("label") or "Sin horario",
+    }
+
+
+def _filas_horarios(token: str, mes: int, anio: int) -> list[dict]:
+    filas = api_get("/api/horarios", token, {"mes": str(mes), "anio": str(anio)})
+    return [f for f in filas if isinstance(f, dict)] if isinstance(filas, list) else []
+
+
+@con_login
+def horarios_vista(request: HttpRequest) -> HttpResponse:
+    if not _puede_dashboard(request):
+        return redirect("atenciones_lista")
+    token = str(request.session["jwt"])
+    mes = _int_o_none(request.GET.get("mes")) or _mes_actual()[0]
+    anio = _int_o_none(request.GET.get("anio")) or _mes_actual()[1]
+
+    filas = _filas_horarios(token, mes, anio)
+    por_persona: dict[int, dict[int, dict]] = {}
+    for fila in filas:
+        por_persona.setdefault(int(fila["usuario_id"]), {})[int(fila["dia_semana"])] = (
+            fila
+        )
+
+    usuarios = api_get("/api/usuarios", token)
+    personas = (
+        [u for u in usuarios if isinstance(u, dict)]
+        if isinstance(usuarios, list)
+        else []
+    )
+
+    def armar(persona: dict) -> dict:
+        dias = por_persona.get(int(persona["id"]), {})
+        return {
+            "id": persona["id"],
+            "nombre": persona["display_name"],
+            "lv": _bloque(dias.get(LUNES)),
+            "sabado": _bloque(dias.get(SABADO)),
+            "tiene_horario": bool(dias),
+        }
+
+    cobertura = api_get(
+        "/api/horarios/cobertura", token, {"mes": str(mes), "anio": str(anio)}
+    )
+    previo, siguiente = _mes_vecino(mes, anio, -1), _mes_vecino(mes, anio, 1)
+    return render(
+        request,
+        "atenciones/horarios.html",
+        {
+            "tecnicos": [armar(p) for p in personas if p.get("role") == "Tecnico"],
+            "jefes": [armar(p) for p in personas if p.get("role") == "Jefe"],
+            "cobertura": cobertura if isinstance(cobertura, dict) else {},
+            "plantillas": PLANTILLAS,
+            "mes": mes,
+            "anio": anio,
+            "mes_nombre": MESES[mes - 1],
+            "mes_previo": previo[0],
+            "anio_previo": previo[1],
+            "mes_siguiente": siguiente[0],
+            "anio_siguiente": siguiente[1],
+            "flash": request.session.pop("flash", None),
+        },
+    )
+
+
+def _desde_formulario(
+    request: HttpRequest, personas: list[dict], mes: int, anio: int, dias: list[int]
+) -> tuple[list[dict], list[int]]:
+    """Un formulario con todas las filas. Sin horas = sin turno (se borra, no se guarda vacio)."""
+    asignaciones: list[dict] = []
+    vacios: list[int] = []
+    for persona in personas:
+        uid = persona["id"]
+        horas = [
+            request.POST.get(f"u{uid}_{campo}", "").strip()
+            for campo in ("h1", "f1", "h2", "f2")
+        ]
+        if not any(horas):
+            vacios.append(uid)
+            continue
+        base = {
+            "usuario_id": uid,
+            "mes": mes,
+            "anio": anio,
+            "hora_inicio1": horas[0] or None,
+            "hora_fin1": horas[1] or None,
+            "hora_inicio2": horas[2] or None,
+            "hora_fin2": horas[3] or None,
+        }
+        for dia in dias:
+            asignaciones.append({**base, "dia_semana": dia})
+    return asignaciones, vacios
+
+
+@con_login
+@require_POST
+def horarios_guardar_vista(request: HttpRequest) -> HttpResponse:
+    if not _puede_dashboard(request):
+        return redirect("atenciones_lista")
+    token = str(request.session["jwt"])
+    mes = _int_o_none(request.POST.get("mes")) or 0
+    anio = _int_o_none(request.POST.get("anio")) or 0
+    usuarios = api_get("/api/usuarios", token)
+    personas = (
+        [u for u in usuarios if isinstance(u, dict)]
+        if isinstance(usuarios, list)
+        else []
+    )
+    bloque = request.POST.get("bloque")
+    if bloque == "jefes":
+        personas = [p for p in personas if p.get("role") == "Jefe"]
+    else:
+        personas = [p for p in personas if p.get("role") == "Tecnico"]
+    dias = [SABADO] if bloque == "sabado" else list(range(1, SABADO))
+    try:
+        asignaciones, vacios = _desde_formulario(request, personas, mes, anio, dias)
+        for uid in vacios:
+            for dia in dias:
+                api_delete(
+                    f"/api/horarios?usuario_id={uid}&mes={mes}&anio={anio}"
+                    f"&dia_semana={dia}",
+                    token,
+                )
+        if asignaciones:
+            api_post("/api/horarios/lote", token, {"asignaciones": asignaciones})
+        texto = f"Guardados {len(asignaciones)} turnos."
+    except ApiError as e:
+        texto = ""
+        request.session["flash"] = {"tipo": "error", "texto": _detalle_error(e)}
+    else:
+        request.session["flash"] = {"tipo": "ok", "texto": texto}
+    return redirect(f"{reverse('horarios')}?mes={mes}&anio={anio}")
+
+
+@con_login
+@require_POST
+def horarios_limpiar_vista(request: HttpRequest) -> HttpResponse:
+    if not _puede_dashboard(request):
+        return redirect("atenciones_lista")
+    token = str(request.session["jwt"])
+    mes = _int_o_none(request.POST.get("mes")) or 0
+    anio = _int_o_none(request.POST.get("anio")) or 0
+    uid = _int_o_none(request.POST.get("usuario_id")) or 0
+    dias = (
+        [SABADO] if request.POST.get("bloque") == "sabado" else list(range(1, SABADO))
+    )
+    try:
+        for dia in dias:
+            api_delete(
+                f"/api/horarios?usuario_id={uid}&mes={mes}&anio={anio}"
+                f"&dia_semana={dia}",
+                token,
+            )
+        request.session["flash"] = {"tipo": "ok", "texto": "Horario borrado."}
+    except ApiError as e:
+        request.session["flash"] = {"tipo": "error", "texto": _detalle_error(e)}
+    return redirect(f"{reverse('horarios')}?mes={mes}&anio={anio}")
+
+
+@con_login
+@require_POST
+def horarios_copiar_vista(request: HttpRequest) -> HttpResponse:
+    if not _puede_dashboard(request):
+        return redirect("atenciones_lista")
+    token = str(request.session["jwt"])
+    mes = _int_o_none(request.POST.get("mes")) or 0
+    anio = _int_o_none(request.POST.get("anio")) or 0
+    previo_mes, previo_anio = _mes_vecino(mes, anio, -1)
+    try:
+        filas = _filas_horarios(token, previo_mes, previo_anio)
+        if not filas:
+            raise ApiError(
+                0, f"El mes anterior ({MESES[previo_mes - 1]}) no tiene horarios."
+            )
+        asignaciones = [
+            {
+                "usuario_id": f["usuario_id"],
+                "dia_semana": f["dia_semana"],
+                "mes": mes,
+                "anio": anio,
+                "hora_inicio1": f.get("hora_inicio1"),
+                "hora_fin1": f.get("hora_fin1"),
+                "hora_inicio2": f.get("hora_inicio2"),
+                "hora_fin2": f.get("hora_fin2"),
+            }
+            for f in filas
+        ]
+        api_post("/api/horarios/lote", token, {"asignaciones": asignaciones})
+        request.session["flash"] = {
+            "tipo": "ok",
+            "texto": f"Copiados {len(asignaciones)} horarios de {MESES[previo_mes - 1]}.",
+        }
+    except ApiError as e:
+        request.session["flash"] = {"tipo": "error", "texto": _detalle_error(e)}
+    return redirect(f"{reverse('horarios')}?mes={mes}&anio={anio}")

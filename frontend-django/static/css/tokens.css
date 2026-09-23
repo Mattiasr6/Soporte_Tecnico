@@ -496,6 +496,39 @@ html.a11y-contraste-alto select,
 html.a11y-contraste-alto textarea {
   border-color: #000000;
 }
+.mes-nav {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.mes-actual {
+  font-weight: 700;
+  color: var(--color-house);
+  min-width: 150px;
+  text-align: center;
+}
+.horarios-tabla td {
+  vertical-align: middle;
+}
+.celda-horas {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.celda-horas input[type="time"] {
+  width: 108px;
+  padding: 5px 7px;
+  border: 1.5px solid var(--color-border-strong);
+  border-radius: var(--radius-control);
+  font-size: 12.5px;
+}
+.horarios-tabla select.plantilla {
+  padding: 5px 7px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  font-size: 12px;
+  max-width: 190px;
+}
 .notas textarea {
   width: 100%;
   min-height: 420px;

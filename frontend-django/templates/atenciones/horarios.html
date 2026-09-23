@@ -1,0 +1,221 @@
+{% extends "atenciones/base.html" %}
+{% block titulo %}Horarios — Soporte Técnico{% endblock %}
+{% block contenido %}
+<div class="page-wide">
+  <div class="page-head">
+    <div>
+      <h1>Horarios</h1>
+      <p class="sub">Los 4 bloques del día son fijos: 08:00-20:00, de lunes a viernes como equipo</p>
+    </div>
+    <div class="mes-nav">
+      <a class="btn" href="?mes={{ mes_previo }}&anio={{ anio_previo }}">◀</a>
+      <span class="mes-actual">{{ mes_nombre }} {{ anio }}</span>
+      <a class="btn" href="?mes={{ mes_siguiente }}&anio={{ anio_siguiente }}">▶</a>
+    </div>
+  </div>
+
+  {% if flash %}<p class="flash {{ flash.tipo }}">{{ flash.texto }}</p>{% endif %}
+
+  <section class="bloque">
+    <header>
+      <h2>Técnicos · lunes a viernes</h2>
+      <small>un bloque para los 5 días</small>
+    </header>
+    <form method="post" action="{% url 'horarios_guardar' %}">
+      {% csrf_token %}
+      <input type="hidden" name="mes" value="{{ mes }}">
+      <input type="hidden" name="anio" value="{{ anio }}">
+      <input type="hidden" name="bloque" value="laborable">
+      <table class="tabla horarios-tabla">
+        <thead>
+          <tr><th>Técnico</th><th>Turno 1</th><th>Turno 2 (opcional)</th><th>Plantilla</th><th>Aporta</th><th></th></tr>
+        </thead>
+        <tbody>
+          {% for t in tecnicos %}
+          <tr>
+            <td>{{ t.nombre }}</td>
+            <td class="celda-horas">
+              <input type="time" id="lv_{{ t.id }}_h1" name="u{{ t.id }}_h1" value="{{ t.lv.h1 }}">
+              <input type="time" id="lv_{{ t.id }}_f1" name="u{{ t.id }}_f1" value="{{ t.lv.f1 }}">
+            </td>
+            <td class="celda-horas">
+              <input type="time" id="lv_{{ t.id }}_h2" name="u{{ t.id }}_h2" value="{{ t.lv.h2 }}">
+              <input type="time" id="lv_{{ t.id }}_f2" name="u{{ t.id }}_f2" value="{{ t.lv.f2 }}">
+            </td>
+            <td>
+              <select class="plantilla" data-fila="lv_{{ t.id }}">
+                <option value="">—</option>
+                {% for p in plantillas %}
+                <option value="{{ p.0 }}|{{ p.1 }}|{{ p.2 }}|{{ p.3 }}">{{ p.0 }}-{{ p.1 }}{% if p.2 %} + {{ p.2 }}-{{ p.3 }}{% endif %}</option>
+                {% endfor %}
+              </select>
+            </td>
+            <td class="sub">{{ t.lv.label }}</td>
+            <td>
+              <button type="submit" class="link-btn" formaction="{% url 'horarios_limpiar' %}"
+                      name="usuario_id" value="{{ t.id }}">Limpiar</button>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      <button class="btn" type="submit">Guardar todo</button>
+      <span class="sub">o usá «Limpiar» para borrar el horario del mes de una persona</span>
+    </form>
+  </section>
+
+  <section class="bloque">
+    <header>
+      <h2>Técnicos · sábado</h2>
+      <small>5 a la mañana (08:00-12:00) y 2 a la tarde (14:30-18:30); la rotación se cambia a mano</small>
+    </header>
+    <form method="post" action="{% url 'horarios_guardar' %}">
+      {% csrf_token %}
+      <input type="hidden" name="mes" value="{{ mes }}">
+      <input type="hidden" name="anio" value="{{ anio }}">
+      <input type="hidden" name="bloque" value="sabado">
+      <table class="tabla horarios-tabla">
+        <thead>
+          <tr><th>Técnico</th><th>Turno del sábado</th><th>Plantilla</th><th>Grupo</th><th></th></tr>
+        </thead>
+        <tbody>
+          {% for t in tecnicos %}
+          <tr>
+            <td>{{ t.nombre }}</td>
+            <td class="celda-horas">
+              <input type="time" id="sab_{{ t.id }}_h1" name="u{{ t.id }}_h1" value="{{ t.sabado.h1 }}">
+              <input type="time" id="sab_{{ t.id }}_f1" name="u{{ t.id }}_f1" value="{{ t.sabado.f1 }}">
+            </td>
+            <td>
+              <select class="plantilla" data-fila="sab_{{ t.id }}">
+                <option value="">—</option>
+                <option value="08:00|12:00||">08:00-12:00 (mañana)</option>
+                <option value="14:30|18:30||">14:30-18:30 (tarde)</option>
+              </select>
+            </td>
+            <td class="sub">{{ t.sabado.label }}</td>
+            <td>
+              <button type="submit" class="link-btn" formaction="{% url 'horarios_limpiar' %}"
+                      name="usuario_id" value="{{ t.id }}">Limpiar</button>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      <button class="btn" type="submit">Guardar todo</button>
+    </form>
+  </section>
+
+  <section class="bloque">
+    <header>
+      <h2>Jefes · turno fijo</h2>
+      <small>no cuentan para la cobertura: su horario sirve para saber si están dentro o fuera de turno</small>
+    </header>
+    <form method="post" action="{% url 'horarios_guardar' %}">
+      {% csrf_token %}
+      <input type="hidden" name="mes" value="{{ mes }}">
+      <input type="hidden" name="anio" value="{{ anio }}">
+      <input type="hidden" name="bloque" value="jefes">
+      <table class="tabla horarios-tabla">
+        <thead>
+          <tr><th>Jefe</th><th>Turno 1</th><th>Turno 2 (opcional)</th><th>Plantilla</th></tr>
+        </thead>
+        <tbody>
+          {% for j in jefes %}
+          <tr>
+            <td>{{ j.nombre }}</td>
+            <td class="celda-horas">
+              <input type="time" id="jef_{{ j.id }}_h1" name="u{{ j.id }}_h1" value="{{ j.lv.h1 }}">
+              <input type="time" id="jef_{{ j.id }}_f1" name="u{{ j.id }}_f1" value="{{ j.lv.f1 }}">
+            </td>
+            <td class="celda-horas">
+              <input type="time" id="jef_{{ j.id }}_h2" name="u{{ j.id }}_h2" value="{{ j.lv.h2 }}">
+              <input type="time" id="jef_{{ j.id }}_f2" name="u{{ j.id }}_f2" value="{{ j.lv.f2 }}">
+            </td>
+            <td>
+              <select class="plantilla" data-fila="jef_{{ j.id }}">
+                <option value="">—</option>
+                {% for p in plantillas %}
+                <option value="{{ p.0 }}|{{ p.1 }}|{{ p.2 }}|{{ p.3 }}">{{ p.0 }}-{{ p.1 }}{% if p.2 %} + {{ p.2 }}-{{ p.3 }}{% endif %}</option>
+                {% endfor %}
+              </select>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      <button class="btn" type="submit">Guardar todo</button>
+      <span class="sub">Turno habitual: 08:00-12:00 + 14:30-18:30</span>
+    </form>
+  </section>
+
+  <section class="bloque">
+    <header><h2>Cobertura del mes</h2><small>{{ mes_nombre }} {{ anio }}</small></header>
+    <div class="dos-col">
+      <div>
+        <h3 class="mini-titulo">Lunes a viernes</h3>
+        <table class="tabla tabla-compacta">
+          <thead><tr><th>Bloque</th><th>Horario</th><th>Técnicos</th></tr></thead>
+          <tbody>
+            {% for f in cobertura.laborable %}
+            <tr>
+              <td>{{ f.franja }}</td>
+              <td class="sub">{{ f.hora }}</td>
+              <td>
+                {% if f.tecnicos %}
+                  {{ f.tecnicos|join:" · " }}
+                {% else %}
+                  <span class="jerq-off">nadie</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <div>
+        <h3 class="mini-titulo">Sábado</h3>
+        <table class="tabla tabla-compacta">
+          <thead><tr><th>Bloque</th><th>Horario</th><th>Técnicos</th></tr></thead>
+          <tbody>
+            {% for f in cobertura.sabado %}
+            <tr>
+              <td>{{ f.franja }}</td>
+              <td class="sub">{{ f.hora }}</td>
+              <td>
+                {% if f.tecnicos %}
+                  {{ f.tecnicos|join:" · " }}
+                {% else %}
+                  <span class="jerq-off">nadie</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        <p class="sub">El mediodía y la noche del sábado no los cubre nadie. Es esperado.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="bloque">
+    <header><h2>Reglas</h2></header>
+    <ul class="jerq-reglas">
+      <li>Un día sin turno significa <b>fuera de turno</b> todo el día: por eso el domingo nadie aparece disponible.</li>
+      <li>Los <b>jefes</b> tienen horario pero no cuentan para la cobertura.</li>
+      <li>El <b>label</b> se genera solo desde las horas: no se escribe a mano.</li>
+      <li>Mientras el mes esté vacío, todos figuran <b>fuera de turno</b>. Cargar los turnos arregla eso.</li>
+    </ul>
+    <form method="post" action="{% url 'horarios_copiar' %}">
+      {% csrf_token %}
+      <input type="hidden" name="mes" value="{{ mes }}">
+      <input type="hidden" name="anio" value="{{ anio }}">
+      <button class="btn" type="submit">Copiar los horarios del mes anterior</button>
+      <span class="sub">trae todos los turnos de {{ mes_previo }}/{{ anio_previo }} a este mes</span>
+    </form>
+  </section>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="/static/js/horarios.js?v={{ asset_version }}" defer></script>
+{% endblock %}
