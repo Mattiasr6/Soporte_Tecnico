@@ -231,12 +231,15 @@ backend nuevo: se enriqueció `/api/usuarios` (`horario_hoy`, `entra_a_las`,
 
 ## O1 · Operación y seguridad
 
-- **HTTPS**: sigue en HTTP plano, pero la config ya está lista detrás de un flag:
+- **HTTPS**: sigue en HTTP plano (decidido: se accede por LAN y por Tailscale, y el
+  tráfico de Tailscale ya va cifrado por WireGuard). Por la LAN pelada la contraseña
+  viaja sin cifrar: es el riesgo aceptado hoy. La config está lista detrás de un flag:
   `DJANGO_HTTPS=1` + un proxy que mande `X-Forwarded-Proto: https` activa cookies
   seguras, redirección a HTTPS y HSTS. Queda apagado por defecto para no romper el
-  acceso HTTP de la red interna. (Si el proxy no manda ese header, es bucle infinito.)
-- **`SECRET_KEY`**: estaba en 17 caracteres, con lo que se podían falsificar sesiones.
-  Corregido: la de dev se regeneró a 86 y el runbook dice cómo generar la de producción.
+  acceso actual. (Si el proxy no manda ese header, es bucle infinito.)
+- **Cambiar la contraseña no cierra las sesiones abiertas.** Descubierto el 2026-09-23:
+  una sesión iniciada antes del cambio sigue válida. Es de bajo riesgo (la propia
+  persona), pero lo correcto es invalidarlas al cambiar la contraseña. Falta hacerlo.
 - **Runbook**: [`runbook-operacion.md`](runbook-operacion.md) — cómo correr los dos
   procesos, las variables de entorno, la carga de datos, los horarios, los backups y el
   checklist previo a exponerlo a los usuarios.
@@ -249,7 +252,8 @@ backend nuevo: se enriqueció `/api/usuarios` (`horario_hoy`, `entra_a_las`,
   - La v1 quedó **apagada pero entera** (`docker start soporte-backend soporte-frontend`
     la revive en `:3002`) y con dump final en `~/backups/soporte/prod_v1_final_*.dump`.
   - `DJANGO_DEBUG=0` + `runserver --insecure` (los estáticos con Debug apagado).
-  - Falta instalar las unidades de `deploy/systemd/` para que sobreviva a un reinicio.
+  - Las unidades de `deploy/systemd/` quedaron **instaladas y habilitadas** el
+    2026-09-23: arrancan al boot y se reinician solas (probado con SIGKILL).
   - La base de producción vive en el contenedor `soporte-postgres-dev` (`:5433`), que es
     un nombre engañoso heredado: el contenedor `soporte-postgres` es la base vieja de v1.
 
