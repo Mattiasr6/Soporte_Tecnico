@@ -153,13 +153,52 @@ sin acción.
 
 ## H1 · `/horarios`
 
-Backend **completo**: `GET`/`POST`/`DELETE /api/horarios` + `GET /api/horarios/cobertura`
-(mes + franjas). Referencia en v2: `frontend/src/app/horarios/page.tsx` (251 líneas).
+Backend **casi completo**: `GET`/`POST` (upsert por técnico+mes) /`DELETE
+/api/horarios` + `GET /api/horarios/cobertura` (ya calcula, para los 4 bloques
+fijos del día, quién cubre cada uno). Wireframe hecho:
+`docs/wireframes/horarios.excalidraw`.
 
-**Hallazgo operativo**: **no hay horarios de septiembre cargados** (prod tiene 15 en
-total, solo 2 de septiembre; el seed no los carga). Consecuencia: el turno no se
-puede recalcular y el estado "fuera de turno" no se deriva automáticamente
-(`estado_efectivo()` compara contra el horario del mes).
+**Cómo funciona el equipo (datos del usuario)**:
+- De **lunes a viernes** el equipo cubre **08:00-20:00**; cada técnico hace su turno
+  escalonado (07-15, 08-16, 09-17, 10:30-18:30, 12-20).
+- **Sábado es distinto**: solo 2 turnos — mañana **08:00-12:00** (5 técnicos) y tarde
+  **14:30-18:30** (2 técnicos). Los 2 de la tarde **rotan cada mes** y la rotación se
+  cambia **a mano**.
+- **Domingo no trabaja nadie** → todo el día fuera de turno.
+- Los **jefes** (Wilmer Cerruto y Josue Huayllas) tienen turno **fijo**
+  `08:00-12:00 + 14:30-18:30` todos los meses y **no cuentan para la cobertura**: su
+  horario existe solo para saber si están dentro o fuera de turno.
+- El mediodía y la noche del sábado **no los cubre nadie, y es esperado**.
+- Los 4 bloques de cobertura (08-12, 12-14:30, 14:30-18:30, 18:30-20) son **fijos y
+  son la realidad**: no hace falta hacerlos configurables ni extenderlos.
+
+**Los 4 cambios de backend que implica (en el wireframe)**:
+1. **Falta el día en el modelo.** `Horarios` es uno por (técnico, mes) y asume el
+   mismo turno todos los días. Con el sábado distinto, la clave única pasa a incluir
+   el día. El guardado es **por día** (L-V un bloque, sábado otro), aunque la UI
+   muestre solo dos bloques.
+2. **Los jefes tienen que poder tener horario**: hoy `POST /api/horarios` rechaza todo
+   lo que no sea `role == "Tecnico"`.
+3. **Un día sin turno = fuera de turno.** Hoy, sin horario, `estado_efectivo()` asume
+   "sin restricción" y muestra Disponible; así el domingo no funcionaría.
+4. **La cobertura se separa en dos** (lunes a viernes / sábado): no pueden compartir
+   tabla.
+
+⚠ **Efecto colateral**: mientras septiembre esté vacío, los 7 técnicos y los 2 jefes
+van a figurar **fuera de turno todos los días**. Es correcto y se arregla cargando el
+mes (el usuario ya dijo que lo hará).
+
+**Otras inconsistencias detectadas**:
+- `GET /api/horarios` usa `role == "Jefe"` en vez de `is_privileged()`, que es lo que
+  usa el resto de la app: si quien administra no tiene `role == "Jefe"`, la pantalla le
+  muestra solo su fila.
+- El `label` es texto libre redundante con las horas: conviene generarlo siempre desde
+  las horas (v2 ya lo hacía así).
+
+**Lo que ya está resuelto**: las 5 plantillas de turno de v2 (`08:00-16:00`,
+`08:00-12:00 + 14:30-18:30`, `12:00-20:00`, `07:00-15:00`, `09:00-17:00`), el guardado
+por fila y global, y "copiar el mes anterior" como ayuda para no cargar 7 técnicos a
+mano cada mes.
 
 ---
 
