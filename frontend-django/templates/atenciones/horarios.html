@@ -103,7 +103,6 @@
   <section class="bloque">
     <header>
       <h2>Jefes · turno fijo</h2>
-      <small>no cuentan para la cobertura: su horario sirve para saber si están dentro o fuera de turno</small>
     </header>
     <form method="post" action="{% url 'horarios_guardar' %}">
       {% csrf_token %}
@@ -183,7 +182,6 @@
             {% endfor %}
           </tbody>
         </table>
-        <p class="sub">El mediodía y la noche del sábado no los cubre nadie. Es esperado.</p>
       </div>
     </div>
   </section>

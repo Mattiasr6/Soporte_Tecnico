@@ -19,8 +19,8 @@ from app.schemas.horario import (
 router = APIRouter(prefix="/api/horarios", tags=["horarios"])
 
 FRANJAS = (
-    ("Manana", "08:00", "12:00"),
-    ("Medio dia", "12:00", "14:30"),
+    ("Mañana", "08:00", "12:00"),
+    ("Medio día", "12:00", "14:30"),
     ("Tarde", "14:30", "18:30"),
     ("Noche", "18:30", "20:00"),
 )

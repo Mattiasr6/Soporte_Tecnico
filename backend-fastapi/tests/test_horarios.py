@@ -124,15 +124,15 @@ def test_cobertura_separa_laborable_de_sabado_y_excluye_jefes():
         assert len(datos["laborable"]) == 4 and len(datos["sabado"]) == 4
 
         laborable = datos["laborable"]
-        assert _franja(laborable, "Manana") == ["Diego Orihuela Herrera"]
-        assert sorted(_franja(laborable, "Medio dia")) == sorted(
+        assert _franja(laborable, "Mañana") == ["Diego Orihuela Herrera"]
+        assert sorted(_franja(laborable, "Medio día")) == sorted(
             ["Diego Orihuela Herrera", "Paul Manuel Quispe Choque"]
         )
         assert _franja(laborable, "Noche") == ["Paul Manuel Quispe Choque"]
 
         sabado = datos["sabado"]
-        assert _franja(sabado, "Manana") == ["Diego Orihuela Herrera"]
-        assert _franja(sabado, "Medio dia") == []
+        assert _franja(sabado, "Mañana") == ["Diego Orihuela Herrera"]
+        assert _franja(sabado, "Medio día") == []
         assert _franja(sabado, "Tarde") == ["Paul Manuel Quispe Choque"]
         assert _franja(sabado, "Noche") == []
 
@@ -172,13 +172,39 @@ def test_eliminar_el_horario_de_un_dia():
 
 
 def test_sin_horario_hoy_figura_fuera_de_turno():
+    """El usuario ya cargo horarios reales, asi que el test limpia el turno de hoy de
+    una persona y lo restaura: no depende de que el mes este vacio."""
+    from datetime import UTC, datetime
+
+    from app.models.usuario import Usuario
+    from app.routers.usuarios import _hoy_local
+
+    mes, anio, dia = _hoy_local()
+    respaldo: list[dict[str, Any]] = []
     with SessionLocal() as db:
-        filas = db.scalars(select(Horario).where(Horario.usuario_id == UID_DIEGO)).all()
-        assert not filas, "Diego no deberia tener horarios cargados en dev"
+        for fila in db.scalars(
+            select(Horario).where(
+                Horario.usuario_id == UID_DIEGO,
+                Horario.mes == mes,
+                Horario.anio == anio,
+                Horario.dia_semana == dia,
+            )
+        ).all():
+            respaldo.append(
+                {
+                    "label": fila.label,
+                    "hora_inicio1": fila.hora_inicio1,
+                    "hora_fin1": fila.hora_fin1,
+                    "hora_inicio2": fila.hora_inicio2,
+                    "hora_fin2": fila.hora_fin2,
+                }
+            )
+            db.delete(fila)
+        usuario = db.get(Usuario, UID_DIEGO)
+        assert usuario is not None
+        estado_previo = usuario.estado_actual
+        db.commit()
 
-    from app.routers.usuarios import ESTADOS_VALIDOS
-
-    assert "Disponible" in ESTADOS_VALIDOS.values()
     try:
         assert (
             client.patch(
@@ -193,9 +219,18 @@ def test_sin_horario_hoy_figura_fuera_de_turno():
         assert diego["estado_actual"] == "extraturno"
     finally:
         with SessionLocal() as db:
-            from app.models.usuario import Usuario
-
+            for datos in respaldo:
+                db.add(
+                    Horario(
+                        usuario_id=UID_DIEGO,
+                        mes=mes,
+                        anio=anio,
+                        dia_semana=dia,
+                        created_at=datetime.now(UTC),
+                        **datos,
+                    )
+                )
             usuario = db.get(Usuario, UID_DIEGO)
             assert usuario is not None
-            usuario.estado_actual = "Ausente"
+            usuario.estado_actual = estado_previo
             db.commit()

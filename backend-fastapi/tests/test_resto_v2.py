@@ -177,8 +177,8 @@ def test_cobertura_forma():
     assert set(data) == {"mes", "anio", "laborable", "sabado"}
     for bloque in (data["laborable"], data["sabado"]):
         assert [f["franja"] for f in bloque] == [
-            "Manana",
-            "Medio dia",
+            "Mañana",
+            "Medio día",
             "Tarde",
             "Noche",
         ]
