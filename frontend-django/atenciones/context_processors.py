@@ -41,6 +41,7 @@ def sesion(request):
         "perfil": "perfil",
         "notas": "notas",
         "horarios": "horarios",
+        "usuarios": "usuarios",
     }.get(url_name or "", "")
     rol = (usuario or {}).get("role", "")
     can_dashboard = rol == "Jefe" or bool((usuario or {}).get("can_view_dashboard"))

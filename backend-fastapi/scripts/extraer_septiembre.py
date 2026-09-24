@@ -1,6 +1,8 @@
-"""Extrae las atenciones de septiembre desde prod y arma el CSV de carga.
+"""Extrae las atenciones desde prod y arma el CSV de carga.
 
-Uso desde backend-fastapi/:  python scripts/extraer_septiembre.py
+Uso desde backend-fastapi/:
+    python scripts/extraer_septiembre.py                      # desde 2026-09-01
+    python scripts/extraer_septiembre.py 2026-01-01 historia.csv   # historia completa
 
 Por que existe: el CSV es un snapshot y prod sigue recibiendo atenciones, asi que
 un archivo "hecho a mano una vez" queda viejo enseguida (paso: 253 -> 274 en horas).
@@ -25,9 +27,9 @@ from app.services.csv_import import MEDIOS_VALIDOS, SOLICITANTES_VALIDOS
 RAIZ = Path(__file__).resolve().parents[2]
 MAPEO = RAIZ / "mapeo-areas.csv"
 CATALOGO = RAIZ / "mapeo-areas-dedup.csv"
-SALIDA = RAIZ / "atenciones_septiembre.csv"
 CONTENEDOR = "soporte-postgres"
-DESDE = "2026-09-01"
+DESDE = sys.argv[1] if len(sys.argv) > 1 else "2026-09-01"
+SALIDA = RAIZ / (sys.argv[2] if len(sys.argv) > 2 else "atenciones_septiembre.csv")
 
 COLUMNAS = [
     "tecnico_email",

@@ -35,7 +35,7 @@ from app.services.slugs import codigo_unico, slugify
 
 RAIZ = Path(__file__).resolve().parents[2]
 CATALOGO_CSV = RAIZ / "mapeo-areas-dedup.csv"
-ATENCIONES_CSV = RAIZ / "atenciones_septiembre.csv"
+ATENCIONES_CSV = RAIZ / (os.getenv("ATENCIONES_CSV") or "atenciones_septiembre.csv")
 
 USUARIOS = [
     (1, "mattias.ribera@upds.edu.bo", "Mattias Ribera Rojas", "Tecnico", True),
@@ -67,7 +67,7 @@ def _leer_csv(path: Path) -> list[dict[str, str]]:
 
 
 def seed_catalogo(db) -> dict[str, int]:
-    """3 sectores + 4 grupos + 53 areas desde mapeo-areas-dedup.csv.
+    """Sectores + grupos + areas desde mapeo-areas-dedup.csv.
 
     Idempotente por nombre. Se crea completo: los grupos citan a los sectores, asi que
     quien lo llame no tiene que acordarse de insertarlos antes.

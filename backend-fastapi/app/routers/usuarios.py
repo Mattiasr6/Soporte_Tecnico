@@ -1,21 +1,25 @@
 from datetime import UTC, datetime, time
 
+import bcrypt
 from fastapi import APIRouter
 from sqlalchemy import func, select
 
-from app.core.errors import bad_request, forbidden, not_found
+from app.core.errors import bad_request, conflict, forbidden, not_found
 from app.core.security import CurrentUser, is_privileged
 from app.db.session import DbSession
 from app.models.atencion import Atencion
 from app.models.horario import Horario
 from app.models.usuario import Usuario
 from app.realtime.hub import broadcast
+from app.routers.auth import MINIMO_PASSWORD
 from app.schemas.usuario import (
+    ActivoIn,
     EspecialidadIn,
     EstadoIn,
     NotasIn,
     NotasOut,
     SesionIn,
+    UsuarioCreateIn,
     UsuarioOut,
 )
 from app.services.estados import estado_efectivo
@@ -24,6 +28,7 @@ from app.services.horarios import LA_PAZ, esta_fuera_de_horario
 router = APIRouter(prefix="/api/usuarios", tags=["usuarios"])
 
 ESTADOS_VALIDOS = {"disponible": "Disponible", "ocupado": "Ocupado"}
+ROLES_VALIDOS = ("Tecnico", "Jefe", "Auxiliar")
 
 
 def _hoy_local() -> tuple[int, int, int]:
@@ -73,11 +78,14 @@ def _entra_a_las(horario: Horario | None, ahora_utc: datetime) -> str | None:
 
 
 @router.get("", response_model=list[UsuarioOut])
-def get_all(db: DbSession, user: CurrentUser):
+def get_all(db: DbSession, user: CurrentUser, incluir_inactivos: bool = False):
     now = datetime.now(UTC)
-    usuarios = db.scalars(
-        select(Usuario).where(Usuario.role.in_(["Tecnico", "Jefe"]))
-    ).all()
+    consulta = select(Usuario)
+    if not incluir_inactivos:
+        consulta = consulta.where(
+            Usuario.role.in_(["Tecnico", "Jefe"]), Usuario.activo.is_(True)
+        )
+    usuarios = db.scalars(consulta.order_by(Usuario.display_name)).all()
     horarios = _horarios_de_hoy(db)
     conteos = _atenciones_de_hoy(db)
     salida: list[UsuarioOut] = []
@@ -94,6 +102,7 @@ def get_all(db: DbSession, user: CurrentUser):
                 entra_a_las=_entra_a_las(horario, now),
                 atenciones_hoy=conteos.get(u.id, 0),
                 puede_cambiar_estado=not _fuera_de_turno(horario, now),
+                activo=u.activo,
             )
         )
     return salida
@@ -116,6 +125,81 @@ def get_me(db: DbSession, user: CurrentUser):
         entra_a_las=_entra_a_las(horario, now),
         atenciones_hoy=_atenciones_de_hoy(db).get(user.id, 0),
         puede_cambiar_estado=not _fuera_de_turno(horario, now),
+        activo=usuario.activo,
+    )
+
+
+@router.post("", response_model=UsuarioOut, status_code=201)
+def crear_usuario(dto: UsuarioCreateIn, db: DbSession, user: CurrentUser):
+    if not is_privileged(user):
+        raise forbidden("Solo Jefe puede gestionar usuarios")
+    email = dto.email.strip().lower()
+    if not email:
+        raise bad_request("El email es obligatorio")
+    nombre = dto.display_name.strip()
+    if not nombre:
+        raise bad_request("El nombre es obligatorio")
+    if len(nombre) > 255:
+        raise bad_request("El nombre no puede superar 255 caracteres")
+    if dto.role not in ROLES_VALIDOS:
+        raise bad_request("Rol inválido. Use: Tecnico, Jefe, Auxiliar")
+    if dto.password is not None and len(dto.password) < MINIMO_PASSWORD:
+        raise bad_request(
+            f"La contraseña necesita al menos {MINIMO_PASSWORD} caracteres"
+        )
+    existe = db.scalars(
+        select(Usuario).where(func.lower(Usuario.email) == email)
+    ).first()
+    if existe is not None:
+        raise conflict("Email ya registrado")
+    now = datetime.now(UTC)
+    nuevo = Usuario(
+        email=email,
+        display_name=nombre,
+        role=dto.role,
+        password_hash=(
+            bcrypt.hashpw(dto.password.encode(), bcrypt.gensalt()).decode()
+            if dto.password
+            else None
+        ),
+        estado_actual="Ausente",
+        activo=dto.activo,
+        created_at=now,
+        updated_at=now,
+    )
+    db.add(nuevo)
+    db.commit()
+    db.refresh(nuevo)
+    return UsuarioOut(
+        id=nuevo.id,
+        display_name=nuevo.display_name,
+        especialidad=nuevo.especialidad,
+        role=nuevo.role,
+        estado_actual=nuevo.estado_actual,
+        activo=nuevo.activo,
+    )
+
+
+@router.patch("/{usuario_id}/activo", response_model=UsuarioOut)
+def cambiar_activo(usuario_id: int, dto: ActivoIn, db: DbSession, user: CurrentUser):
+    if not is_privileged(user):
+        raise forbidden("Solo Jefe puede gestionar usuarios")
+    if usuario_id == user.id and not dto.activo:
+        raise bad_request("No puedes desactivar tu propio usuario")
+    target = db.get(Usuario, usuario_id)
+    if target is None:
+        raise not_found("Usuario no encontrado")
+    target.activo = dto.activo
+    target.updated_at = datetime.now(UTC)
+    db.commit()
+    db.refresh(target)
+    return UsuarioOut(
+        id=target.id,
+        display_name=target.display_name,
+        especialidad=target.especialidad,
+        role=target.role,
+        estado_actual=target.estado_actual,
+        activo=target.activo,
     )
 
 

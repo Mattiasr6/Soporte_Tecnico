@@ -28,6 +28,8 @@ def require_user(authorization: str | None = Header(default=None)) -> Usuario:
         user = db.get(Usuario, uid)
         if user is None:
             raise unauthorized("Usuario inexistente")
+        if not user.activo:
+            raise unauthorized("Usuario desactivado")
         db.expunge(user)
         return user
 

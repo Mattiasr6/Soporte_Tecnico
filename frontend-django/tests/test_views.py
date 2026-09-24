@@ -475,3 +475,71 @@ class VistasTest(TestCase):
     def test_panel_estados_sin_permiso(self):
         r = self.client.get("/panel/estados/")
         self.assertEqual(r.status_code, 403)
+
+    # --- S13: gestión de usuarios ---
+
+    @patch("atenciones.views.api_get")
+    def test_usuarios_lista(self, mock_get):
+        self._como(JEFE)
+        mock_get.return_value = [
+            {"id": 1, "display_name": "Activo Uno", "role": "Tecnico", "activo": True},
+            {
+                "id": 11,
+                "display_name": "Gabriel Torrico",
+                "role": "Tecnico",
+                "activo": False,
+            },
+        ]
+        r = self.client.get("/usuarios/")
+        self.assertEqual(r.status_code, 200)
+        mock_get.assert_called_once_with(
+            "/api/usuarios", "t", {"incluir_inactivos": "true"}
+        )
+        self.assertContains(r, "Activo Uno")
+        self.assertContains(r, "Gabriel Torrico")
+        self.assertContains(r, "inactivo")
+        self.assertContains(r, "Reactivar")
+        self.assertContains(r, "1 activos · 1 de baja")
+
+    def test_usuarios_sin_permiso_redirige(self):
+        self._como(TECNICO)
+        self.assertRedirects(
+            self.client.get("/usuarios/"),
+            "/atenciones/",
+            fetch_redirect_response=False,
+        )
+
+    @patch("atenciones.views.api_patch")
+    def test_usuarios_desactivar(self, mock_patch):
+        self._como(JEFE)
+        r = self.client.post(
+            "/usuarios/accion/", {"accion": "desactivar", "id": "11"}
+        )
+        self.assertRedirects(r, "/usuarios/", fetch_redirect_response=False)
+        mock_patch.assert_called_once_with(
+            "/api/usuarios/11/activo", "t", {"activo": False}
+        )
+
+    @patch("atenciones.views.api_post")
+    def test_usuarios_crear(self, mock_post):
+        self._como(JEFE)
+        r = self.client.post(
+            "/usuarios/accion/",
+            {
+                "accion": "crear",
+                "email": "nuevo@upds.edu.bo",
+                "nombre": "Nuevo Tecnico",
+                "role": "Tecnico",
+                "password": "",
+            },
+        )
+        self.assertRedirects(r, "/usuarios/", fetch_redirect_response=False)
+        mock_post.assert_called_once_with(
+            "/api/usuarios",
+            "t",
+            {
+                "email": "nuevo@upds.edu.bo",
+                "display_name": "Nuevo Tecnico",
+                "role": "Tecnico",
+            },
+        )

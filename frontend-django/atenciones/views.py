@@ -1003,6 +1003,63 @@ def jerarquia_accion_vista(request: HttpRequest) -> HttpResponse:
 
 
 @con_login
+def usuarios_vista(request: HttpRequest) -> HttpResponse:
+    if not _puede_dashboard(request):
+        return redirect("atenciones_lista")
+    usuarios = api_get(
+        "/api/usuarios", str(request.session["jwt"]), {"incluir_inactivos": "true"}
+    )
+    lista = usuarios if isinstance(usuarios, list) else []
+    return render(
+        request,
+        "atenciones/usuarios.html",
+        {
+            "activos": [u for u in lista if u.get("activo")],
+            "inactivos": [u for u in lista if not u.get("activo")],
+            "roles": ["Tecnico", "Jefe", "Auxiliar"],
+            "flash": request.session.pop("flash", None),
+            "detalle": request.GET.get("detalle", ""),
+        },
+    )
+
+
+@con_login
+@require_POST
+def usuarios_accion_vista(request: HttpRequest) -> HttpResponse:
+    if not _puede_dashboard(request):
+        return redirect("atenciones_lista")
+    token = str(request.session["jwt"])
+    accion = request.POST.get("accion", "")
+    ident = _int_o_none(request.POST.get("id"))
+    try:
+        if accion == "crear":
+            cuerpo: dict[str, object] = {
+                "email": request.POST.get("email", ""),
+                "display_name": request.POST.get("nombre", ""),
+                "role": request.POST.get("role", "Tecnico"),
+            }
+            password = request.POST.get("password", "")
+            if password:
+                cuerpo["password"] = password
+            api_post("/api/usuarios", token, cuerpo)
+            texto = "Usuario creado."
+        elif accion in ("activar", "desactivar"):
+            api_patch(
+                f"/api/usuarios/{ident}/activo",
+                token,
+                {"activo": accion == "activar"},
+            )
+            texto = "Activado." if accion == "activar" else "Desactivado."
+        else:
+            texto = "Acción desconocida."
+    except ApiError as e:
+        request.session["flash"] = {"tipo": "error", "texto": _detalle_error(e)}
+    else:
+        request.session["flash"] = {"tipo": "ok", "texto": texto}
+    return redirect(reverse("usuarios"))
+
+
+@con_login
 def perfil_vista(request: HttpRequest) -> HttpResponse:
     token = str(request.session["jwt"])
     usuario = api_get("/api/usuarios/me", token)

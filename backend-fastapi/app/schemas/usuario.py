@@ -11,6 +11,19 @@ class UsuarioOut(BaseModel):
     entra_a_las: str | None = None
     atenciones_hoy: int = 0
     puede_cambiar_estado: bool = False
+    activo: bool = True
+
+
+class UsuarioCreateIn(BaseModel):
+    email: str
+    display_name: str
+    role: str
+    password: str | None = None
+    activo: bool = True
+
+
+class ActivoIn(BaseModel):
+    activo: bool
 
 
 class EspecialidadIn(BaseModel):

@@ -344,6 +344,8 @@ body {
   margin: 10px 0 4px;
 }
 .jerq-form input[type="text"],
+.jerq-form input[type="email"],
+.jerq-form input[type="password"],
 .jerq-form select {
   width: 100%;
   padding: 8px 10px;

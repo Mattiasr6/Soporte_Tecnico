@@ -32,5 +32,8 @@ class Usuario(Base):
     can_view_dashboard: Mapped[bool] = mapped_column(
         "CanViewDashboard", Boolean, nullable=False, default=False
     )
+    activo: Mapped[bool] = mapped_column(
+        "Activo", Boolean, nullable=False, default=True
+    )
     created_at: Mapped[datetime] = mapped_column("CreatedAt", DateTime(timezone=True))
     updated_at: Mapped[datetime] = mapped_column("UpdatedAt", DateTime(timezone=True))

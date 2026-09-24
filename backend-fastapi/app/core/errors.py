@@ -15,3 +15,7 @@ def not_found(detail: str = "No encontrado") -> HTTPException:
 
 def bad_request(detail: str) -> HTTPException:
     return HTTPException(status_code=400, detail=detail)
+
+
+def conflict(detail: str) -> HTTPException:
+    return HTTPException(status_code=409, detail=detail)
