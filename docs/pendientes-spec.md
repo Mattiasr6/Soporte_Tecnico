@@ -1,6 +1,6 @@
 # Pendientes para próximas specs
 
-> Estado al 2026-09-22, rama `python-experiment`.
+> Estado al 2026-09-24, rama `dev`.
 > Este documento es la fuente para armar las specs que siguen. Cada bloque trae el
 > contexto ya investigado para que nadie tenga que re-descubrirlo.
 
@@ -10,8 +10,8 @@
 
 | Área | Estado |
 |---|---|
-| Backend FastAPI S1–S8 | completo · 60 tests |
-| Django S9 (login, lista, registrar, modal ticket, sidebar, auxiliares) | completo · 28 tests |
+| Backend FastAPI S1–S8 | completo · 83 tests (82 pasan + 1 pre-existente acoplado al reloj) |
+| Django S9 (login, lista, registrar, modal ticket, sidebar, auxiliares) | completo · 35 tests |
 | Dashboard S10 | completo (drill-down, ficha, calendario, sankey, donas, scatter, radar, presencia) |
 | Selector de jerarquía en `/soporte` | árbol con filtro (reemplazó los 3 desplegables) |
 | Paginación de la lista | 50 + "Ver más" (conserva filtros) |
@@ -21,6 +21,33 @@
 | Pantalla `/jerarquia` | árbol + detalle + alta/mover/renombrar/desactivar/eliminar |
 | Carga de datos | 276 atenciones de septiembre (igual que prod al 22-sep), 53 áreas, 3 sectores, 4 grupos · invariante "jerarquía incoherente" = 0 |
 | Backup de prod | pipeline arreglado (estaba generando 1.1M de archivos vacíos) + dump verificado por checksum |
+| S13 (2026-09-24) | baja de usuarios (`Usuarios.Activo`, pantalla `/usuarios/`, API de alta/baja) + import histórico de los 2 técnicos retirados (556 atenciones). Espejo en `docs/spec-s13-usuarios-e-import-historico.md` |
+
+---
+
+## Pendientes nuevos (2026-09-24)
+
+### A2 · Responsive: `/atenciones` en móvil se ve mal
+
+Reportado por el usuario: en celular la lista se ve "horrible". Necesita una pasada de responsive de
+verdad (no solo la accesibilidad genérica de A1). Alcance a definir: qué pantallas y a qué anchos.
+
+### O1b · Cambiar la contraseña no invalida las sesiones abiertas
+
+El JWT no depende del hash, así que una sesión vieja sigue válida tras cambiar la contraseña.
+**Fácil de hacer**: columna `PasswordCambiadaAt` (o `TokenVersion`) en `Usuarios`, claim en el
+token y chequeo en `require_user`. Decisión del usuario: no es fundamental, pero si es sencillo, va.
+
+### J2b · Catálogo: renombres y movimientos pendientes (decididos, nunca aplicados)
+
+- `Extras` → **`Instituciones`**
+- `Eventos` sube a **sector** y pasa a llamarse **`Espacios comunes`**; se le suman `Sala Magna` y `Sala de lectura`
+- `Sala 1/2/3 (Directorio)` → `Instituciones › Directorio`
+- `Sala de Docentes` se queda en Vicerrectorado
+
+⚠️ **Hacer J1 ANTES que esto**: `seed_catalogo` resuelve el sector por nombre desde `PADRES`
+(hardcodeado en `scripts/seed.py`) y `mapeo-areas-dedup.csv` guarda `grupo_padre` por nombre.
+Renombrar un sector hoy los rompe.
 
 ---
 
@@ -146,7 +173,9 @@ contraste, `aria`), no solo por el perfil.
 
 ---
 
-## N1 · `/notas` — bloc de notas
+## N1 · `/notas` — bloc de notas — **HECHO**
+
+> Verificado el 2026-09-24: la ruta, la vista y el template existen. Lo de abajo es el contexto original.
 
 El más barato de todos: **el backend ya está listo** (`GET`/`PUT
 /api/usuarios/notas`, un texto por usuario en `Usuarios.Notas`). Falta solo la
@@ -155,7 +184,12 @@ sin acción.
 
 ---
 
-## H1 · `/horarios`
+## H1 · `/horarios` — **HECHO**
+
+> Verificado el 2026-09-24: los 4 cambios de backend están aplicados (`DiaSemana` en el unique,
+> `ROLES_CON_HORARIO`, cobertura separada laborable/sábado, `label` generado desde las horas),
+> la pantalla existe y hay 52 horarios cargados. ✅ el "efecto colateral" que advertía esta
+> sección NO aplica. Lo de abajo es el contexto original.
 
 Backend **casi completo**: `GET`/`POST` (upsert por técnico+mes) /`DELETE
 /api/horarios` + `GET /api/horarios/cobertura` (ya calcula, para los 4 bloques
