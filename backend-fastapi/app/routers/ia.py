@@ -134,9 +134,203 @@ def _estadisticas_tecnico(db: DbSession, nombre_q: str) -> dict[str, object]:
     }
 
 
+    top = db.execute(
+        select(Atencion.categoria, func.count().label("n"))
+        .where(Atencion.usuario_id == match.id)
+        .group_by(Atencion.categoria)
+        .order_by(func.count().desc())
+        .limit(3)
+    ).all()
+    detalle = ", ".join(f"{c}: {n}" for c, n in top) or "sin datos"
+    return {
+        "respuesta": (
+            f"{match.display_name} ({match.role}): {total} atenciones registradas, "
+            f"{mes} este mes. Por categoría: {detalle}."
+        ),
+        "fuente": f"usuario_{match.id}",
+        "fuente_label": fuente_label(f"usuario_{match.id}"),
+        "rechazado": False,
+    }
+
+
+CATEGORIAS = [
+    "Audio/Video",
+    "Cuentas/Accesos",
+    "Hardware",
+    "Impresión",
+    "Otros",
+    "Redes/Conectividad",
+    "Sistemas académicos",
+    "Software",
+]
+MEDIOS = ["Interno", "Presencial", "WhatsApp", "E-ticket"]
+SOLICITANTES = ["ADM", "BEC", "DOC", "EST", "EIAG"]
+WILMERCITO_ID = 14
+
+_FLUJO_INICIO = re.compile(r"crea(?:me|le|r)?\s+(la\s+)?atenci[óo]n\s*:\s*(.+)", re.IGNORECASE)
+_FLUJO_ESTADO = re.compile(r"crear atención\s*\|(.*)", re.IGNORECASE)
+_FLUJO_CONFIRMAR = re.compile(r"confirmar creación\s*\|(.*)", re.IGNORECASE)
+
+
+def _parse_campos(texto: str) -> dict[str, str]:
+    campos: dict[str, str] = {}
+    for parte in texto.split("|"):
+        if ":" in parte:
+            k, v = parte.split(":", 1)
+            campos[k.strip().lower()] = v.strip()
+    return campos
+
+
 _AYUDA_ATENCION = re.compile(
     r"ayud\w*\s+(con|para)\s+(la\s+|esta\s+)?atenci[óo]n\s+(\d+)", re.IGNORECASE
 )
+
+
+def _chip_estado(campos: dict[str, str]) -> str:
+    base = "crear atención | " + " | ".join(f"{k}: {v}" for k, v in campos.items())
+    return base
+
+
+def _top_areas(db: DbSession) -> list[str]:
+    from sqlalchemy import func, select
+
+    from app.models.atencion import Atencion
+
+    filas = db.execute(
+        select(Atencion.area_solicitante, func.count().label("n"))
+        .group_by(Atencion.area_solicitante)
+        .order_by(func.count().desc())
+        .limit(8)
+    ).all()
+    return [a for a, _ in filas if a]
+
+
+def _flujo_crear(db: DbSession, user: CurrentUser, texto: str) -> dict[str, object] | None:
+    """Creador guiado por pasos (stateless: el estado viaja en los chips)."""
+    m = _FLUJO_CONFIRMAR.search(texto)
+    if m:
+        campos = _parse_campos(m.group(1))
+        faltan = [k for k in ("desc", "categoria", "medio", "solicitante") if not campos.get(k)]
+        if faltan:
+            return None
+        from app.routers.atenciones import create_batch
+        from app.schemas.atencion import AtencionBatchIn, AtencionCreate
+
+        area = campos.get("area", "")
+        if area in ("", "-"):
+            campos.pop("area", None)
+            base = _chip_estado(campos)
+            return {
+                "respuesta": "Me falta el área (es obligatoria para guardar). ¿Cuál es?",
+                "fuente": None,
+                "rechazado": False,
+                "opciones": [
+                    {"etiqueta": a, "pregunta": f"{base} | area: {a}"}
+                    for a in _top_areas(db)
+                ],
+            }
+        dto = AtencionBatchIn(
+            atenciones=[
+                AtencionCreate(
+                    area_solicitante=area,
+                    medio_solicitud=campos["medio"],
+                    usuario_solicitante=campos["solicitante"],
+                    categoria=campos["categoria"],
+                    descripcion=campos["desc"],
+                    solucion="Pendiente de atención.",
+                    colaborador_id=WILMERCITO_ID,
+                )
+            ]
+        )
+        create_batch(dto, db, user)
+        from sqlalchemy import select
+
+        from app.models.atencion import Atencion
+
+        nueva = db.execute(
+            select(Atencion)
+            .where(Atencion.usuario_id == user.id)
+            .order_by(Atencion.id.desc())
+            .limit(1)
+        ).scalar_one()
+        return {
+            "respuesta": (
+                f"Creada la atención #{nueva.id} a tu nombre "
+                f"(colaborador Wilmercito). Revísala en Atenciones."
+            ),
+            "fuente": f"atencion_{nueva.id}",
+            "fuente_label": fuente_label(f"atencion_{nueva.id}"),
+            "rechazado": False,
+        }
+    m = _FLUJO_ESTADO.search(texto)
+    if not m:
+        return None
+    campos = _parse_campos(m.group(1))
+    base = _chip_estado(campos)
+    if not campos.get("categoria"):
+        return {
+            "respuesta": "¿En qué categoría va?",
+            "fuente": None,
+            "rechazado": False,
+            "opciones": [
+                {"etiqueta": c, "pregunta": f"{base} | categoria: {c}"} for c in CATEGORIAS
+            ],
+        }
+    if not campos.get("medio"):
+        return {
+            "respuesta": "¿Por qué medio llegó?",
+            "fuente": None,
+            "rechazado": False,
+            "opciones": [
+                {"etiqueta": m_, "pregunta": f"{base} | medio: {m_}"} for m_ in MEDIOS
+            ],
+        }
+    if not campos.get("solicitante"):
+        return {
+            "respuesta": "¿Qué tipo de solicitante es?",
+            "fuente": None,
+            "rechazado": False,
+            "opciones": [
+                {"etiqueta": s, "pregunta": f"{base} | solicitante: {s}"} for s in SOLICITANTES
+            ],
+        }
+    if not campos.get("area"):
+        return {
+            "respuesta": "¿De qué área? (las más frecuentes)",
+            "fuente": None,
+            "rechazado": False,
+            "opciones": [
+                {"etiqueta": a, "pregunta": f"{base} | area: {a}"}
+                for a in _top_areas(db)
+            ],
+        }
+    resumen = (
+        f"Voy a crear: «{campos.get('desc', '')}» ({campos['categoria']}, "
+        f"{campos['medio']}, {campos['solicitante']}, {campos.get('area', '')}"
+        + "). ¿Confirmas?"
+    )
+    return {
+        "respuesta": resumen,
+        "fuente": None,
+        "rechazado": False,
+        "opciones": [{"etiqueta": "Sí, crear", "pregunta": base.replace("crear atención", "confirmar creación")}],
+    }
+
+
+def _flujo_inicio(texto: str) -> dict[str, object] | None:
+    m = _FLUJO_INICIO.search(texto)
+    if not m:
+        return None
+    desc = m.group(2).strip()[:300]
+    base = f"crear atención | desc: {desc}"
+    return {
+        "respuesta": f"Perfecto, armemos la atención: «{desc}». ¿En qué categoría va?",
+        "fuente": None,
+        "rechazado": False,
+        "opciones": [
+            {"etiqueta": c, "pregunta": f"{base} | categoria: {c}"} for c in CATEGORIAS
+        ],
+    }
 _SIMILARES = re.compile(
     r"(similares|parecidos).{0,25}atenci[óo]n (\d+)|atenci[óo]n (\d+).{0,40}(similares|parecidos)",
     re.IGNORECASE,
@@ -178,10 +372,25 @@ def _estadisticas(db: DbSession) -> dict[str, object]:
         .limit(3)
     ).all()
     detalle = ", ".join(f"{c}: {n}" for c, n in top)
+    primero = date.today().replace(day=1)
+    top_tec = db.execute(
+        select(Atencion.usuario_id, func.count().label("n"))
+        .where(Atencion.fecha_registro >= primero)
+        .group_by(Atencion.usuario_id)
+        .order_by(func.count().desc())
+        .limit(1)
+    ).first()
+    extra = ""
+    if top_tec is not None:
+        from app.models.usuario import Usuario
+
+        u = db.get(Usuario, top_tec[0])
+        if u is not None:
+            extra = f" Top del mes: {u.display_name} ({top_tec[1]})."
     return {
         "respuesta": (
             f"Hay {total} atenciones registradas, {mes} este mes. "
-            f"Por categoría: {detalle}."
+            f"Por categoría: {detalle}.{extra}"
         ),
         "fuente": "estadisticas",
         "fuente_label": fuente_label("estadisticas"),
@@ -252,6 +461,12 @@ def _llama_chat(system: str, user: str) -> str:
 def preguntar(body: PreguntarIn, db: DbSession, user: CurrentUser):
     if _JAILBREAK.search(body.pregunta):
         return {"respuesta": RECHAZO_EXACTO, "fuente": None, "rechazado": True}
+    r = _flujo_inicio(body.pregunta)
+    if r:
+        return r
+    r = _flujo_crear(db, user, body.pregunta)
+    if r:
+        return r
     m = _EST_TECNICO.search(body.pregunta)
     if m:
         return _estadisticas_tecnico(db, m.group(3))
