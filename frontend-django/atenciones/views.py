@@ -150,6 +150,21 @@ def logout_vista(request: HttpRequest) -> HttpResponse:
     return redirect("login")
 
 
+def _tecnicos_para_filtrar(token: str) -> list[dict[str, object]]:
+    usuarios = api_get("/api/usuarios", token, {"incluir_inactivos": "true"})
+    if not isinstance(usuarios, list):
+        return []
+    tecnicos = [
+        {
+            "id": u["id"],
+            "nombre": u["display_name"] + ("" if u.get("activo") else " (de baja)"),
+        }
+        for u in usuarios
+        if isinstance(u, dict) and u.get("role") in ("Tecnico", "Jefe")
+    ]
+    return sorted(tecnicos, key=lambda t: str(t["nombre"]))
+
+
 @con_login
 def lista_vista(request: HttpRequest) -> HttpResponse:
     if _es_auxiliar(request):
@@ -159,7 +174,9 @@ def lista_vista(request: HttpRequest) -> HttpResponse:
     q = request.GET.get("q", "").strip().lower()
     categoria = request.GET.get("categoria", "").strip()
     mes = request.GET.get("mes", "").strip()
-    data = api_get("/api/atenciones", token)
+    tecnico = _int_o_none(request.GET.get("tecnico"))
+    params = {"usuario_id": str(tecnico)} if tecnico else None
+    data = api_get("/api/atenciones", token, params)
     assert isinstance(data, list)
     filas = [a for a in data if isinstance(a, dict)]
     if q:
@@ -190,6 +207,8 @@ def lista_vista(request: HttpRequest) -> HttpResponse:
             "q": request.GET.get("q", ""),
             "categoria": categoria,
             "mes": mes,
+            "tecnico": tecnico,
+            "tecnicos": _tecnicos_para_filtrar(token),
             "flash": request.session.pop("flash", None),
         },
     )
@@ -901,16 +920,19 @@ def jerarquia_vista(request: HttpRequest) -> HttpResponse:
             "detalle": detalle,
             "abrir_grupo": abrir_grupo,
             "nodo_sel": sel,
-            "sectores": [r["sector"] for r in ramas],
-            "dependencias": [
+            "destinos_sector": [
+                {"valor": f"s:{r['sector']['id']}", "texto": r["sector"]["nombre"]}
+                for r in ramas
+            ],
+            "destinos_grupo": [
                 {
-                    "id": g["id"],
-                    "nombre": g["nombre"],
-                    "sector_nombre": nombre_sector.get(g["grupo_padre_id"], "?"),
+                    "valor": f"g:{g['id']}:{r['sector']['id']}",
+                    "texto": f"{r['sector']['nombre']} › {g['nombre']}",
                 }
                 for r in ramas
                 for g in r["grupos"]
             ],
+            "destino_actual": _destino_actual(detalle),
             "sueltas": [
                 dict(a, sector_nombre=nombre_sector.get(a["grupo_padre_id"], "?"))
                 for r in ramas
@@ -922,12 +944,36 @@ def jerarquia_vista(request: HttpRequest) -> HttpResponse:
     )
 
 
+def _destino_actual(detalle: dict | None) -> str:
+    if not detalle:
+        return ""
+    if detalle["dependencia"]:
+        return f"g:{detalle['dependencia']['id']}:{detalle['sector']['id']}"
+    return f"s:{detalle['sector']['id']}"
+
+
+def _destino_elegido(request: HttpRequest) -> tuple[int, int | None]:
+    """El select manda un solo valor: 's:<sector>' o 'g:<dependencia>:<sector>'."""
+    partes = (request.POST.get("destino") or "").split(":")
+    if len(partes) == 2 and partes[0] == "s" and partes[1].isdigit():
+        return int(partes[1]), None
+    if (
+        len(partes) == 3
+        and partes[0] == "g"
+        and partes[1].isdigit()
+        and partes[2].isdigit()
+    ):
+        return int(partes[2]), int(partes[1])
+    return 0, None
+
+
 def _crear_jerarquia(request: HttpRequest, token: str, tipo: str) -> None:
     cuerpo: dict[str, object] = {"nombre": request.POST.get("nombre", "")}
     if tipo in ("dependencia", "area"):
-        cuerpo["grupo_padre_id"] = _int_o_none(request.POST.get("sector_id")) or 0
-    if tipo == "area":
-        cuerpo["grupo_id"] = _int_o_none(request.POST.get("grupo_id"))
+        sector_id, grupo_id = _destino_elegido(request)
+        cuerpo["grupo_padre_id"] = sector_id
+        if tipo == "area":
+            cuerpo["grupo_id"] = grupo_id
     api_post(f"/api/jerarquia/{PASOS_JERARQUIA[tipo]}", token, cuerpo)
 
 
@@ -943,18 +989,15 @@ def _renombrar_jerarquia(
 def _mover_jerarquia(
     request: HttpRequest, token: str, tipo: str, ruta: str, ident: int | None
 ) -> None:
-    destino = _int_o_none(request.POST.get("sector_id")) or 0
+    sector_id, grupo_id = _destino_elegido(request)
     if tipo == "area":
         api_put(
             f"{ruta}/{ident}",
             token,
-            {
-                "grupo_padre_id": destino,
-                "grupo_id": _int_o_none(request.POST.get("grupo_id")),
-            },
+            {"grupo_padre_id": sector_id, "grupo_id": grupo_id},
         )
     else:
-        api_put(f"{ruta}/{ident}", token, {"grupo_padre_id": destino})
+        api_put(f"{ruta}/{ident}", token, {"grupo_padre_id": sector_id})
 
 
 @con_login
@@ -1099,12 +1142,16 @@ def perfil_guardar_vista(request: HttpRequest) -> HttpResponse:
         if nueva != request.POST.get("repetir", ""):
             error = "Las dos contraseñas nuevas no coinciden."
         else:
+            email = str((request.session.get("usuario") or {}).get("email") or "")
             try:
                 api_post(
                     "/api/auth/password",
                     token,
                     {"actual": request.POST.get("actual", ""), "nueva": nueva},
                 )
+                datos = login_api(email, nueva)
+                request.session["jwt"] = datos["token"]
+                request.session["usuario"] = datos["user"]
                 texto = "Contraseña cambiada."
             except ApiError as e:
                 error = _detalle_error(e)

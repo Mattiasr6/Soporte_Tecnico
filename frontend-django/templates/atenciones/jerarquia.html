@@ -111,18 +111,24 @@
         <input type="hidden" name="tipo" value="{{ detalle.tipo }}">
         <input type="hidden" name="id" value="{{ detalle.nodo.id }}">
         <input type="hidden" name="volver" value="{{ nodo_sel.clave }}">
-        <label for="jerq-dep">Mover a</label>
-        <select id="jerq-dep" name="grupo_id">
-          <option value="">— sin dependencia (directa del sector) —</option>
-          {% for d in dependencias %}
-          <option value="{{ d.id }}"{% if detalle.dependencia and detalle.dependencia.id == d.id %} selected{% endif %}>{{ d.sector_nombre }} › {{ d.nombre }}</option>
+        <label for="jerq-destino">Mover a</label>
+        <select id="jerq-destino" name="destino" required>
+          {% if detalle.tipo == "area" %}
+          <optgroup label="Directa del sector">
+            {% for d in destinos_sector %}
+            <option value="{{ d.valor }}"{% if d.valor == destino_actual %} selected{% endif %}>{{ d.texto }}</option>
+            {% endfor %}
+          </optgroup>
+          <optgroup label="Dentro de una dependencia">
+            {% for d in destinos_grupo %}
+            <option value="{{ d.valor }}"{% if d.valor == destino_actual %} selected{% endif %}>{{ d.texto }}</option>
+            {% endfor %}
+          </optgroup>
+          {% else %}
+          {% for d in destinos_sector %}
+          <option value="{{ d.valor }}"{% if d.valor == destino_actual %} selected{% endif %}>{{ d.texto }}</option>
           {% endfor %}
-        </select>
-        <label for="jerq-sector">…o solo al sector</label>
-        <select id="jerq-sector" name="sector_id">
-          {% for s in sectores %}
-          <option value="{{ s.id }}"{% if s.id == detalle.sector.id %} selected{% endif %}>{{ s.nombre }}</option>
-          {% endfor %}
+          {% endif %}
         </select>
         <p class="aviso">Se re-apuntarán <b>{{ detalle.nodo.total }}</b> atenciones al destino nuevo. No se puede deshacer.</p>
         <button class="btn" type="submit">Mover</button>
@@ -171,8 +177,8 @@
           <input type="hidden" name="accion" value="crear">
           <input type="hidden" name="tipo" value="dependencia">
           <input type="text" name="nombre" placeholder="Nombre de la dependencia" required>
-          <select name="sector_id" required>
-            {% for s in sectores %}<option value="{{ s.id }}">{{ s.nombre }}</option>{% endfor %}
+          <select name="destino" required>
+            {% for d in destinos_sector %}<option value="{{ d.valor }}">{{ d.texto }}</option>{% endfor %}
           </select>
           <button class="btn" type="submit">Crear</button>
         </form>
@@ -185,12 +191,13 @@
           <input type="hidden" name="accion" value="crear">
           <input type="hidden" name="tipo" value="area">
           <input type="text" name="nombre" placeholder="Nombre del área" required>
-          <select name="grupo_id">
-            <option value="">— sin dependencia (directa del sector) —</option>
-            {% for d in dependencias %}<option value="{{ d.id }}">{{ d.sector_nombre }} › {{ d.nombre }}</option>{% endfor %}
-          </select>
-          <select name="sector_id" required>
-            {% for s in sectores %}<option value="{{ s.id }}">{{ s.nombre }}</option>{% endfor %}
+          <select name="destino" required>
+            <optgroup label="Directa del sector">
+              {% for d in destinos_sector %}<option value="{{ d.valor }}">{{ d.texto }}</option>{% endfor %}
+            </optgroup>
+            <optgroup label="Dentro de una dependencia">
+              {% for d in destinos_grupo %}<option value="{{ d.valor }}">{{ d.texto }}</option>{% endfor %}
+            </optgroup>
           </select>
           <button class="btn" type="submit">Crear</button>
         </form>
