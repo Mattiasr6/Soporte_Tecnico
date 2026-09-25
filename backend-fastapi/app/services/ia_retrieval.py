@@ -261,8 +261,15 @@ _reranker = None
 
 
 def _rerank(pregunta: str, docs: list[str]) -> list[int]:
-    """Ordena candidatos por relevancia real. Sin el modelo, conserva el orden."""
+    """Ordena candidatos por relevancia real. Apagado por defecto (RERANK=1).
+
+    Medido 2026-09-25: mmarco-mMiniLMv2 reordena mal en este dominio
+    (KB exacta 6ta de 12); el bi-encoder solo acierta. Se conserva el código
+    para el informe y futuros modelos.
+    """
     global _reranker
+    if os.environ.get("RERANK", "0") != "1":
+        return list(range(len(docs)))
     try:
         if _reranker is None:
             from sentence_transformers import CrossEncoder

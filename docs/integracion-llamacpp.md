@@ -110,6 +110,10 @@ confirmación) siguen este camino, siempre con el JWT del usuario y sus roles.
 
 - **Reranking cross-encoder** (`mmarco-mMiniLMv2`, multilingüe, CPU en VM):
   2da etapa sobre 12 candidatos → top-3 por relevancia real, no solo distancia.
+  **Hallazgo medido 2026-09-25: APAGADO por defecto (`RERANK=1` lo activa).**
+  El reranker ordenó la KB exacta 6ta de 12 en "cuáles son las categorías"
+  mientras el bi-encoder la pone 1ra (0.152). En este dominio el bi-encoder
+  solo gana; el código queda para el informe y futuros modelos.
 - **Intents semánticos, no listas de palabras** (`clasificar()`): el mismo embedding
   compara la pregunta contra ~5 ejemplos por intent (saludo, identidad, crear,
   capacidad, estadísticas). Batería medida: intents 0.75–1.00, resto < 0.45.
