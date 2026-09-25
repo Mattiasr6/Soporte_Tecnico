@@ -32,13 +32,22 @@
 Reportado por el usuario: en celular la lista se ve "horrible". Necesita una pasada de responsive de
 verdad (no solo la accesibilidad genérica de A1). Alcance a definir: qué pantallas y a qué anchos.
 
-### O1b · Cambiar la contraseña no invalida las sesiones abiertas
+### O1b · Cambiar la contraseña no invalida las sesiones abiertas — **HECHO** (2026-09-24)
 
-El JWT no depende del hash, así que una sesión vieja sigue válida tras cambiar la contraseña.
-**Fácil de hacer**: columna `PasswordCambiadaAt` (o `TokenVersion`) en `Usuarios`, claim en el
-token y chequeo en `require_user`. Decisión del usuario: no es fundamental, pero si es sencillo, va.
+El JWT no dependía del hash, así que una sesión vieja seguía válida tras el cambio.
+Implementado con `Usuarios.TokenVersion` (migración `0007`): el token lleva la versión que
+tenía el usuario al emitirse y `motivo_de_rechazo()` rechaza lo que no coincida. `/perfil`
+re-loguea después del cambio para no botar la sesión propia.
+
+> **Hallazgo al hacerlo:** `ws._autenticar` no validaba NADA (ni `activo`): un usuario dado de
+> baja podía abrir un WebSocket con su token viejo hasta el vencimiento (365 días). Cerrado,
+> y el chequeo quedó en un solo lugar para que HTTP y WebSocket no se desincronicen.
 
 ### J2b · Catálogo: renombres y movimientos pendientes (decididos, nunca aplicados)
+
+> El **mover** de `/jerarquia` ya está arreglado (2026-09-24): era un solo select ambiguo con
+> dos controles que se contradecían. Ahora son dos grupos explícitos, "Directa del sector" y
+> "Dentro de una dependencia". Los renombres de abajo siguen pendientes.
 
 - `Extras` → **`Instituciones`** (sigue siendo sector: son 3, siempre)
 - `Eventos` sale de `Extras` y pasa a **dependencia de `Administrativos`** renombrada
