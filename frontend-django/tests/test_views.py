@@ -543,3 +543,42 @@ class VistasTest(TestCase):
                 "role": "Tecnico",
             },
         )
+
+    @patch("atenciones.views.api_put")
+    def test_jerarquia_mover_a_dependencia(self, mock_put):
+        self._como(JEFE)
+        r = self.client.post(
+            "/jerarquia/accion/",
+            {"accion": "mover", "tipo": "area", "id": "50", "destino": "g:4:3"},
+        )
+        self.assertRedirects(r, "/jerarquia/", fetch_redirect_response=False)
+        mock_put.assert_called_once_with(
+            "/api/jerarquia/areas/50", "t", {"grupo_padre_id": 3, "grupo_id": 4}
+        )
+
+    @patch("atenciones.views.api_put")
+    def test_jerarquia_mover_a_sector_directo(self, mock_put):
+        self._como(JEFE)
+        r = self.client.post(
+            "/jerarquia/accion/",
+            {"accion": "mover", "tipo": "area", "id": "50", "destino": "s:3"},
+        )
+        self.assertRedirects(r, "/jerarquia/", fetch_redirect_response=False)
+        mock_put.assert_called_once_with(
+            "/api/jerarquia/areas/50", "t", {"grupo_padre_id": 3, "grupo_id": None}
+        )
+
+    @patch("atenciones.views.api_get")
+    def test_lista_filtra_por_tecnico(self, mock_get):
+        self._como(JEFE)
+        mock_get.side_effect = lambda path, *a, **k: (
+            [{"id": 11, "display_name": "Gabriel", "role": "Tecnico", "activo": False}]
+            if path == "/api/usuarios"
+            else [ATENCIONES[0]]
+        )
+        r = self.client.get("/atenciones/?tecnico=11")
+        self.assertEqual(r.status_code, 200)
+        llamadas = [
+            c for c in mock_get.call_args_list if c[0][0] == "/api/atenciones"
+        ]
+        self.assertEqual(llamadas[0][0][2], {"usuario_id": "11"})
