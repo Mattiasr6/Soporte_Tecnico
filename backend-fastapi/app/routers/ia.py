@@ -33,35 +33,7 @@ _MARCAS_FUERA_DE_TEMA = (
     "deport", "noticia", "política", "politica", "chiste", "abeja",
     "lo siento, pero", "como modelo", "receta", "clima",
 )
-
-_SALUDO = re.compile(r"^(hola|buenas|buenos d[ií]as|buenas tardes|hey|qué tal)[.!?]*$", re.IGNORECASE)
-SALUDO_RESPUESTA = (
-    "¡Hola! Soy Wilmercito, el asistente del Sistema de Soporte Técnico. "
-    "Pregúntame sobre atenciones, categorías, áreas, técnicos o reportes."
-)
-_IDENTIDAD = re.compile(
-    r"qui[eé]n eres|qu[eé] eres|c[óo]mo te llamas|tu nombre|pres[ée]ntate",
-    re.IGNORECASE,
-)
-IDENTIDAD_RESPUESTA = (
-    "Soy Wilmercito, el asistente virtual del Sistema de Soporte Técnico. "
-    "Te ayudo con atenciones, categorías, medios de solicitud, áreas, "
-    "técnicos, turnos, estados y reportes. ¿En qué te ayudo?"
-)
-# Preguntas de uso ("cómo creo..."): el embedding de frases largas y educadas
-# deriva lejos; atajo determinista al doc curado correspondiente.
-_CREAR_ATENCION = re.compile(
-    r"c[óo]mo (creo|crear|registro|registrar|genero|hago|subo|agrego)"
-    r"|crear (una |un )?(nueva |nuevo )?(atenci[óo]n|ticket)"
-    r"|nueva atenci[óo]n|nuevo ticket",
-    re.IGNORECASE,
-)
 # "¿tú podrías hacerlo por mí?": respuesta honesta de capacidades, sin modelo.
-_CAPACIDAD = re.compile(
-    r"(p+[ou]edes|podr[íi]as|ser[íi]as capaz|serias capaz|te animas).{0,40}"
-    r"(hacerlo|crearlo|cambiarlo|hacer|crear|realizar|ayudar|por m[ií]|por tu cuenta|una atenci[óo]n)",
-    re.IGNORECASE,
-)
 CAPACIDAD_RESPUESTA = (
     "Todavía no puedo hacer cambios por ti: solo leo y explico. "
     "Puedo buscar casos parecidos, guiarte para crear una atención "
@@ -92,11 +64,6 @@ def fuente_label(fuente: str | None) -> str | None:
     return fuente
 
 
-_ESTADISTICAS = re.compile(
-    r"cu[áa]ntas atenciones|n[úu]mero de atenciones|total de atenciones"
-    r"|atenciones (este|del) mes|resumen del (mes|sistema)|informe del mes",
-    re.IGNORECASE,
-)
 _AYUDA_ATENCION = re.compile(
     r"ayud\w*\s+(con|para)\s+(la\s+|esta\s+)?atenci[óo]n\s+(\d+)", re.IGNORECASE
 )
@@ -151,8 +118,16 @@ def _estadisticas(db: DbSession) -> dict[str, object]:
         "rechazado": False,
     }
 
-WILMERCITO_SYSTEM = """Eres Wilmercito, el asistente virtual del Sistema de Soporte Técnico.
-Solo respondes sobre: atenciones, categorías, medios de solicitud, áreas/grupos/jerarquía,
+SALUDO_RESPUESTA = (
+    "¡Hola! Soy Wilmercito, el asistente del Sistema de Soporte Técnico. "
+    "Pregúntame sobre atenciones, categorías, áreas, técnicos o reportes."
+)
+IDENTIDAD_RESPUESTA = (
+    "Soy Wilmercito, el asistente virtual del Sistema de Soporte Técnico. "
+    "Te ayudo con atenciones, categorías, medios de solicitud, áreas, "
+    "técnicos, turnos, estados y reportes. ¿En qué te ayudo?"
+)
+WILMERCITO_SYSTEM = """Eres Wilmercito, el asistente virtual del Sistema de Soporte Técnico.Solo respondes sobre: atenciones, categorías, medios de solicitud, áreas/grupos/jerarquía,
 técnicos/jefes/turnos, estados y dashboard/reportes.
 Fuera de tema responde exactamente: "Solo puedo responder consultas sobre el sistema de soporte técnico."
 No inventes: sin dato responde exactamente: "No tengo ese dato disponible."
@@ -207,14 +182,6 @@ def _llama_chat(system: str, user: str) -> str:
 def preguntar(body: PreguntarIn, db: DbSession, user: CurrentUser):
     if _JAILBREAK.search(body.pregunta):
         return {"respuesta": RECHAZO_EXACTO, "fuente": None, "rechazado": True}
-    if _SALUDO.search(body.pregunta.strip()):
-        return {"respuesta": SALUDO_RESPUESTA, "fuente": "kb_saludo", "fuente_label": fuente_label("kb_saludo"), "rechazado": False}
-    if _IDENTIDAD.search(body.pregunta):
-        return {"respuesta": IDENTIDAD_RESPUESTA, "fuente": "kb_identidad", "fuente_label": fuente_label("kb_identidad"), "rechazado": False}
-    if _CREAR_ATENCION.search(body.pregunta):
-        guia = ia_tools.ejecutar("guiar_creacion")
-        if guia["guia"]:
-            return {"respuesta": guia["guia"], "fuente": "kb_nueva", "fuente_label": fuente_label("kb_nueva"), "rechazado": False}
     m = _AYUDA_ATENCION.search(body.pregunta)
     if m:
         from app.models.atencion import Atencion
@@ -274,9 +241,18 @@ def preguntar(body: PreguntarIn, db: DbSession, user: CurrentUser):
             "fuente_label": fuente_label(f"atencion_{aid}"),
             "rechazado": False,
         }
-    if _CAPACIDAD.search(body.pregunta):
+    intent, _ = ia_retrieval.clasificar(body.pregunta)
+    if intent == "saludo":
+        return {"respuesta": SALUDO_RESPUESTA, "fuente": "kb_saludo", "fuente_label": fuente_label("kb_saludo"), "rechazado": False}
+    if intent == "identidad":
+        return {"respuesta": IDENTIDAD_RESPUESTA, "fuente": "kb_identidad", "fuente_label": fuente_label("kb_identidad"), "rechazado": False}
+    if intent == "crear":
+        guia = ia_tools.ejecutar("guiar_creacion")
+        if guia["guia"]:
+            return {"respuesta": guia["guia"], "fuente": "kb_nueva", "fuente_label": fuente_label("kb_nueva"), "rechazado": False}
+    if intent == "capacidad":
         return {"respuesta": CAPACIDAD_RESPUESTA, "fuente": None, "rechazado": False}
-    if _ESTADISTICAS.search(body.pregunta):
+    if intent == "estadisticas":
         return _estadisticas(db)
     resultados = ia_retrieval.buscar(body.pregunta, 3)
     if not resultados or float(resultados[0]["distancia"]) > UMBRAL_SIN_EVIDENCIA:
@@ -304,6 +280,8 @@ def preguntar(body: PreguntarIn, db: DbSession, user: CurrentUser):
         return JSONResponse(status_code=503, content={"detail": "motor-ia-no-disponible"})
     if any(m in respuesta.lower() for m in _MARCAS_FUERA_DE_TEMA):
         return {"respuesta": RECHAZO_EXACTO, "fuente": None, "rechazado": True}
+    if respuesta.strip() == SIN_DATO:
+        return {"respuesta": SIN_DATO, "fuente": None, "rechazado": False}
     return {"respuesta": respuesta, "fuente": top["id"], "fuente_label": fuente_label(top["id"]), "rechazado": False}
 
 

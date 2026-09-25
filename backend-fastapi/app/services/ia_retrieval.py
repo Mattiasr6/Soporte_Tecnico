@@ -303,3 +303,63 @@ def similares_a_ticket(pid: str, top_k: int = 3) -> list[dict[str, Any]]:
         if len(out) >= top_k:
             break
     return out
+
+
+INTENCIONES: dict[str, list[str]] = {
+    "saludo": ["hola", "buenas", "buenos días", "buenas tardes", "hey"],
+    "identidad": [
+        "quién eres",
+        "cómo te llamas",
+        "preséntate",
+        "qué eres",
+        "tu nombre",
+    ],
+    "crear": [
+        "cómo creo una atención",
+        "cómo registro un ticket",
+        "dónde creo tickets",
+        "quiero cargar una atención nueva",
+    ],
+    "capacidad": [
+        "puedes hacerlo por mí",
+        "serías capaz de ayudarme",
+        "puedes crearla tú",
+        "hazlo por tu cuenta",
+    ],
+    "estadisticas": [
+        "cuántas atenciones hay",
+        "número de atenciones este mes",
+        "resumen del sistema",
+        "informe del mes",
+    ],
+}
+
+_intent_vecs: dict[str, Any] | None = None
+
+
+def clasificar(texto: str) -> tuple[str | None, float]:
+    """Intent por similitud semántica (ejemplos, no palabras).
+
+    Devuelve (intent, similitud). Umbral + margen anti-ambigüedad calibrados
+    en docs/integracion-llamacpp.md §5e.
+    """
+    import numpy as np
+
+    global _intent_vecs
+    model, _ = _lazy()
+    if _intent_vecs is None:
+        _intent_vecs = {
+            k: model.encode(v, normalize_embeddings=True) for k, v in INTENCIONES.items()
+        }
+    assert _intent_vecs is not None
+    q = model.encode([texto.lower()], normalize_embeddings=True)[0]
+    mejor, mejor_sim, segunda = None, -1.0, -1.0
+    for intent, vecs in _intent_vecs.items():
+        sim = float(np.max(vecs @ q))
+        if sim > mejor_sim:
+            segunda, mejor, mejor_sim = mejor_sim, intent, sim
+        elif sim > segunda:
+            segunda = sim
+    if mejor_sim >= 0.55 and mejor_sim - segunda >= 0.08:
+        return mejor, mejor_sim
+    return None, mejor_sim

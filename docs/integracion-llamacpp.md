@@ -110,6 +110,11 @@ confirmación) siguen este camino, siempre con el JWT del usuario y sus roles.
 
 - **Reranking cross-encoder** (`mmarco-mMiniLMv2`, multilingüe, CPU en VM):
   2da etapa sobre 12 candidatos → top-3 por relevancia real, no solo distancia.
+- **Intents semánticos, no listas de palabras** (`clasificar()`): el mismo embedding
+  compara la pregunta contra ~5 ejemplos por intent (saludo, identidad, crear,
+  capacidad, estadísticas). Batería medida: intents 0.75–1.00, resto < 0.45.
+  Umbral 0.55 + margen 0.08. El jailbreak y los IDs de ticket siguen siendo regex
+  (seguridad y extracción exacta: ahí el código determinista es lo correcto).
 - **Intents deterministas** (regex + SQL/Chroma): saludo, identidad, crear-atención,
   capacidad, estadísticas, ayuda-con-atención-N, similares, resumir. Lo exacto no
   pasa por el modelo.
