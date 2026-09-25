@@ -9,6 +9,7 @@ ASSETS = (
     "js/jerarquia.js",
     "js/dashboard.js",
     "js/inicio.js",
+    "js/reportes.js",
 )
 
 
@@ -37,6 +38,7 @@ def sesion(request):
         "atenciones_nueva": "nueva",
         "auxiliares": "auxiliares",
         "dashboard": "dashboard",
+        "reportes": "reportes",
         "jerarquia": "jerarquia",
         "perfil": "perfil",
         "notas": "notas",

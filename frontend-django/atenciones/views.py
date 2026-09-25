@@ -1,6 +1,8 @@
+import calendar
 import contextlib
 import datetime as _dt
 import json as _json
+import logging
 from zoneinfo import ZoneInfo
 
 from django.http import Http404, HttpRequest, HttpResponse, JsonResponse
@@ -21,6 +23,8 @@ from .auth import con_login
 from .forms import LoginForm
 
 _ZONA_LA_PAZ = ZoneInfo("America/La_Paz")
+
+_log = logging.getLogger(__name__)
 
 PASO_LISTA = 50
 
@@ -785,6 +789,293 @@ def dashboard_vista(request: HttpRequest) -> HttpResponse:
             "arbol_json": _json.dumps(arbol),
             "filtros": request.GET,
         },
+    )
+
+
+def _dias_del_mes(anio: int, mes: int) -> int:
+    return calendar.monthrange(anio, mes)[1]
+
+
+def _params_mes(anio: int, mes: int) -> dict[str, str]:
+    return {
+        "desde_dia": "1",
+        "desde_mes": f"{mes:02d}",
+        "desde_anio": str(anio),
+        "hasta_dia": str(_dias_del_mes(anio, mes)),
+        "hasta_mes": f"{mes:02d}",
+        "hasta_anio": str(anio),
+    }
+
+
+def _params_anio(anio: int, mes_fin: int) -> dict[str, str]:
+    return {
+        "desde_dia": "1",
+        "desde_mes": "01",
+        "desde_anio": str(anio),
+        "hasta_dia": str(_dias_del_mes(anio, mes_fin)),
+        "hasta_mes": f"{mes_fin:02d}",
+        "hasta_anio": str(anio),
+    }
+
+
+def _periodo_reporte(request: HttpRequest) -> dict[str, object]:
+    mes_actual, anio_actual = _mes_actual()
+    vista = request.GET.get("vista", "mes").strip()
+    if vista not in ("mes", "anio"):
+        _log.info("REP-002 vista invalida, se usa mes")
+        vista = "mes"
+    crudo = request.GET.get("mes", "").strip()
+    anio, mes = anio_actual, mes_actual
+    valido = (
+        len(crudo) == 7
+        and crudo[4] == "-"
+        and crudo[:4].isdigit()
+        and crudo[5:].isdigit()
+        and 1 <= int(crudo[5:]) <= 12
+    )
+    if valido:
+        anio, mes = int(crudo[:4]), int(crudo[5:])
+    elif crudo:
+        _log.info("REP-002 mes invalido, se usa el actual")
+    es_mes_en_curso = anio == anio_actual and mes == mes_actual
+    etiqueta = (
+        f"Acumulado enero–{MESES[mes - 1].lower()} {anio}"
+        if vista == "anio"
+        else f"{MESES[mes - 1]} {anio}"
+    )
+    if es_mes_en_curso:
+        etiqueta = f"{etiqueta} (parcial)"
+    return {
+        "vista": vista,
+        "mes": f"{anio}-{mes:02d}",
+        "anio": anio,
+        "mes_num": mes,
+        "etiqueta": etiqueta,
+        "es_mes_en_curso": es_mes_en_curso,
+    }
+
+
+def _orden_desc(filas: list, clave: str) -> list[dict]:
+    return sorted(
+        (f for f in filas if isinstance(f, dict)),
+        key=lambda f: (-int(f.get("total") or 0), str(f.get(clave, ""))),
+    )
+
+
+def _serie(filas: list[dict], clave: str) -> dict[str, list]:
+    return {
+        "labels": [str(f.get(clave, "")) for f in filas],
+        "values": [int(f.get("total") or 0) for f in filas],
+    }
+
+
+def _evolucion(stats: dict[str, object], anio: int, mes_fin: int) -> dict[str, list]:
+    por_mes = {
+        int(m["mes"]): int(m["total"])
+        for m in (stats.get("por_mes") or [])
+        if isinstance(m, dict) and int(m.get("anio") or 0) == anio
+    }
+    return {
+        "labels": [MESES_CORTOS[m - 1] for m in range(1, mes_fin + 1)],
+        "values": [por_mes.get(m, 0) for m in range(1, mes_fin + 1)],
+    }
+
+
+def _top_areas(stats: dict[str, object], total: int) -> list[dict[str, object]]:
+    filas = _orden_desc(list(stats.get("por_area") or []), "area")[:10]
+    return [
+        {
+            "area": str(f.get("area", "")),
+            "total": int(f.get("total") or 0),
+            "pct": round(int(f.get("total") or 0) * 100 / total, 1) if total else 0.0,
+        }
+        for f in filas
+    ]
+
+
+def _kpis_reporte(
+    s_mes: dict[str, object],
+    s_prev: dict[str, object] | None,
+    s_evol: dict[str, object],
+    dias: int,
+) -> dict[str, object]:
+    total = int(s_mes.get("total") or 0)
+    fuera = int(s_mes.get("fuera_de_turno") or 0)
+    fuera_pct = round(fuera * 100 / total, 1) if total else 0.0
+    prev_total = None
+    delta_abs = None
+    delta_pct = None
+    fuera_delta = None
+    if s_prev is not None:
+        prev_total = int(s_prev.get("total") or 0)
+        delta_abs = total - prev_total
+        if prev_total:
+            delta_pct = round((total - prev_total) * 100 / prev_total, 1)
+            prev_fuera = int(s_prev.get("fuera_de_turno") or 0)
+            fuera_delta = round(fuera_pct - prev_fuera * 100 / prev_total, 1)
+    return {
+        "total": total,
+        "prev_total": prev_total,
+        "delta_abs": delta_abs,
+        "delta_pct": delta_pct,
+        "fuera_pct": fuera_pct,
+        "fuera_delta_pts": fuera_delta,
+        "promedio_dia": round(total / dias, 1) if dias else 0.0,
+        "dias_periodo": dias,
+        "areas_distintas": len(list(s_mes.get("por_area") or [])),
+        "meses_activos": sum(
+            1 for m in (s_evol.get("por_mes") or []) if int(m.get("total") or 0) > 0
+        ),
+    }
+
+
+def _destacados(
+    lista: list[object], mes: str, categorias: list[str]
+) -> list[dict[str, object]]:
+    del_mes = [
+        a
+        for a in lista
+        if isinstance(a, dict) and str(a.get("fecha_registro") or "")[:7] == mes
+    ]
+    salida: list[dict[str, object]] = []
+    for categoria in categorias:
+        candidatos = [a for a in del_mes if a.get("categoria") == categoria]
+        if not candidatos:
+            continue
+        mejor = max(
+            candidatos,
+            key=lambda a: (len(str(a.get("solucion") or "")), -int(a.get("id") or 0)),
+        )
+        salida.append(
+            {
+                "id": int(mejor.get("id") or 0),
+                "area": str(mejor.get("area_solicitante") or ""),
+                "categoria": str(mejor.get("categoria") or ""),
+                "descripcion": str(mejor.get("descripcion") or ""),
+                "solucion": str(mejor.get("solucion") or ""),
+            }
+        )
+    return salida
+
+
+def _metodologia(periodo: dict[str, object]) -> dict[str, str]:
+    local = _dt.datetime.now(_dt.UTC).astimezone(_ZONA_LA_PAZ)
+    anio = int(periodo["anio"])
+    mes = int(periodo["mes_num"])
+    inicio = (
+        _dt.date(anio, 1, 1) if periodo["vista"] == "anio" else _dt.date(anio, mes, 1)
+    )
+    fin = _dt.date(anio, mes, _dias_del_mes(anio, mes))
+    if periodo["es_mes_en_curso"]:
+        corte = f"Datos al {local.strftime('%d/%m/%Y')} — mes en curso, cifras parciales"
+    elif periodo["vista"] == "anio":
+        corte = f"Acumulado enero–{MESES[mes - 1].lower()} {anio}"
+    else:
+        corte = "Mes cerrado"
+    return {
+        "fuente": "GET /api/atenciones/stats",
+        "periodo": f"{inicio.strftime('%d/%m/%Y')}–{fin.strftime('%d/%m/%Y')}",
+        "generado_en": local.strftime("%d/%m/%Y %H:%M"),
+        "corte": corte,
+    }
+
+
+@con_login
+def reportes_vista(request: HttpRequest) -> HttpResponse:
+    if not _puede_dashboard(request):
+        _log.info("REP-001 sin permiso en /reportes/")
+        return redirect("atenciones_lista")
+    if not request.GET:
+        inicial = _periodo_reporte(request)
+        return redirect(f"{reverse('reportes')}?mes={inicial['mes']}&vista=mes")
+    periodo = _periodo_reporte(request)
+    token = str(request.session["jwt"])
+    anio = int(periodo["anio"])
+    mes = int(periodo["mes_num"])
+    vista = str(periodo["vista"])
+    try:
+        if vista == "anio":
+            principal = api_get("/api/atenciones/stats", token, _params_anio(anio, mes))
+            previo = None
+            stats_evolucion = principal
+        else:
+            principal = api_get("/api/atenciones/stats", token, _params_mes(anio, mes))
+            prev_mes, prev_anio = _mes_vecino(mes, anio, -1)
+            previo = api_get(
+                "/api/atenciones/stats", token, _params_mes(prev_anio, prev_mes)
+            )
+            stats_evolucion = api_get(
+                "/api/atenciones/stats", token, _params_anio(anio, mes)
+            )
+    except ApiError as e:
+        if e.status in (401, 403):
+            raise
+        _log.error("REP-003 stats fallo: %s", e.detail)
+        return render(
+            request,
+            "atenciones/reportes.html",
+            {"error": True, "payload": None},
+            status=502,
+        )
+    principal = principal if isinstance(principal, dict) else {}
+    stats_evolucion = stats_evolucion if isinstance(stats_evolucion, dict) else {}
+    previo = previo if isinstance(previo, dict) else None
+    total = int(principal.get("total") or 0)
+    if total == 0:
+        _log.info("REP-005 sin atenciones en el periodo")
+    if previo is not None and int(previo.get("total") or 0) == 0 and total > 0:
+        _log.info("REP-006 mes previo sin registros, delta s/d")
+    dias = (
+        (_dt.date(anio, mes, _dias_del_mes(anio, mes)) - _dt.date(anio, 1, 1)).days + 1
+        if vista == "anio"
+        else _dias_del_mes(anio, mes)
+    )
+    categorias = _orden_desc(list(principal.get("por_categoria") or []), "categoria")
+    destacados: list[dict[str, object]] = []
+    destacados_error = False
+    if vista == "mes":
+        try:
+            lista = api_get("/api/atenciones", token, {"limit": "2000"})
+        except ApiError as e:
+            _log.warning("REP-004 lista fallo: %s", e.detail)
+            destacados_error = True
+        else:
+            destacados = _destacados(
+                list(lista) if isinstance(lista, list) else [],
+                str(periodo["mes"]),
+                [str(c["categoria"]) for c in categorias[:3]],
+            )
+    charts = {
+        "evolucion": _evolucion(stats_evolucion, anio, mes),
+        "categoria": _serie(categorias, "categoria"),
+        "sectores": _serie(
+            _orden_desc(list(principal.get("por_padre") or []), "nombre"), "nombre"
+        ),
+        "medio": _serie(
+            _orden_desc(list(principal.get("por_medio") or []), "medio"), "medio"
+        ),
+        "tipo_solicitante": _serie(
+            _orden_desc(list(principal.get("por_tipo_solicitante") or []), "tipo"),
+            "tipo",
+        ),
+        "top_areas": _top_areas(principal, total),
+    }
+    payload = {
+        "periodo": {
+            "vista": periodo["vista"],
+            "mes": periodo["mes"],
+            "etiqueta": periodo["etiqueta"],
+            "es_mes_en_curso": periodo["es_mes_en_curso"],
+        },
+        "kpis": _kpis_reporte(principal, previo, stats_evolucion, dias),
+        "charts": charts,
+        "destacados": destacados,
+        "metodologia": _metodologia(periodo),
+    }
+    return render(
+        request,
+        "atenciones/reportes.html",
+        {"payload": payload, "error": False, "destacados_error": destacados_error},
     )
 
 
