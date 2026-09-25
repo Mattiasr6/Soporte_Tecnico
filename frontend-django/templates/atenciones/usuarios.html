@@ -19,6 +19,7 @@
     </header>
 
     {% if activos or inactivos %}
+    <div class="tabla-scroll">
     <table class="tabla">
       <thead>
         <tr><th>Nombre</th><th>Rol</th><th>Estado</th><th>Acción</th></tr>
@@ -56,6 +57,7 @@
         {% endfor %}
       </tbody>
     </table>
+    </div>
     {% else %}
     <p class="sub">Sin usuarios registrados.</p>
     {% endif %}

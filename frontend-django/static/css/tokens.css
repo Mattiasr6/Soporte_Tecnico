@@ -83,6 +83,7 @@ body {
   border: 2px solid var(--color-border-strong);
   border-radius: var(--radius-card);
   padding: 24px 28px;
+  box-sizing: border-box;
 }
 .page-wide h1 {
   color: var(--color-accent-deep);
@@ -127,6 +128,9 @@ body {
   border: 1px solid var(--color-border);
   padding: 10px 12px;
   color: var(--color-house);
+}
+.tabla-scroll {
+  overflow-x: auto;
 }
 .badge-turno {
   background: var(--color-gold);
@@ -1200,6 +1204,27 @@ html.a11y-contraste-alto textarea {
   }
   #chart-drill {
     height: 340px;
+  }
+  .filtros {
+    flex-wrap: wrap;
+  }
+  .filtros input,
+  .filtros select {
+    min-width: 0;
+    flex: 1 1 140px;
+  }
+  .filtros-fila {
+    grid-template-columns: 1fr;
+  }
+  .page-head {
+    flex-wrap: wrap;
+  }
+  .content.with-nav {
+    padding-top: 56px;
+  }
+  .page-wide {
+    margin: 12px 10px;
+    padding: 18px 16px;
   }
 }
 

@@ -26,6 +26,7 @@
       <input type="hidden" name="mes" value="{{ mes }}">
       <input type="hidden" name="anio" value="{{ anio }}">
       <input type="hidden" name="bloque" value="laborable">
+      <div class="tabla-scroll">
       <table class="tabla horarios-tabla">
         <thead>
           <tr><th>Técnico</th><th>Turno 1</th><th>Turno 2 (opcional)</th><th>Plantilla</th><th>Aporta</th><th></th></tr>
@@ -55,6 +56,7 @@
           {% endfor %}
         </tbody>
       </table>
+      </div>
       <button class="btn" type="submit">Guardar todo</button>
       <span class="sub">o usá «Limpiar» para borrar el horario del mes de una persona</span>
     </form>
@@ -70,6 +72,7 @@
       <input type="hidden" name="mes" value="{{ mes }}">
       <input type="hidden" name="anio" value="{{ anio }}">
       <input type="hidden" name="bloque" value="sabado">
+      <div class="tabla-scroll">
       <table class="tabla horarios-tabla">
         <thead>
           <tr><th>Técnico</th><th>Turno del sábado</th><th>Plantilla</th><th>Grupo</th><th></th></tr>
@@ -96,6 +99,7 @@
           {% endfor %}
         </tbody>
       </table>
+      </div>
       <button class="btn" type="submit">Guardar todo</button>
     </form>
   </section>
@@ -109,6 +113,7 @@
       <input type="hidden" name="mes" value="{{ mes }}">
       <input type="hidden" name="anio" value="{{ anio }}">
       <input type="hidden" name="bloque" value="jefes">
+      <div class="tabla-scroll">
       <table class="tabla horarios-tabla">
         <thead>
           <tr><th>Jefe</th><th>Turno 1</th><th>Turno 2 (opcional)</th><th>Plantilla</th></tr>
@@ -133,6 +138,7 @@
           {% endfor %}
         </tbody>
       </table>
+      </div>
       <button class="btn" type="submit">Guardar todo</button>
       <span class="sub">Turno habitual: 08:00-12:00 + 14:30-18:30</span>
     </form>
@@ -143,6 +149,7 @@
     <div class="dos-col">
       <div>
         <h3 class="mini-titulo">Lunes a viernes</h3>
+        <div class="tabla-scroll">
         <table class="tabla tabla-compacta">
           <thead><tr><th>Bloque</th><th>Horario</th><th>Técnicos</th></tr></thead>
           <tbody>
@@ -161,9 +168,11 @@
             {% endfor %}
           </tbody>
         </table>
+        </div>
       </div>
       <div>
         <h3 class="mini-titulo">Sábado</h3>
+        <div class="tabla-scroll">
         <table class="tabla tabla-compacta">
           <thead><tr><th>Bloque</th><th>Horario</th><th>Técnicos</th></tr></thead>
           <tbody>
@@ -182,6 +191,7 @@
             {% endfor %}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   </section>

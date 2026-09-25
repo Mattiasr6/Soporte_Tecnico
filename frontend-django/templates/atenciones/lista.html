@@ -22,6 +22,7 @@
     {% endif %}
     <button type="submit">Filtrar</button>
   </form>
+  <div class="tabla-scroll">
   <table class="tabla">
     <thead>
       <tr><th>Fecha</th><th>Área</th><th>Categoría</th><th>Técnico</th><th>Fuera de turno</th><th></th></tr>
@@ -45,6 +46,7 @@
       {% endfor %}
     </tbody>
   </table>
+  </div>
   <p class="foot">Mostrando {{ atenciones|length }} de {{ total }} registros</p>
   {% if hay_mas %}
   <p class="ver-mas">
