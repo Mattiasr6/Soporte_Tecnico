@@ -134,6 +134,11 @@ tiene.
 - **La CSS está 100% en px** (271 usos de px, 0 de rem). Por eso el tamaño de letra se
   implementó con `zoom`, que escala todo proporcionalmente. Funciona, pero el control
   fino (escalar solo el texto, no los espacios) requiere migrar a `rem`.
+  **Síntoma medido el 2026-09-24:** con la letra en `grande` o `xl` persistida, las
+  pantallas desbordan a anchos intermedios (`/atenciones` 159px, `/dashboard` 134,
+  `/horarios` 108 a 910px con `xl`). Causa: `zoom` no afecta a las media queries, así que
+  a 910px entra el layout de escritorio (el corte es a 900) pero todo mide 1,3× y no cabe.
+  Migrar a `rem` lo resuelve de raíz.
 - **Pendiente una pasada de accesibilidad** por las pantallas existentes (foco,
   teclado, contraste, `aria`), no solo por las preferencias del perfil. Hay un skill
   `accessibility` disponible.
