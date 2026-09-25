@@ -46,6 +46,14 @@ IDENTIDAD_RESPUESTA = (
     "Te ayudo con atenciones, categorías, medios de solicitud, áreas, "
     "técnicos, turnos, estados y reportes. ¿En qué te ayudo?"
 )
+# Preguntas de uso ("cómo creo..."): el embedding de frases largas y educadas
+# deriva lejos; atajo determinista al doc curado correspondiente.
+_CREAR_ATENCION = re.compile(
+    r"c[óo]mo (creo|crear|registro|registrar|genero|hago|subo|agrego)"
+    r"|crear (una |un )?(nueva |nuevo )?(atenci[óo]n|ticket)"
+    r"|nueva atenci[óo]n|nuevo ticket",
+    re.IGNORECASE,
+)
 
 WILMERCITO_SYSTEM = """Eres Wilmercito, el asistente virtual del Sistema de Soporte Técnico.
 Solo respondes sobre: atenciones, categorías, medios de solicitud, áreas/grupos/jerarquía,
@@ -107,6 +115,10 @@ def preguntar(body: PreguntarIn, db: DbSession, user: CurrentUser):
         return {"respuesta": SALUDO_RESPUESTA, "fuente": "kb_saludo", "rechazado": False}
     if _IDENTIDAD.search(body.pregunta):
         return {"respuesta": IDENTIDAD_RESPUESTA, "fuente": "kb_identidad", "rechazado": False}
+    if _CREAR_ATENCION.search(body.pregunta):
+        doc = ia_retrieval.por_id("kb_nueva")
+        if doc:
+            return {"respuesta": doc["solucion"], "fuente": "kb_nueva", "rechazado": False}
     resultados = ia_retrieval.buscar(body.pregunta, 3)
     if not resultados or float(resultados[0]["distancia"]) > UMBRAL_SIN_EVIDENCIA:
         return {"respuesta": SIN_DATO, "fuente": None, "rechazado": False}

@@ -70,6 +70,17 @@ _KB_ESTATICA: list[tuple[str, str, str]] = [
         "cuales son los tipos de solicitante",
         "Los tipos de solicitante son: ADM, BEC, DOC, EST y EIAG.",
     ),
+    (
+        "kb_nueva",
+        "como creo una nueva atencion como registrar atencion crear ticket "
+        "podrias decirme como puedo crear una nueva atencion donde registro tickets",
+        "Para crear una atención: entra a Atenciones, Nueva atención. 1) Elige el "
+        "área en el selector de jerarquía. 2) Medio de solicitud, tipo de solicitante "
+        "y una de las 8 categorías. 3) Describe el problema y su solución "
+        "(observaciones y enlace de apoyo son opcionales). 4) Pulsa Agregar a la "
+        "lista (puedes cargar varias) y luego confirma para guardarlas. "
+        "Aparecerán en la lista de Atenciones.",
+    ),
 ]
 
 
@@ -101,8 +112,9 @@ def indexar(db) -> dict[str, Any]:
         )
         nuevas += 1
     for pid, pregunta, documento in _KB_ESTATICA:
+        # La KB curada se re-escribe siempre: así se puede corregir sin versionar ids.
         if pid in existentes:
-            continue
+            col.delete(ids=[pid])
         col.add(
             ids=[pid],
             documents=[documento],
@@ -117,11 +129,27 @@ def indexar(db) -> dict[str, Any]:
             embeddings=[model.encode([pregunta.lower()], normalize_embeddings=True)[0].tolist()],
         )
         nuevas += 1
-    return {"nuevas": nuevas, "total": len(existentes) + nuevas}
+    return {"nuevas": nuevas, "total": col.count()}
+
+
+def por_id(pid: str) -> dict[str, Any] | None:
+    """Devuelve un documento curado por id (para atajos deterministas)."""
+    _, col = _lazy()
+    res = col.get(ids=[pid])
+    if not res["ids"]:
+        return None
+    return {
+        "id": pid,
+        "descripcion": res["metadatas"][0]["question"],
+        "solucion": res["documents"][0],
+        "categoria": res["metadatas"][0]["categoria"],
+        "area": res["metadatas"][0]["area"],
+        "distancia": 0.0,
+    }
 
 
 def buscar(texto: str, top_k: int = 3) -> list[dict[str, Any]]:
-    """Top-k tickets parecidos. Umbral: distancia > 0.35 = sin evidencia."""
+    """Top-k tickets parecidos. El umbral vive en el router."""
     _, col = _lazy()
     res = col.query(query_embeddings=[embed(texto)], n_results=top_k)
     out = []
