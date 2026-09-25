@@ -32,6 +32,12 @@ _MARCAS_FUERA_DE_TEMA = (
     "lo siento, pero", "como modelo", "receta", "clima",
 )
 
+_SALUDO = re.compile(r"^(hola|buenas|buenos d[ií]as|buenas tardes|hey|qué tal)[.!?]*$", re.IGNORECASE)
+SALUDO_RESPUESTA = (
+    "¡Hola! Soy Wilmercito, el asistente del Sistema de Soporte Técnico. "
+    "Pregúntame sobre atenciones, categorías, áreas, técnicos o reportes."
+)
+
 WILMERCITO_SYSTEM = """Eres Wilmercito, el asistente virtual del Sistema de Soporte Técnico.
 Solo respondes sobre: atenciones, categorías, medios de solicitud, áreas/grupos/jerarquía,
 técnicos/jefes/turnos, estados y dashboard/reportes.
@@ -88,6 +94,8 @@ def _llama_chat(system: str, user: str) -> str:
 def preguntar(body: PreguntarIn, db: DbSession, user: CurrentUser):
     if _JAILBREAK.search(body.pregunta):
         return {"respuesta": RECHAZO_EXACTO, "fuente": None, "rechazado": True}
+    if _SALUDO.search(body.pregunta.strip()):
+        return {"respuesta": SALUDO_RESPUESTA, "fuente": "kb_saludo", "rechazado": False}
     resultados = ia_retrieval.buscar(body.pregunta, 3)
     if not resultados or float(resultados[0]["distancia"]) > UMBRAL_SIN_EVIDENCIA:
         return {"respuesta": SIN_DATO, "fuente": None, "rechazado": False}

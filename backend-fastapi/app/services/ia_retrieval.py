@@ -42,6 +42,19 @@ def embed(texto: str) -> list[float]:
 
 _KB_ESTATICA: list[tuple[str, str, str]] = [
     (
+        "kb_identidad",
+        "hola quien eres wilmercito que eres tu",
+        "Soy Wilmercito, el asistente virtual del Sistema de Soporte Técnico. "
+        "Te ayudo con atenciones, categorías, medios de solicitud, áreas, "
+        "técnicos, turnos, estados y reportes. ¿En qué te ayudo?",
+    ),
+    (
+        "kb_saludo",
+        "hola buenas dias tardes como estas",
+        "¡Hola! Soy Wilmercito, el asistente del Sistema de Soporte Técnico. "
+        "Pregúntame sobre atenciones, categorías, áreas, técnicos o reportes.",
+    ),
+    (
         "kb_categorias",
         "cuales son las categorias de atencion",
         "Las 8 categorías válidas son: Audio/Video, Cuentas/Accesos, Hardware, "
