@@ -1807,14 +1807,15 @@ def asistente_vista(request: HttpRequest) -> HttpResponse:
     if not _puede_dashboard(request):
         return redirect("atenciones_lista")
     token = str(request.session["jwt"])
-    estado = api_get("/api/ia/estado", token)
-    pendientes = api_get("/api/ia/feedback", token)
+    resumen = api_get("/api/ia/resumen", token)
+    propuestas = api_get("/api/ia/propuestas", token)
     return render(
         request,
         "atenciones/asistente.html",
         {
-            "estado": estado if isinstance(estado, dict) else {},
-            "n_pendientes": len(pendientes) if isinstance(pendientes, list) else 0,
+            "resumen": resumen if isinstance(resumen, dict) else {},
+            "propuestas": propuestas if isinstance(propuestas, list) else [],
+            "n_pendientes": 0,
             "flash": request.session.pop("flash", None),
         },
     )
@@ -1830,4 +1831,23 @@ def asistente_reindexar_vista(request: HttpRequest) -> HttpResponse:
         request.session["flash"] = {"tipo": "ok", "texto": "Índice de Wilmercito actualizado."}
     except ApiError as e:
         request.session["flash"] = {"tipo": "error", "texto": _detalle_error(e)}
+    return redirect("asistente")
+
+
+@con_login
+@require_POST
+def propuesta_resolver_vista(request: HttpRequest) -> HttpResponse:
+    if not _puede_dashboard(request):
+        return redirect("atenciones_lista")
+    pid = request.POST.get("id", "")
+    aprobar = request.POST.get("accion", "") == "aprobar"
+    try:
+        api_post(
+            f"/api/ia/propuestas/{int(pid)}/resolver?aprobar={str(aprobar).lower()}",
+            str(request.session["jwt"]),
+            {},
+        )
+        request.session["flash"] = {"tipo": "ok", "texto": "Propuesta resuelta."}
+    except (ApiError, ValueError):
+        request.session["flash"] = {"tipo": "error", "texto": "No se pudo resolver."}
     return redirect("asistente")

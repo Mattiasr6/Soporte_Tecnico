@@ -170,6 +170,7 @@ WILMERCITO_ID = 14
 _FLUJO_INICIO = re.compile(r"crea(?:me|le|r)?\s+(la\s+)?atenci[óo]n\s*:\s*(.+)", re.IGNORECASE)
 _FLUJO_ESTADO = re.compile(r"crear atención\s*\|(.*)", re.IGNORECASE)
 _FLUJO_CONFIRMAR = re.compile(r"confirmar creación\s*\|(.*)", re.IGNORECASE)
+_FLUJO_PROPONER = re.compile(r"proponer creación\s*\|(.*)", re.IGNORECASE)
 
 
 def _parse_campos(texto: str) -> dict[str, str]:
@@ -207,6 +208,40 @@ def _top_areas(db: DbSession) -> list[str]:
 
 def _flujo_crear(db: DbSession, user: CurrentUser, texto: str) -> dict[str, object] | None:
     """Creador guiado por pasos (stateless: el estado viaja en los chips)."""
+    import json as _json
+    from datetime import datetime, timezone
+
+    from app.models.propuesta_ia import PropuestaIA
+
+    m = _FLUJO_PROPONER.search(texto)
+    if m:
+        campos = _parse_campos(m.group(1))
+        p = PropuestaIA(
+            proponente_id=user.id,
+            tipo="crear_atencion",
+            payload=_json.dumps(
+                {
+                    "descripcion": campos.get("desc", ""),
+                    "categoria": campos.get("categoria", "Otros"),
+                    "area_solicitante": campos.get("area", ""),
+                    "medio_solicitud": campos.get("medio", "Interno"),
+                    "usuario_solicitante": campos.get("solicitante", "EST"),
+                    "solucion": "Pendiente de atención.",
+                }
+            ),
+            estado="pendiente",
+            created_at=datetime.now(timezone.utc),
+        )
+        db.add(p)
+        db.commit()
+        return {
+            "respuesta": (
+                f"Propuesta #{p.id} enviada a revisión de un jefe. "
+                f"Te aviso cuando se ejecute."
+            ),
+            "fuente": None,
+            "rechazado": False,
+        }
     m = _FLUJO_CONFIRMAR.search(texto)
     if m:
         campos = _parse_campos(m.group(1))
@@ -309,11 +344,15 @@ def _flujo_crear(db: DbSession, user: CurrentUser, texto: str) -> dict[str, obje
         f"{campos['medio']}, {campos['solicitante']}, {campos.get('area', '')}"
         + "). ¿Confirmas?"
     )
+    base_prop = base.replace("crear atención", "proponer creación")
     return {
         "respuesta": resumen,
         "fuente": None,
         "rechazado": False,
-        "opciones": [{"etiqueta": "Sí, crear", "pregunta": base.replace("crear atención", "confirmar creación")}],
+        "opciones": [
+            {"etiqueta": "Sí, crear", "pregunta": base.replace("crear atención", "confirmar creación")},
+            {"etiqueta": "Proponer a jefe", "pregunta": base_prop},
+        ],
     }
 
 
@@ -459,6 +498,32 @@ def _llama_chat(system: str, user: str) -> str:
 
 @router.post("/preguntar")
 def preguntar(body: PreguntarIn, db: DbSession, user: CurrentUser):
+    import time
+    from datetime import datetime, timezone
+
+    from app.models.log_ia import LogIA
+
+    t0 = time.perf_counter()
+    r = _preguntar_impl(body, db, user)
+    if isinstance(r, dict):
+        try:
+            db.add(
+                LogIA(
+                    usuario_id=user.id,
+                    pregunta=body.pregunta[:500],
+                    fuente=str(r.get("fuente"))[:100] if r.get("fuente") else None,
+                    rechazado=bool(r.get("rechazado", False)),
+                    ms=int((time.perf_counter() - t0) * 1000),
+                    created_at=datetime.now(timezone.utc),
+                )
+            )
+            db.commit()
+        except Exception:
+            db.rollback()
+    return r
+
+
+def _preguntar_impl(body: PreguntarIn, db: DbSession, user: CurrentUser):
     if _JAILBREAK.search(body.pregunta):
         return {"respuesta": RECHAZO_EXACTO, "fuente": None, "rechazado": True}
     r = _flujo_inicio(body.pregunta)
@@ -666,7 +731,7 @@ def evaluar(db: DbSession, user: CurrentUser):
     for q in BATERIA_EVAL:
         t0 = time.perf_counter()
         try:
-            r = preguntar(PreguntarIn(pregunta=q), db, user)
+            r = _preguntar_impl(PreguntarIn(pregunta=q), db, user)
             if isinstance(r, JSONResponse):
                 filas.append({"pregunta": q, "ms": 0, "fuente": "error", "ok": False})
                 continue
@@ -682,3 +747,163 @@ def evaluar(db: DbSession, user: CurrentUser):
             filas.append({"pregunta": q, "ms": 0, "fuente": "error", "ok": False})
     con_fuente = sum(1 for f in filas if f["ok"] and f["fuente"])
     return {"n": len(filas), "con_fuente": con_fuente, "filas": filas}
+
+
+@router.get("/resumen")
+def resumen(db: DbSession, user: CurrentUser):
+    """Huella de salud para el panel Asistente (jefe)."""
+    from datetime import datetime, timedelta, timezone
+
+    from sqlalchemy import func, select
+
+    from app.models.log_ia import LogIA
+    from app.models.propuesta_ia import PropuestaIA
+
+    _exigir_jefe_ia(user)
+    _, col = ia_retrieval._lazy()
+    hora = datetime.now(timezone.utc) - timedelta(hours=1)
+    preguntas_hora = db.execute(
+        select(func.count()).select_from(LogIA).where(LogIA.created_at >= hora)
+    ).scalar() or 0
+    rechazos_hora = db.execute(
+        select(func.count())
+        .select_from(LogIA)
+        .where(LogIA.created_at >= hora, LogIA.rechazado.is_(True))
+    ).scalar() or 0
+    latencias = db.execute(
+        select(LogIA.ms).order_by(LogIA.id.desc()).limit(200)
+    ).scalars().all()
+    p95 = sorted(latencias)[int(len(latencias) * 0.95)] if latencias else 0
+    pendientes = db.execute(
+        select(func.count())
+        .select_from(PropuestaIA)
+        .where(PropuestaIA.estado == "pendiente")
+    ).scalar() or 0
+    por_curar = db.execute(
+        select(func.count())
+        .select_from(FeedbackIA)
+        .where(FeedbackIA.puntaje >= 3, FeedbackIA.promovido.is_(False))
+    ).scalar() or 0
+    return {
+        "indexadas": col.count(),
+        "modelo": "ok",
+        "preguntas_hora": preguntas_hora,
+        "rechazos_hora": rechazos_hora,
+        "p95_ms": p95,
+        "propuestas_pendientes": pendientes,
+        "por_curar": por_curar,
+    }
+
+
+class PropuestaIn(BaseModel):
+    tipo: str = Field(min_length=3, max_length=50)
+    payload: str = Field(min_length=2, max_length=2000)
+
+
+@router.post("/propuestas")
+def propuesta_crear(body: PropuestaIn, db: DbSession, user: CurrentUser):
+    import json as _json
+    from datetime import datetime, timezone
+
+    from app.models.propuesta_ia import PropuestaIA
+
+    try:
+        _json.loads(body.payload)
+    except ValueError:
+        return JSONResponse(status_code=400, content={"detail": "payload-invalido"})
+    p = PropuestaIA(
+        proponente_id=user.id,
+        tipo=body.tipo,
+        payload=body.payload,
+        estado="pendiente",
+        created_at=datetime.now(timezone.utc),
+    )
+    db.add(p)
+    db.commit()
+    return {"ok": True, "id": p.id}
+
+
+@router.get("/propuestas")
+def propuesta_listar(db: DbSession, user: CurrentUser):
+    from sqlalchemy import select
+
+    from app.models.propuesta_ia import PropuestaIA
+    from app.models.usuario import Usuario
+
+    _exigir_jefe_ia(user)
+    filas = (
+        db.execute(
+            select(PropuestaIA).where(PropuestaIA.estado == "pendiente").order_by(PropuestaIA.id.desc())
+        )
+        .scalars()
+        .all()
+    )
+    out = []
+    for p in filas:
+        prop = db.get(Usuario, p.proponente_id)
+        out.append(
+            {
+                "id": p.id,
+                "tipo": p.tipo,
+                "payload": p.payload,
+                "proponente": prop.display_name if prop else "?",
+            }
+        )
+    return out
+
+
+@router.post("/propuestas/{pid}/resolver")
+def propuesta_resolver(pid: int, db: DbSession, user: CurrentUser, aprobar: bool = True):
+    import json as _json
+    from datetime import datetime, timezone
+
+    from app.models.propuesta_ia import PropuestaIA
+
+    _exigir_jefe_ia(user)
+    p = db.get(PropuestaIA, pid)
+    if p is None or p.estado != "pendiente":
+        return JSONResponse(status_code=404, content={"detail": "no-pendiente"})
+    if not aprobar:
+        p.estado = "rechazada"
+        p.revisor_id = user.id
+        db.commit()
+        return {"ok": True, "estado": "rechazada"}
+    if p.tipo == "crear_atencion":
+        from app.models.usuario import Usuario
+        from app.routers.atenciones import create_batch
+        from app.schemas.atencion import AtencionBatchIn, AtencionCreate
+
+        datos = _json.loads(p.payload)
+        autor = db.get(Usuario, p.proponente_id)
+        if autor is None:
+            return JSONResponse(status_code=404, content={"detail": "proponente-inexistente"})
+        dto = AtencionBatchIn(
+            atenciones=[
+                AtencionCreate(
+                    area_solicitante=datos.get("area_solicitante", ""),
+                    medio_solicitud=datos.get("medio_solicitud", "Interno"),
+                    usuario_solicitante=datos.get("usuario_solicitante", "EST"),
+                    categoria=datos.get("categoria", "Otros"),
+                    descripcion=datos.get("descripcion", ""),
+                    solucion=datos.get("solucion", "Pendiente de atención."),
+                    colaborador_id=WILMERCITO_ID,
+                )
+            ]
+        )
+        create_batch(dto, db, autor)
+        from sqlalchemy import select
+
+        from app.models.atencion import Atencion
+
+        nueva = db.execute(
+            select(Atencion)
+            .where(Atencion.usuario_id == autor.id)
+            .order_by(Atencion.id.desc())
+            .limit(1)
+        ).scalar_one()
+        p.estado = "ejecutada"
+        p.atencion_id = nueva.id
+        p.revisor_id = user.id
+        db.commit()
+        return {"ok": True, "estado": "ejecutada", "atencion_id": nueva.id}
+    return JSONResponse(status_code=400, content={"detail": "tipo-no-soportado"})

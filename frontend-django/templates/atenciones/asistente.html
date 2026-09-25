@@ -5,17 +5,39 @@
   <h1>Wilmercito · control</h1>
   {% if flash %}<p class="flash {{ flash.tipo }}">{{ flash.texto }}</p>{% endif %}
   <div class="kpis">
-    <div class="kpi"><span>Documentos indexados</span><b>{{ estado.indexadas|default:"—" }}</b></div>
-    <div class="kpi"><span>Motor de embeddings</span><b>{{ estado.modelo|default:"—" }}</b></div>
-    <div class="kpi"><span>Calificaciones por curar</span><b>{{ n_pendientes }}</b></div>
+    <div class="kpi"><span>Documentos indexados</span><b>{{ resumen.indexadas|default:"—" }}</b></div>
+    <div class="kpi"><span>Preguntas última hora</span><b>{{ resumen.preguntas_hora|default:"—" }}</b></div>
+    <div class="kpi"><span>Rechazos última hora</span><b>{{ resumen.rechazos_hora|default:"—" }}</b></div>
+    <div class="kpi"><span>Latencia p95</span><b>{{ resumen.p95_ms|default:"—" }} ms</b></div>
   </div>
   <div class="batch-actions" style="margin-top:16px">
     <form method="post" action="{% url 'asistente_reindexar' %}">
       {% csrf_token %}
       <button type="submit" class="btn">Reindexar base</button>
     </form>
-    <a class="btn ghost" href="{% url 'conocimiento' %}">Curar conocimiento ({{ n_pendientes }})</a>
+    <a class="btn ghost" href="{% url 'conocimiento' %}">Curar conocimiento ({{ resumen.por_curar|default:"0" }})</a>
   </div>
+  <h2 class="mini-titulo">Propuestas pendientes ({{ resumen.propuestas_pendientes|default:"0" }})</h2>
+  {% for p in propuestas %}
+  <div class="reciente">
+    <p><strong>#{{ p.id }}</strong> {{ p.tipo }} — {{ p.proponente }}</p>
+    <p>{{ p.payload }}</p>
+    <form method="post" action="{% url 'propuesta_resolver' %}" style="display:inline">
+      {% csrf_token %}
+      <input type="hidden" name="id" value="{{ p.id }}">
+      <input type="hidden" name="accion" value="aprobar">
+      <button type="submit" class="btn">Aprobar y ejecutar</button>
+    </form>
+    <form method="post" action="{% url 'propuesta_resolver' %}" style="display:inline">
+      {% csrf_token %}
+      <input type="hidden" name="id" value="{{ p.id }}">
+      <input type="hidden" name="accion" value="rechazar">
+      <button type="submit" class="btn ghost">Rechazar</button>
+    </form>
+  </div>
+  {% empty %}
+  <p class="sub">Sin propuestas pendientes.</p>
+  {% endfor %}
   <p class="foot">El índice se actualiza solo al reindexar. Promover mueve los 👍 a la base.</p>
 </div>
 {% endblock %}

@@ -65,4 +65,9 @@ urlpatterns = [
         views.asistente_reindexar_vista,
         name="asistente_reindexar",
     ),
+    path(
+        "asistente/propuesta/",
+        views.propuesta_resolver_vista,
+        name="propuesta_resolver",
+    ),
 ]

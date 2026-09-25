@@ -61,3 +61,12 @@ regresiones (ver `fine-tuning-lora.md` §5).
 ## Orden sugerido
 
 A (2–3 sesiones) → B (1–2) → C por partes. Cada fase commitea docs + tests e2e en VM.
+
+## Implementado 2026-09-25 (Fase A+B + observabilidad)
+
+- `LogIA` (pregunta, fuente, rechazado, ms) en cada `/ia/preguntar`; `GET /ia/resumen`
+  (jefe): indexadas, preguntas/hora, rechazos/hora, p95, propuestas pendientes.
+- `PropuestaIA` (proponente, tipo, payload, estado, atención, revisor): el chat propone,
+  el jefe aprueba/ejecuta desde `/asistente`. FK a Atenciones protege la auditoría
+  (no se puede borrar una atención ejecutada sin borrar antes la propuesta).
+- Panel `/asistente`: huella de salud + propuestas + reindex + curar conocimiento.
