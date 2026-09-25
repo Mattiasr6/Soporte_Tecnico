@@ -17,9 +17,13 @@ de respuesta (breve, español, cita de fuente) y las restricciones (rechazo exac
 | KB curada + feedback promovido | ~10 y creciendo | pregunta → respuesta exacta |
 | Rechazos sintéticos | ~40 | preguntas fuera de tema → rechazo exacto; jailbreaks → rechazo exacto |
 
-Script: `scripts/ft_dataset.py` (pendiente) vuelca `data/ft_train.jsonl` en formato
-Alpaca (`instruction`, `input`, `output`). Regenerable: cada feedback promovido
-entra al próximo dataset (el loop de aprendizaje alimenta al fine-tuning).
+Script: `scripts/ft/build_dataset.py` (ya implementado y verificado en VM:
+2229 pares válidos desde DB real; ojo: ~500 descripciones duplicadas en tickets,
+el builder las filtra) + `scripts/ft/validate_dataset.py`.
+Inspiración: `patmakesapps/qwen-qlora-runpod-template` (datasets modulares,
+persona, validate/train/test/merge) y `wazih-shourov/Qwen3-8B-Custom-Persona-LoRA`
+(identidad propia vía LoRA — como Wilmercito). Eval RAG: `ragas` (faithfulness,
+answer relevancy) — ver `docs/specs/turnos-gpu.md`.
 
 ## 3. Entrenamiento (Unsloth QLoRA, 6 GB VRAM)
 
