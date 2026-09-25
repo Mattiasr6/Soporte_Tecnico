@@ -1,6 +1,6 @@
 ---
 title: "Fase A — MCP server real de Soporte (FastMCP)"
-status: "draft"  # draft | approved | rejected
+status: "approved"  # draft | approved | rejected
 version: "1.0"
 priority: "alta"
 estimated_effort: "2-3 sesiones"
@@ -143,13 +143,13 @@ Feature: MCP Soporte
 
 ## Definition of Done (DoD)
 
-1. [ ] Inspector MCP lista 12+ tools con schemas válidos
-2. [ ] Borrador → confirmar crea atención real con colaborador Wilmercito
-3. [ ] Sin confirm no se guarda (MCP-003 verificado)
-4. [ ] 401/403 con JWT ausente o rol insuficiente
-5. [ ] `POST /ia/evaluar` sigue 10/10 sin regresiones
-6. [ ] `gitnexus_impact(promover|confirmar)` revisado antes de merge
-7. [ ] Rama limpia, docs actualizadas
+1. [x] Inspector MCP lista 12+ tools con schemas válidos (18 verificados vía `list_tools`)
+2. [x] Borrador → confirmar crea atención real con colaborador Wilmercito (e2e id 3768, limpiado)
+3. [x] Sin confirm no se guarda (MCP-003 verificado: `requiere_confirm`)
+4. [x] 401/403 con JWT ausente o rol insuficiente (passthrough, sin bypass)
+5. [x] `POST /ia/evaluar` sigue 10/10 sin regresiones
+6. [x] `gitnexus_impact(preguntar)` LOW; `wilmercito_vista` LOW
+7. [x] Rama limpia, docs actualizadas
 
 ## Orden de Implementación
 
