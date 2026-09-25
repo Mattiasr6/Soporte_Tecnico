@@ -1732,3 +1732,26 @@ def horarios_copiar_vista(request: HttpRequest) -> HttpResponse:
     except ApiError as e:
         request.session["flash"] = {"tipo": "error", "texto": _detalle_error(e)}
     return redirect(f"{reverse('horarios')}?mes={mes}&anio={anio}")
+
+
+@con_login
+@require_POST
+def wilmercito_vista(request: HttpRequest) -> JsonResponse:
+    try:
+        pregunta = _json.loads(request.body).get("pregunta", "").strip()
+    except ValueError:
+        return JsonResponse({"ok": False, "error": "Pregunta inválida."}, status=400)
+    if len(pregunta) < 3:
+        return JsonResponse({"ok": False, "error": "Pregunta muy corta."}, status=400)
+    try:
+        r = api_post(
+            "/api/ia/preguntar", str(request.session["jwt"]), {"pregunta": pregunta[:500]}
+        )
+    except ApiError as e:
+        if e.status == 503:
+            return JsonResponse(
+                {"ok": False, "error": "Wilmercito no disponible ahora mismo."},
+                status=503,
+            )
+        return JsonResponse({"ok": False, "error": _detalle_error(e)}, status=e.status)
+    return JsonResponse({"ok": True, **r})

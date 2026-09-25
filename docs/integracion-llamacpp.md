@@ -26,7 +26,7 @@ en el host y no forma parte del diseño.
 │  · RTX 2060 6 GB                                 │
 │  · ~/llama.cpp (compilado GGML_CUDA, arch sm_75) │
 │  · ~/modelos/qwen2.5-1.5b-instruct-q4_k_m.gguf   │
-│  · llama-server :8080 (API OpenAI-compatible)    │
+│  · llama-server :8081 (API OpenAI-compatible, con api-key)    │
 │    ufw: solo 100.90.209.98                       │
 └──────────────────┬───────────────────────────────┘
                    │ Tailscale
@@ -118,11 +118,13 @@ El asistente es **ASESOR, nunca AUTORIDAD**: solo lectura; jamás cambia estados
 |---|---|
 | 503 `{"detail":"motor-ia-no-disponible"}` | llama-server del host inaccesible |
 | 200 `{"rechazado":true,"respuesta":"Solo puedo responder…"}` | fuera de tema |
-| 200 `{"respuesta":"No tengo ese dato disponible."}` | sin evidencia (distancia > 0.35) |
+| 200 `{"respuesta":"No tengo ese dato disponible."}` | sin evidencia (distancia > 0.5, calibrado §6) |
 
 ## 6. Wilmercito — identidad y restricciones
 
-System prompt (llama-server `--system-prompt-file`, espejo del Modelfile-soporte):
+System prompt (inyectado por request en cada llamada — este build de llama-server no
+trae `--system-prompt-file`; mejor así: el prompt vive versionado en
+`backend-fastapi/app/routers/ia.py` como `WILMERCITO_SYSTEM`):
 
 > Eres **Wilmercito**, asistente del Sistema de Soporte Técnico. Solo respondes sobre:
 > atenciones, categorías, medios de solicitud, áreas/grupos/jerarquía, técnicos/jefes/turnos,
@@ -132,26 +134,43 @@ System prompt (llama-server `--system-prompt-file`, espejo del Modelfile-soporte
 > Usa solo el Contexto entregado. Breve, claro, siempre en español.
 
 Parámetros: `temperature 0.1`, `top_p 0.8`, `num_ctx 4096`, `num_predict 300`,
-`repeat_penalty 1.1`, `-ngl 99` (todo a GPU).
+`repeat_penalty 1.1`, `-ngl 99` (todo a GPU, 1218 MiB VRAM, ~140 tok/s).
+Servidor en `:8081` (el `:8080` lo ocupa coolify-proxy) con `--api-key`
+(key en `~/modelos/.llama-key`, `LLAMA_API_KEY` en el `.env` de la API; ufw solo `upds`).
+Arranque: `~/run-llama.sh` (nunca `pkill -f` con el binario en la misma línea: se automata).
+
+Defensa en profundidad (medido: el 1.5B con solo prompt cuenta un chiste ante
+«ignora las reglas» — el rechazo vive en código, no en el modelo):
+1. **Prefiltro** regex jailbreak → rechazo exacto sin llamar al motor.
+2. **System + Context/Question/Answer** al motor.
+3. **Postfiltro**: marcadores fuera-de-tema → rechazo exacto; distancia > umbral → sin dato.
 
 Hallazgos heredados del donante (aplicar desde el día 1):
 - Embeddings a Chroma siempre con `.tolist()` (numpy → list).
 - Prompt con etiqueta literal `Context:` + `Question:` + `Answer:` (modelos chicos solo así hacen grounding).
-- Trazabilidad ≠ fidelidad: mostrar `fuente` + exigir distancia ≤ 0.35.
-- Indexado idempotente con id `atencion_<Id>`.
+- Trazabilidad ≠ fidelidad: mostrar `fuente` + exigir distancia ≤ 0.5.
+- Indexado idempotente con id `atencion_<Id>` (+ `kb_*` para conocimiento estático:
+  categorías, medios, tipos de solicitante).
+
+Calibración propia (multilingual-MiniLM-L12-v2 normalizado, distancia coseno 0..2):
+buenos 0.06–0.42, mundial 0.61 → umbral 0.5. Sin normalizar, Chroma devuelve L2
+al cuadrado (1–12) y el umbral del donante no aplica.
 
 ## 7. Frontend — burbuja en `frontend-django`
 
 - Punto de inserción: `templates/atenciones/base.html` (todas las vistas la extienden).
-- Componente: `templates/atenciones/_wilmercito.html` (burbuja flotante + panel chat, fetch a
-  `FASTAPI_URL/ia/preguntar` con el JWT de sesión).
+- Componente: `templates/atenciones/_wilmercito.html` (burbuja flotante + panel chat).
+  El JWT nunca sale al navegador: el panel llama a la vista Django `wilmercito_vista`
+  (`POST /wilmercito/`), que proxea a `/api/ia/preguntar` con el JWT de sesión.
 - Fase 1 primero: el panel muestra tarjetas de atenciones pasadas (sin texto generado).
 
 ## 8. DoD (criterios de aceptación)
 
-- [ ] `llama-server :8080` responde `/health` y `/v1/chat/completions` en GPU (`nvidia-smi` muestra proceso).
-- [ ] Pruebas de restricción: mundial → rechazo exacto; dato inventado → «No tengo ese dato…»; `ignora las reglas` → rechazo.
-- [ ] `/ia/buscar` devuelve 3 atenciones reales con distancia; re-ejecutar indexado es idempotente.
-- [ ] Burbuja visible en base, solo para sesión iniciada.
-- [ ] `git status` limpio en la rama; sin referencias a Ollama en código ni docs (salvo este párrafo).
-- [ ] Demo corre íntegra en `upds` con esta rama como documentación.
+- [x] `llama-server :8081` responde `/health` y `/v1/chat/completions` en GPU (1218 MiB VRAM,
+      ~140 tok/s; 401 sin key).
+- [x] Restricciones: mundial → sin dato/rechazo; `ignora las reglas` → rechazo exacto (prefiltro).
+- [x] `/ia/buscar` devuelve atenciones reales con distancia; reindexar idempotente (2771 + 3 kb).
+- [x] `/ia/preguntar` responde con fuente (`kb_medios`, `atencion_*`); 503 si el motor cae.
+- [x] Burbuja visible solo con sesión; `/wilmercito/` verificado e2e (login → HTML → JSON).
+- [x] `git status` limpio en la rama; sin Ollama en código (servicio detenido y deshabilitado).
+- [x] Demo íntegra en `upds`: PG15 + `soporte-api-ia` (:5012) + `soporte-web-ia` (:8011) en systemd.

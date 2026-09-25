@@ -51,6 +51,7 @@ __pycache__/
 .omo/
 .opencode/
 backups/*.dump
+backups/*.sql
 # Datos: snapshots de prod. No se versionan (ver docs/runbook-operacion.md)
 /*.csv
 # Los mapeos de areas no son datos: son la fuente del seed y del importador

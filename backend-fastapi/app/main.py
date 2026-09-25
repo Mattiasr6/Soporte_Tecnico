@@ -13,6 +13,7 @@ from app.routers import (
     atenciones,
     auth,
     horarios,
+    ia,
     jerarquia,
     usuarios,
 )
@@ -23,6 +24,7 @@ app.include_router(jerarquia.router)
 app.include_router(areas.router)
 app.include_router(auth.router)
 app.include_router(horarios.router)
+app.include_router(ia.router)
 app.include_router(usuarios.router)
 app.include_router(announcements.router)
 app.include_router(atenciones.router)

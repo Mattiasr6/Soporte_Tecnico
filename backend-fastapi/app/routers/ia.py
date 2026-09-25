@@ -1,0 +1,104 @@
+"""GET/POST /api/ia/* — Wilmercito. ASESOR, nunca AUTORIDAD: solo lectura."""
+
+import os
+import re
+
+import httpx
+from fastapi import APIRouter
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel, Field
+
+from app.core.security import CurrentUser
+from app.db.session import DbSession
+from app.services import ia_retrieval
+
+router = APIRouter(prefix="/api/ia", tags=["ia"])
+
+UMBRAL_SIN_EVIDENCIA = 0.5
+RECHAZO_EXACTO = "Solo puedo responder consultas sobre el sistema de soporte técnico."
+SIN_DATO = "No tengo ese dato disponible."
+
+# Capa 1/3: prefiltro jailbreak (el modelo 1.5B obedece la última instrucción;
+# ver docs/integracion-llamacpp.md §6). Sin llamar al motor.
+_JAILBREAK = re.compile(
+    r"ignor\w*|olvida|reglas anteriores|a partir de ahora|act[úu]a como|"
+    r"prompt del sistema|system prompt|DAN\b|jailbreak",
+    re.IGNORECASE,
+)
+
+# Capa 3/3: si el modelo divaga fuera de tema, se normaliza al rechazo exacto.
+_MARCAS_FUERA_DE_TEMA = (
+    "deport", "noticia", "política", "politica", "chiste", "abeja",
+    "lo siento, pero", "como modelo", "receta", "clima",
+)
+
+WILMERCITO_SYSTEM = """Eres Wilmercito, el asistente virtual del Sistema de Soporte Técnico.
+Solo respondes sobre: atenciones, categorías, medios de solicitud, áreas/grupos/jerarquía,
+técnicos/jefes/turnos, estados y dashboard/reportes.
+Fuera de tema responde exactamente: "Solo puedo responder consultas sobre el sistema de soporte técnico."
+No inventes: sin dato responde exactamente: "No tengo ese dato disponible."
+Usa solo el Contexto entregado. Breve, claro, siempre en español."""
+
+
+class BuscarIn(BaseModel):
+    texto: str = Field(min_length=3, max_length=500)
+    top_k: int = Field(default=3, ge=1, le=10)
+
+
+@router.post("/buscar")
+def buscar(body: BuscarIn, db: DbSession, user: CurrentUser):
+    resultados = ia_retrieval.buscar(body.texto, body.top_k)
+    if resultados and float(resultados[0]["distancia"]) > UMBRAL_SIN_EVIDENCIA:
+        return {"resultados": [], "sin_evidencia": True}
+    return {"resultados": resultados, "sin_evidencia": False}
+
+
+@router.post("/reindexar")
+def reindexar(db: DbSession, user: CurrentUser):
+    return ia_retrieval.indexar(db)
+
+
+@router.get("/estado")
+def estado(db: DbSession, user: CurrentUser):
+    try:
+        _, col = ia_retrieval._lazy()
+        return {"indexadas": col.count(), "modelo": "ok"}
+    except Exception as e:  # dependencias IA aún no instaladas
+        return {"indexadas": 0, "modelo": f"no-disponible: {e.__class__.__name__}"}
+
+
+class PreguntarIn(BaseModel):
+    pregunta: str = Field(min_length=3, max_length=500)
+
+
+def _llama_chat(system: str, user: str) -> str:
+    base = os.environ.get("LLAMA_URL", "http://100.78.144.4:8081").rstrip("/")
+    key = os.environ.get("LLAMA_API_KEY", "")
+    r = httpx.post(
+        f"{base}/v1/chat/completions",
+        headers={"Authorization": f"Bearer {key}"},
+        json={"messages": [{"role": "system", "content": system}, {"role": "user", "content": user}]},
+        timeout=float(os.environ.get("LLAMA_TIMEOUT", "120")),
+    )
+    r.raise_for_status()
+    return r.json()["choices"][0]["message"]["content"]
+
+
+@router.post("/preguntar")
+def preguntar(body: PreguntarIn, db: DbSession, user: CurrentUser):
+    if _JAILBREAK.search(body.pregunta):
+        return {"respuesta": RECHAZO_EXACTO, "fuente": None, "rechazado": True}
+    resultados = ia_retrieval.buscar(body.pregunta, 3)
+    if not resultados or float(resultados[0]["distancia"]) > UMBRAL_SIN_EVIDENCIA:
+        return {"respuesta": SIN_DATO, "fuente": None, "rechazado": False}
+    top = resultados[0]
+    contexto = f"Context: [{top['id']}] {top['descripcion']} Solución: {top['solucion']}"
+    try:
+        respuesta = _llama_chat(
+            WILMERCITO_SYSTEM, f"{contexto}\n\nQuestion: {body.pregunta}\nAnswer:"
+        )
+    except (httpx.ConnectError, httpx.TimeoutException):
+        return JSONResponse(status_code=503, content={"detail": "motor-ia-no-disponible"})
+    if any(m in respuesta.lower() for m in _MARCAS_FUERA_DE_TEMA):
+        return {"respuesta": RECHAZO_EXACTO, "fuente": None, "rechazado": True}
+    return {"respuesta": respuesta, "fuente": top["id"], "rechazado": False}

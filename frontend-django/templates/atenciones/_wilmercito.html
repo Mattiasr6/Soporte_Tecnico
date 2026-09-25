@@ -1,0 +1,57 @@
+<button id="wilmercito-btn" class="wilmercito-btn" aria-label="Abrir Wilmercito">W</button>
+<div id="wilmercito-panel" class="wilmercito-panel" hidden>
+  <div class="wilmercito-head"><strong>Wilmercito</strong><span> · asistente de soporte</span></div>
+  <div id="wilmercito-msgs" class="wilmercito-msgs"></div>
+  <form id="wilmercito-form" class="wilmercito-form">
+    {% csrf_token %}
+    <input id="wilmercito-input" type="text" maxlength="500" placeholder="Pregunta sobre el sistema…" autocomplete="off">
+    <button type="submit">➤</button>
+  </form>
+</div>
+<script>
+(function () {
+  var btn = document.getElementById("wilmercito-btn");
+  var panel = document.getElementById("wilmercito-panel");
+  var form = document.getElementById("wilmercito-form");
+  var input = document.getElementById("wilmercito-input");
+  var msgs = document.getElementById("wilmercito-msgs");
+  function add(texto, quien) {
+    var p = document.createElement("p");
+    p.className = "wilmercito-msg " + quien;
+    p.textContent = texto;
+    msgs.appendChild(p);
+    msgs.scrollTop = msgs.scrollHeight;
+  }
+  btn.addEventListener("click", function () {
+    panel.hidden = !panel.hidden;
+    if (!panel.hidden) input.focus();
+  });
+  form.addEventListener("submit", function (ev) {
+    ev.preventDefault();
+    var q = input.value.trim();
+    if (q.length < 3) return;
+    input.value = "";
+    add(q, "yo");
+    add("…", "pensando");
+    fetch("{% url 'wilmercito' %}", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-CSRFToken": form.querySelector("[name=csrfmiddlewaretoken]").value
+      },
+      body: JSON.stringify({ pregunta: q })
+    }).then(function (r) { return r.json(); }).then(function (d) {
+      msgs.lastChild.remove();
+      if (d.ok) {
+        add(d.respuesta, "el");
+        if (d.fuente) add("Fuente: " + d.fuente, "fuente");
+      } else {
+        add(d.error || "Error.", "el");
+      }
+    }).catch(function () {
+      msgs.lastChild.remove();
+      add("Wilmercito no disponible ahora mismo.", "el");
+    });
+  });
+})();
+</script>

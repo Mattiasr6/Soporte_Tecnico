@@ -47,4 +47,5 @@ urlpatterns = [
     path("notas/", views.notas_vista, name="notas"),
     path("notas/guardar/", views.notas_guardar_vista, name="notas_guardar"),
     path("auxiliares/", views.auxiliares_vista, name="auxiliares"),
+    path("wilmercito/", views.wilmercito_vista, name="wilmercito"),
 ]
