@@ -35,11 +35,11 @@
           {% for t in tecnicos %}
           <tr>
             <td>{{ t.nombre }}</td>
-            <td><div class="celda-horas"><input type="time" id="lv_{{ t.id }}_h1" name="u{{ t.id }}_h1" value="{{ t.lv.h1 }}">
+            <td data-label="Turno 1"><div class="celda-horas"><input type="time" id="lv_{{ t.id }}_h1" name="u{{ t.id }}_h1" value="{{ t.lv.h1 }}">
               <input type="time" id="lv_{{ t.id }}_f1" name="u{{ t.id }}_f1" value="{{ t.lv.f1 }}"></div></td>
-            <td><div class="celda-horas"><input type="time" id="lv_{{ t.id }}_h2" name="u{{ t.id }}_h2" value="{{ t.lv.h2 }}">
+            <td data-label="Turno 2 (opcional)"><div class="celda-horas"><input type="time" id="lv_{{ t.id }}_h2" name="u{{ t.id }}_h2" value="{{ t.lv.h2 }}">
               <input type="time" id="lv_{{ t.id }}_f2" name="u{{ t.id }}_f2" value="{{ t.lv.f2 }}"></div></td>
-            <td>
+            <td data-label="Plantilla">
               <select class="plantilla" data-fila="lv_{{ t.id }}">
                 <option value="">—</option>
                 {% for p in plantillas %}
@@ -47,7 +47,7 @@
                 {% endfor %}
               </select>
             </td>
-            <td class="sub celda-aporta">{% if t.franjas_lv %}{{ t.franjas_lv|join:" · " }}{% else %}<span class="jerq-off">no cubre</span>{% endif %}</td>
+            <td class="sub celda-aporta" data-label="Aporta">{% if t.franjas_lv %}{{ t.franjas_lv|join:" · " }}{% else %}<span class="jerq-off">no cubre</span>{% endif %}</td>
             <td>
               <button type="submit" class="link-btn" formaction="{% url 'horarios_limpiar' %}"
                       name="usuario_id" value="{{ t.id }}">Limpiar</button>
@@ -81,16 +81,16 @@
           {% for t in tecnicos %}
           <tr>
             <td>{{ t.nombre }}</td>
-            <td><div class="celda-horas"><input type="time" id="sab_{{ t.id }}_h1" name="u{{ t.id }}_h1" value="{{ t.sabado.h1 }}">
+            <td data-label="Turno del sábado"><div class="celda-horas"><input type="time" id="sab_{{ t.id }}_h1" name="u{{ t.id }}_h1" value="{{ t.sabado.h1 }}">
               <input type="time" id="sab_{{ t.id }}_f1" name="u{{ t.id }}_f1" value="{{ t.sabado.f1 }}"></div></td>
-            <td>
+            <td data-label="Plantilla">
               <select class="plantilla" data-fila="sab_{{ t.id }}">
                 <option value="">—</option>
                 <option value="08:00|12:00||">08:00-12:00 (mañana)</option>
                 <option value="14:30|18:30||">14:30-18:30 (tarde)</option>
               </select>
             </td>
-            <td class="sub celda-aporta">{% if t.franjas_sabado %}{{ t.franjas_sabado|join:" · " }}{% else %}<span class="jerq-off">no cubre</span>{% endif %}</td>
+            <td class="sub celda-aporta" data-label="Grupo">{% if t.franjas_sabado %}{{ t.franjas_sabado|join:" · " }}{% else %}<span class="jerq-off">no cubre</span>{% endif %}</td>
             <td>
               <button type="submit" class="link-btn" formaction="{% url 'horarios_limpiar' %}"
                       name="usuario_id" value="{{ t.id }}">Limpiar</button>
@@ -122,11 +122,11 @@
           {% for j in jefes %}
           <tr>
             <td>{{ j.nombre }}</td>
-            <td><div class="celda-horas"><input type="time" id="jef_{{ j.id }}_h1" name="u{{ j.id }}_h1" value="{{ j.lv.h1 }}">
+            <td data-label="Turno 1"><div class="celda-horas"><input type="time" id="jef_{{ j.id }}_h1" name="u{{ j.id }}_h1" value="{{ j.lv.h1 }}">
               <input type="time" id="jef_{{ j.id }}_f1" name="u{{ j.id }}_f1" value="{{ j.lv.f1 }}"></div></td>
-            <td><div class="celda-horas"><input type="time" id="jef_{{ j.id }}_h2" name="u{{ j.id }}_h2" value="{{ j.lv.h2 }}">
+            <td data-label="Turno 2 (opcional)"><div class="celda-horas"><input type="time" id="jef_{{ j.id }}_h2" name="u{{ j.id }}_h2" value="{{ j.lv.h2 }}">
               <input type="time" id="jef_{{ j.id }}_f2" name="u{{ j.id }}_f2" value="{{ j.lv.f2 }}"></div></td>
-            <td>
+            <td data-label="Plantilla">
               <select class="plantilla" data-fila="jef_{{ j.id }}">
                 <option value="">—</option>
                 {% for p in plantillas %}
