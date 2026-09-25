@@ -23,7 +23,7 @@ SIN_DATO = "No tengo ese dato disponible."
 # Capa 1/3: prefiltro jailbreak (el modelo 1.5B obedece la última instrucción;
 # ver docs/integracion-llamacpp.md §6). Sin llamar al motor.
 _JAILBREAK = re.compile(
-    r"ignor\w*|olvida|reglas anteriores|a partir de ahora|act[úu]a como|"
+    r"ignor\w*|olvid[áa]|reglas anteriores|a partir de ahora|act[úu]a como|"
     r"prompt del sistema|system prompt|DAN\b|jailbreak",
     re.IGNORECASE,
 )
@@ -35,7 +35,7 @@ _MARCAS_FUERA_DE_TEMA = (
 )
 # "¿tú podrías hacerlo por mí?": respuesta honesta de capacidades, sin modelo.
 CAPACIDAD_RESPUESTA = (
-    "Todavía no puedo hacer cambios por ti: solo leo y explico. "
+    "Soy Wilmercito. Todavía no puedo hacer cambios por ti: solo leo y explico. "
     "Puedo buscar casos parecidos, guiarte para crear una atención "
     "(Atenciones, Nueva atención), y responder sobre categorías, áreas, "
     "técnicos y reportes. Si me calificas con 👍/👎, aprendo para la próxima."

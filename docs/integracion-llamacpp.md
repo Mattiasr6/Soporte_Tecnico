@@ -220,7 +220,23 @@ al cuadrado (1–12) y el umbral del donante no aplica.
   (`POST /wilmercito/`), que proxea a `/api/ia/preguntar` con el JWT de sesión.
 - Fase 1 primero: el panel muestra tarjetas de atenciones pasadas (sin texto generado).
 
+## 9. Runbook producción (P0 2026-09-25)
+
+- **Backups**: VM cron `0 2 * * * ~/bin/pg_backup.sh` (retención 7d, `~/.pgpass`);
+  host timer `soporte-respaldos.timer` 02:30 trae a `~/respaldos/upds/` (14d).
+  Restore probado: `pg_restore` → 2771 atenciones OK.
+- **llama-server**: unit systemd `llama-server.service` (`Restart=always`);
+  kill -9 verificado que resucita. Arranque vía `~/run-llama.sh`.
+- **Credenciales rotadas**: demo `TSol-*`, `JWT_SECRET` nuevo (sesiones invalidadas).
+  Pendiente por el dueño: app password Gmail en historial de `dev`.
+- **Tests IA**: `backend-fastapi/tests/test_ia_unit.py` (9 tests, sin GPU/DB productiva;
+  correr con `DATABASE_URL=.../soporte_test`). Los tests encontraron 2 bugs reales
+  (`olvidá` con tilde, capacidad sin nombre).
+
 ## 8. DoD (criterios de aceptación)
+
+- [x] P0 producción: backups diarios + restore probado; llama-server en systemd con
+      resurrección verificada; credenciales demo rotadas; 9 tests IA en verde.
 
 - [x] `llama-server :8081` responde `/health` y `/v1/chat/completions` en GPU (1218 MiB VRAM,
       ~140 tok/s; 401 sin key).
