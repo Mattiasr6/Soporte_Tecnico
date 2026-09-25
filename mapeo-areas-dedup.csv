@@ -1,57 +1,57 @@
-grupo_padre,grupo,nombre,activo
-Académicos,,Académicos Modular,1
-Académicos,,Académicos Semestral,1
-Académicos,,Camara Gessel,1
-Administrativos,,Archivo,1
-Administrativos,,Asistente F.C.S.,1
-Administrativos,,Biblioteca,1
-Administrativos,,Bienestar Estudiantil,1
-Administrativos,,CAP,1
-Administrativos,,Caja,1
-Administrativos,,Contabilidad,1
-Administrativos,,Coordinación Acad. FCS,1
-Administrativos,,Data Center,1
-Administrativos,,Extensión Universitaria,1
-Administrativos,,Marketing,1
-Administrativos,,NAF,1
-Administrativos,,Publicidad,1
-Administrativos,,Recepción,1
-Administrativos,,Registro,1
-Administrativos,,Relaciones Públicas,1
-Administrativos,,Sala Magna,1
-Administrativos,,Sala de lectura,1
-Administrativos,,Servicios Generales,1
-Administrativos,,Sistemas,1
-Administrativos,,Soporte Técnico,1
-Administrativos,,Souvenirs,1
-Administrativos,,Trámites Académicos,1
-Administrativos,,Vicerrectorado Administrativo,1
-Administrativos,Investigación,C. de Inv./ C. Empresariales,1
-Administrativos,Investigación,C. de Inv./ C. Salud,1
-Administrativos,Investigación,C. de Inv./ C. Sociales,1
-Administrativos,Investigación,C. de Inv./ Ingeniería,1
-Administrativos,Investigación,C. de Inv./C. Jurídicas,1
-Administrativos,Rectorado,Archivos Contabilidad,1
-Administrativos,Rectorado,Rectorado,1
-Administrativos,Rectorado,Secretaria Consistencia,1
-Administrativos,Rectorado,Secretaria General,1
-Administrativos,Rectorado,Talento Humano,1
-Administrativos,Vicerrectorado,Acreditación,1
-Administrativos,Vicerrectorado,Decanatura,1
-Administrativos,Vicerrectorado,Jefatura Académica,1
-Administrativos,Vicerrectorado,Sala de Docentes,1
-Administrativos,Vicerrectorado,Vicerrectorado,1
-Extras,,ADI (Academia de Idiomas),1
-Extras,,Directorio,1
-Extras,,Directorio (Rectorado),1
-Extras,,EIAG,1
-Extras,,Rectorado Nacional,1
-Extras,,SFIC,1
-Extras,,Sala 1 (Directorio),1
-Extras,,Sala 2 (Directorio),1
-Extras,,Sala 3 (Directorio),1
-Extras,Eventos,Auditorio,1
-Extras,Eventos,Plaza UPDS,1
-Extras,,Colegio Domingo Savio,1
-Extras,,Constructora,1
-Extras,,Cardio Salud,1
+codigo_padre,codigo_grupo,codigo_area,nombre,nombre_grupo,activo
+administrativos,,archivo,Archivo,,1
+administrativos,,asistente-f-c-s,Asistente F.C.S.,,1
+administrativos,,biblioteca,Biblioteca,,1
+administrativos,,bienestar-estudiantil,Bienestar Estudiantil,,1
+administrativos,,cap,CAP,,1
+administrativos,,caja,Caja,,1
+administrativos,,contabilidad,Contabilidad,,1
+administrativos,,coordinacion-acad-fcs,Coordinación Acad. FCS,,1
+administrativos,,data-center,Data Center,,1
+administrativos,,extension-universitaria,Extensión Universitaria,,1
+administrativos,,marketing,Marketing,,1
+administrativos,,naf,NAF,,1
+administrativos,,publicidad,Publicidad,,1
+administrativos,,recepcion,Recepción,,1
+administrativos,,registro,Registro,,1
+administrativos,,relaciones-publicas,Relaciones Públicas,,1
+administrativos,,sala-magna,Sala Magna,,1
+administrativos,,sala-de-lectura,Sala de lectura,,1
+administrativos,,servicios-generales,Servicios Generales,,1
+administrativos,,sistemas,Sistemas,,1
+administrativos,,soporte-tecnico,Soporte Técnico,,1
+administrativos,,souvenirs,Souvenirs,,1
+administrativos,,tramites-academicos,Trámites Académicos,,1
+administrativos,,vicerrectorado-administrativo,Vicerrectorado Administrativo,,1
+administrativos,investigacion,c-de-inv-c-empresariales,C. de Inv./ C. Empresariales,Investigación,1
+administrativos,investigacion,c-de-inv-c-salud,C. de Inv./ C. Salud,Investigación,1
+administrativos,investigacion,c-de-inv-c-sociales,C. de Inv./ C. Sociales,Investigación,1
+administrativos,investigacion,c-de-inv-ingenieria,C. de Inv./ Ingeniería,Investigación,1
+administrativos,investigacion,c-de-inv-c-juridicas,C. de Inv./C. Jurídicas,Investigación,1
+administrativos,rectorado,archivos-contabilidad,Archivos Contabilidad,Rectorado,1
+administrativos,rectorado,rectorado,Rectorado,Rectorado,1
+administrativos,rectorado,secretaria-consistencia,Secretaria Consistencia,Rectorado,1
+administrativos,rectorado,secretaria-general,Secretaria General,Rectorado,1
+administrativos,rectorado,talento-humano,Talento Humano,Rectorado,1
+administrativos,vicerrectorado,acreditacion,Acreditación,Vicerrectorado,1
+administrativos,vicerrectorado,decanatura,Decanatura,Vicerrectorado,1
+administrativos,vicerrectorado,jefatura-academica,Jefatura Académica,Vicerrectorado,1
+administrativos,vicerrectorado,sala-de-docentes,Sala de Docentes,Vicerrectorado,1
+administrativos,vicerrectorado,vicerrectorado,Vicerrectorado,Vicerrectorado,1
+academicos,,academicos-modular,Académicos Modular,,1
+academicos,,academicos-semestral,Académicos Semestral,,1
+academicos,,camara-gessel,Camara Gessel,,1
+extras,,adi-academia-de-idiomas,ADI (Academia de Idiomas),,1
+extras,,cardio-salud,Cardio Salud,,1
+extras,,colegio-domingo-savio,Colegio Domingo Savio,,1
+extras,,constructora,Constructora,,1
+extras,,directorio,Directorio,,1
+extras,,directorio-rectorado,Directorio (Rectorado),,1
+extras,,eiag,EIAG,,1
+extras,,rectorado-nacional,Rectorado Nacional,,1
+extras,,sfic,SFIC,,1
+extras,,sala-1-directorio,Sala 1 (Directorio),,1
+extras,,sala-2-directorio,Sala 2 (Directorio),,1
+extras,,sala-3-directorio,Sala 3 (Directorio),,1
+extras,eventos,auditorio,Auditorio,Eventos,1
+extras,eventos,plaza-upds,Plaza UPDS,Eventos,1

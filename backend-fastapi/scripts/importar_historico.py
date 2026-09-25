@@ -38,7 +38,7 @@ ULTIMO_MES_VALIDO = 4
 
 COLUMNAS = [
     "tecnico_email",
-    "area",
+    "area_codigo",
     "colaborador_email",
     "medio_solicitud",
     "usuario_solicitante",
@@ -92,7 +92,7 @@ VACIOS = {"", "N/A", "NA"}
 @dataclass
 class Fila:
     tecnico_email: str
-    area: str
+    area_codigo: str
     medio_solicitud: str
     usuario_solicitante: str
     categoria: str
@@ -169,8 +169,8 @@ def construir() -> tuple[list[Fila], list[str], int]:
                     f"area corregida: archivo={clave} id={id_}"
                     f" {area_cruda!r} -> {origen_area!r}"
                 )
-            area = resolutor.get(origen_area) or normalizado.get(_norm(origen_area))
-            if area is None:
+            codigo = resolutor.get(origen_area) or normalizado.get(_norm(origen_area))
+            if codigo is None:
                 errores.append(
                     f"area sin resolver: archivo={clave} id={id_} valor={origen_area!r}"
                 )
@@ -207,7 +207,7 @@ def construir() -> tuple[list[Fila], list[str], int]:
             filas.append(
                 Fila(
                     tecnico_email=email,
-                    area=area,
+                    area_codigo=codigo,
                     medio_solicitud=medio,
                     usuario_solicitante=solicitante,
                     categoria=categoria,
@@ -239,7 +239,9 @@ def _derivar_created_at(filas: list[Fila]) -> None:
     for fila in filas:
         por_dia.setdefault(fila.fecha_registro, []).append(fila)
     for dia, grupo in por_dia.items():
-        grupo.sort(key=lambda f: (f.tecnico_email, f.area, f.descripcion, f.solucion))
+        grupo.sort(
+            key=lambda f: (f.tecnico_email, f.area_codigo, f.descripcion, f.solucion)
+        )
         for k, fila in enumerate(grupo):
             mediodia = datetime(dia.year, dia.month, dia.day, 12, tzinfo=LA_PAZ)
             fila.created_at = (
@@ -306,7 +308,7 @@ def main() -> int:
     for email, total in sorted(por_tecnico.items()):
         print(f"  {email:32s} {total}")
     print(f"  por mes: {dict(sorted(por_mes.items()))}")
-    print(f"  areas canonicas: {len({f.area for f in filas})}")
+    print(f"  areas canonicas: {len({f.area_codigo for f in filas})}")
     print(f"  con observaciones: {sum(1 for f in filas if f.observaciones)}")
     if avisos:
         print(f"\nnormalizaciones aplicadas ({len(avisos)}):")

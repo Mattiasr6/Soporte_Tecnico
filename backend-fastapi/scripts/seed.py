@@ -31,7 +31,6 @@ from app.models.atencion import Atencion
 from app.models.grupo import Grupo
 from app.models.grupo_padre import GrupoPadre
 from app.models.usuario import Usuario
-from app.services.slugs import codigo_unico, slugify
 
 RAIZ = Path(__file__).resolve().parents[2]
 CATALOGO_CSV = RAIZ / "mapeo-areas-dedup.csv"
@@ -51,9 +50,9 @@ USUARIOS = [
 ]
 
 PADRES = [
-    (1, "Administrativos", 1),
-    (2, "Académicos", 2),
-    (3, "Extras", 3),
+    (1, "administrativos", "Administrativos", 1),
+    (2, "academicos", "Académicos", 2),
+    (3, "extras", "Extras", 3),
 ]
 
 
@@ -69,69 +68,64 @@ def _leer_csv(path: Path) -> list[dict[str, str]]:
 def seed_catalogo(db) -> dict[str, int]:
     """Sectores + grupos + areas desde mapeo-areas-dedup.csv.
 
-    Idempotente por nombre. Se crea completo: los grupos citan a los sectores, asi que
-    quien lo llame no tiene que acordarse de insertarlos antes.
+    La identidad es el codigo, no el nombre: un renombre en /jerarquia no rompe un
+    re-seed. Idempotente por codigo; solo crea lo que falta, nunca renombra.
     """
     filas = _leer_csv(CATALOGO_CSV)
-    padres = {nombre: pid for pid, nombre, _ in PADRES}
     # los modelos no declaran relationship(), asi que el unit of work no puede ordenar
     # los INSERT por si solo: hay que meter los padres antes que los grupos que los citan
     db.flush()
     stats = {"padres": 0, "grupos": 0, "areas": 0}
 
-    for pid, nombre, orden in PADRES:
+    for pid, codigo, nombre, orden in PADRES:
         if db.get(GrupoPadre, pid) is None:
-            db.add(
-                GrupoPadre(id=pid, nombre=nombre, codigo=slugify(nombre), orden=orden)
-            )
+            db.add(GrupoPadre(id=pid, codigo=codigo, nombre=nombre, orden=orden))
             stats["padres"] += 1
     db.flush()
 
-    codigos_grupo = {g.codigo for g in db.scalars(select(Grupo)).all()}
-    for padre_nombre, grupo_nombre in dict.fromkeys(
-        (f["grupo_padre"].strip(), f["grupo"].strip()) for f in filas
+    padres = {g.codigo: g.id for g in db.scalars(select(GrupoPadre)).all()}
+    for cod_padre, cod_grupo, nom_grupo in dict.fromkeys(
+        (
+            f["codigo_padre"].strip(),
+            f["codigo_grupo"].strip(),
+            f["nombre_grupo"].strip(),
+        )
+        for f in filas
     ):
-        if not grupo_nombre:
+        if not cod_grupo:
             continue
-        pid = padres[padre_nombre]
-        existe = db.scalars(
-            select(Grupo).where(
-                Grupo.nombre == grupo_nombre, Grupo.grupo_padre_id == pid
-            )
-        ).first()
-        if existe is None:
-            codigo = codigo_unico(slugify(grupo_nombre), codigos_grupo)
-            codigos_grupo.add(codigo)
+        if cod_padre not in padres:
+            raise RuntimeError(f"Sector '{cod_padre}' no existe en el catalogo")
+        if db.scalars(select(Grupo).where(Grupo.codigo == cod_grupo)).first() is None:
             db.add(
                 Grupo(
-                    nombre=grupo_nombre,
-                    codigo=codigo,
-                    grupo_padre_id=pid,
+                    nombre=nom_grupo,
+                    codigo=cod_grupo,
+                    grupo_padre_id=padres[cod_padre],
                     activo=True,
                 )
             )
             stats["grupos"] += 1
     db.flush()
 
-    gids = {(g.grupo_padre_id, g.nombre): g.id for g in db.scalars(select(Grupo)).all()}
-    codigos_area = {a.codigo for a in db.scalars(select(Area)).all()}
+    gids = {g.codigo: g.id for g in db.scalars(select(Grupo)).all()}
     for f in filas:
-        pid = padres[f["grupo_padre"].strip()]
-        nombre = f["nombre"].strip()
-        existe = db.scalars(
-            select(Area).where(Area.nombre == nombre, Area.grupo_padre_id == pid)
-        ).first()
-        if existe is not None:
+        codigo = f["codigo_area"].strip()
+        if db.scalars(select(Area).where(Area.codigo == codigo)).first() is not None:
             continue
-        grupo_nombre = f["grupo"].strip()
-        codigo = codigo_unico(slugify(nombre), codigos_area)
-        codigos_area.add(codigo)
+        cod_padre = f["codigo_padre"].strip()
+        if cod_padre not in padres:
+            raise RuntimeError(f"Sector '{cod_padre}' no existe en el catalogo")
+        cod_grupo = f["codigo_grupo"].strip()
+        gid = gids.get(cod_grupo) if cod_grupo else None
+        if cod_grupo and gid is None:
+            raise RuntimeError(f"Dependencia '{cod_grupo}' no existe en el catalogo")
         db.add(
             Area(
-                nombre=nombre,
+                nombre=f["nombre"].strip(),
                 codigo=codigo,
-                grupo_padre_id=pid,
-                grupo_id=gids.get((pid, grupo_nombre)) if grupo_nombre else None,
+                grupo_padre_id=padres[cod_padre],
+                grupo_id=gid,
                 activo=f["activo"].strip() == "1",
             )
         )
@@ -152,16 +146,17 @@ def seed_atenciones(db) -> dict[str, int]:
     filas = _leer_csv(ATENCIONES_CSV)
     ya = set(db.scalars(select(Atencion.created_at)).all())
     usuarios = {u.email: u.id for u in db.scalars(select(Usuario)).all()}
-    areas = {a.nombre: a for a in db.scalars(select(Area)).all()}
+    areas = {a.codigo: a for a in db.scalars(select(Area)).all()}
     stats = {"atenciones": 0, "con_colaborador": 0, "fuera_de_turno": 0}
 
     for f in filas:
         creado = datetime.fromisoformat(f["created_at"].strip())
         if creado in ya:
             continue
-        area = areas.get(f["area"].strip())
+        codigo = f["area_codigo"].strip()
+        area = areas.get(codigo)
         if area is None:
-            raise RuntimeError(f"Area '{f['area']}' no existe en el catalogo")
+            raise RuntimeError(f"Area '{codigo}' no existe en el catalogo")
         email = f["tecnico_email"].strip()
         if email not in usuarios:
             raise RuntimeError(f"Tecnico '{email}' no existe en Usuarios")
