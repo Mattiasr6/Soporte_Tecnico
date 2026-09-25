@@ -75,7 +75,12 @@ Renombrar un sector hoy los rompe.
 
 ---
 
-## J1 · Bootstrap por código (la última pieza de jerarquía)
+## J1 · Bootstrap por código — **HECHO** (2026-09-25)
+
+> Verificado el 2026-09-25: base fresca + `alembic upgrade head` + `seed_catalogo` =
+> catálogo idéntico (3+4+56). Y el round-trip: renombre `Biblioteca`→`Biblioteca Central`
+> en la BD, `exportar_catalogo`, vaciar, re-seed → el renombre persiste. Lo de abajo es el
+> contexto original (ya cumplido).
 
 **Por qué**: la pantalla `/jerarquia` ya cambia el catálogo, pero el bootstrap
 (`seed.py`) lee CSV **por nombre**. Un renombre deja los CSV viejos y un re-seed
