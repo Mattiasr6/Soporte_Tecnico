@@ -104,6 +104,11 @@ body {
   padding: 8px 10px;
   font-size: 13px;
 }
+.page-wide .filtros select,
+.page-wide .mini-select {
+  width: 200px;
+  max-width: 100%;
+}
 .filtros button {
   background: var(--color-accent-deep);
   color: #fff;
@@ -1192,7 +1197,8 @@ html.a11y-contraste-alto textarea {
   font-size: 12px;
   background: #ffffff;
   color: var(--color-text);
-  max-width: 180px;
+  width: 200px;
+  max-width: 100%;
 }
 @media (max-width: 900px) {
   .kpis,
@@ -1206,12 +1212,16 @@ html.a11y-contraste-alto textarea {
     height: 340px;
   }
   .filtros {
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: 1fr;
   }
-  .filtros input,
-  .filtros select {
+  .page-wide .filtros input,
+  .page-wide .filtros select {
+    width: 100%;
     min-width: 0;
-    flex: 1 1 140px;
+  }
+  .filtros button {
+    width: 100%;
   }
   .filtros-fila {
     grid-template-columns: 1fr;
