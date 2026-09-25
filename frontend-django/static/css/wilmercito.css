@@ -1,0 +1,68 @@
+.wilmercito-btn {
+  position: fixed;
+  right: 22px;
+  bottom: 22px;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  font-size: 24px;
+  font-weight: 700;
+  color: #fff;
+  background: #1a56db;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+  z-index: 9999;
+}
+.wilmercito-btn:hover { background: #1646b3; }
+.wilmercito-panel {
+  position: fixed;
+  right: 22px;
+  bottom: 90px;
+  width: 340px;
+  max-height: 480px;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border: 1px solid #d5dae1;
+  border-radius: 12px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.3);
+  z-index: 9999;
+  overflow: hidden;
+}
+.wilmercito-panel[hidden] { display: none; }
+.wilmercito-head {
+  padding: 10px 14px;
+  background: #1a56db;
+  color: #fff;
+  font-size: 14px;
+}
+.wilmercito-head span { opacity: 0.75; font-weight: 400; }
+.wilmercito-msgs {
+  padding: 10px 14px;
+  overflow-y: auto;
+  min-height: 120px;
+  max-height: 330px;
+  font-size: 13px;
+}
+.wilmercito-msg { margin: 6px 0; padding: 7px 10px; border-radius: 8px; }
+.wilmercito-msg.yo { background: #e8eefc; text-align: right; }
+.wilmercito-msg.el { background: #f1f3f5; }
+.wilmercito-msg.fuente { background: none; color: #666; font-size: 11px; padding: 0 10px; }
+.wilmercito-msg.pensando { color: #999; }
+.wilmercito-form { display: flex; border-top: 1px solid #d5dae1; }
+.wilmercito-form input {
+  flex: 1;
+  border: none;
+  padding: 10px 12px;
+  font-size: 13px;
+  outline: none;
+}
+.wilmercito-form button {
+  border: none;
+  background: #1a56db;
+  color: #fff;
+  padding: 0 16px;
+  cursor: pointer;
+  font-size: 16px;
+}
