@@ -35,9 +35,16 @@ móvil envuelven `.page-head`, `.filtros` y `.filtros-fila`. Resultado: **10/10 
 0px de desborde** (antes: `/horarios` 558, `/atenciones` 172, `/dashboard` 142, `/` 55,
 `/usuarios` 45).
 
-**Fase B pendiente** (decidir viéndola en el celular): `/atenciones` y `/horarios` como
-**tarjetas apiladas** en vez de tabla. Hoy son usables con scroll horizontal, pero no se
-"sienten" bien. Además, el select de filtros trunca el texto en móvil.
+**Fase B hecha** (2026-09-24): `/atenciones` y `/horarios` pasan a **tarjetas apiladas**
+por debajo de 767px (arriba, tabla: a 768 entra cómoda). En `/atenciones` cada atención es
+una tarjeta con el botón de detalle a lo ancho. En `/horarios` las 3 grillas editables se
+transforman por CSS sin duplicar markup — duplicar habría metido dos veces el mismo `<select>`
+dentro del form y el campo viajaría dos veces — y cada control queda con su etiqueta vía
+`data-label`.
+
+Medido: **10/10 pantallas en 0px de desborde en 320/360/390/767/768/900/1280**.
+
+Detalle cosmético menor: los controles nativos de hora quedan ajustados en formato 12h a 390px.
 
 ### O1b · Cambiar la contraseña no invalida las sesiones abiertas — **HECHO** (2026-09-24)
 
