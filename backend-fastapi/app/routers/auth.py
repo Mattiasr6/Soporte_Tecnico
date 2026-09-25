@@ -33,7 +33,12 @@ def login(dto: LoginIn, db: DbSession):
     from app.core.config import settings
 
     token = crear_token(
-        user.id, user.display_name, user.role, user.email, settings.JWT_SECRET
+        user.id,
+        user.display_name,
+        user.role,
+        user.email,
+        settings.JWT_SECRET,
+        token_version=user.token_version,
     )
     return {
         "token": token,
@@ -65,5 +70,6 @@ def cambiar_password(dto: PasswordIn, db: DbSession, user: CurrentUser) -> None:
     ):
         raise unauthorized("La contraseña actual no coincide")
     usuario.password_hash = bcrypt.hashpw(dto.nueva.encode(), bcrypt.gensalt()).decode()
+    usuario.token_version += 1
     usuario.updated_at = datetime.now(UTC)
     db.commit()

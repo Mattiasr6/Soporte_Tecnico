@@ -72,6 +72,8 @@ def test_cambiar_password_ciclo_completo():
         )
         assert r.status_code == 204, r.text
         assert _login(original) == 401
+        assert client.get("/api/usuarios/me", headers=_h(token)).status_code == 401
+        token = _token(NUEVA)
         assert _login(NUEVA) == 200
     finally:
         restaurado = client.post(

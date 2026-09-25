@@ -10,6 +10,7 @@ from datetime import UTC, date, datetime
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import delete, select
+from starlette.websockets import WebSocketDisconnect
 
 from app.db.base import SessionLocal
 from app.main import app
@@ -270,3 +271,35 @@ def test_inv01_listado_muestra_el_nombre_del_inactivo(crear_usuario):
     listado = client.get("/api/atenciones", headers=h(UID_JEFE)).json()
     mias = [a for a in listado if a["usuario_id"] == uid]
     assert mias and mias[0]["usuario_nombre"] == "Baja Con Historia"
+
+
+def test_cambiar_password_mata_las_sesiones_abiertas(crear_usuario):
+    uid = crear_usuario(f"clave@{DOMINIO}", password="Inicial1234")["id"]
+    viejo = {"Authorization": f"Bearer {_token(uid)}"}
+    assert client.get("/api/usuarios/me", headers=viejo).status_code == 200
+
+    r = client.post(
+        "/api/auth/password",
+        json={"actual": "Inicial1234", "nueva": "NuevaClave456"},
+        headers=viejo,
+    )
+    assert r.status_code == 204, r.text
+
+    assert client.get("/api/usuarios/me", headers=viejo).status_code == 401
+    r = client.post(
+        "/api/auth/login",
+        json={"email": f"clave@{DOMINIO}", "password": "NuevaClave456"},
+    )
+    assert r.status_code == 200, r.text
+
+
+def test_websocket_rechaza_inactivo(crear_usuario):
+    uid = crear_usuario(f"ws@{DOMINIO}")["id"]
+    client.patch(
+        f"/api/usuarios/{uid}/activo", json={"activo": False}, headers=h(UID_JEFE)
+    )
+    with (
+        pytest.raises(WebSocketDisconnect),
+        client.websocket_connect("/ws", params={"access_token": _token(uid)}),
+    ):
+        pass
