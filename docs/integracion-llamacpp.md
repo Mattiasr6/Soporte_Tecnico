@@ -51,7 +51,7 @@ Flujo de una pregunta: burbuja Wilmercito (Django) → `POST /ia/preguntar`
 | Recurso | Valor |
 |---|---|
 | Host GPU | RTX 2060 6144 MiB, CUDA 12.4 (nvcc), 16 cores |
-| Modelo | Qwen2.5-1.5B-Instruct `Q4_K_M` (1.1 GB) — mejor español que llama3.2:3b, cabe en 6 GB VRAM |
+| Modelo | Qwen2.5-3B-Instruct `Q4_K_M` (2.0 GB) — mejor español que llama3.2:3b, cabe en 6 GB VRAM |
 | VM | Debian 12, 5.8 GB RAM, 27 GB libres, Python 3.11.2, PG 15.19 |
 | DB `soporte` (VM) | 313 atenciones, 10 usuarios (copia live) |
 | DB `soporte_dev` (VM) | 2771 atenciones, 12 usuarios, 56 áreas |
@@ -164,10 +164,14 @@ trae `--system-prompt-file`; mejor así: el prompt vive versionado en
 > Usa solo el Contexto entregado. Breve, claro, siempre en español.
 
 Parámetros: `temperature 0.1`, `top_p 0.8`, `num_ctx 4096`, `num_predict 300`,
-`repeat_penalty 1.1`, `-ngl 99` (todo a GPU, 1218 MiB VRAM, ~140 tok/s).
+`repeat_penalty 1.1`, `-ngl 99` (todo a GPU, 2168 MiB VRAM, ~140 tok/s).
 Servidor en `:8081` (el `:8080` lo ocupa coolify-proxy) con `--api-key`
 (key en `~/modelos/.llama-key`, `LLAMA_API_KEY` en el `.env` de la API; ufw solo `upds`).
 Arranque: `~/run-llama.sh` (nunca `pkill -f` con el binario en la misma línea: se automata).
+
+> Se probó primero el 1.5B (1.1 GB): contaba chistes ante jailbreak y parafraseaba
+> el rechazo. El 3B devuelve el rechazo **exacto** en ambos casos. Los guardrails de
+> backend se mantienen como defensa en profundidad.
 
 Defensa en profundidad (medido: el 1.5B con solo prompt cuenta un chiste ante
 «ignora las reglas» — el rechazo vive en código, no en el modelo):
