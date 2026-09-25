@@ -148,6 +148,23 @@ def por_id(pid: str) -> dict[str, Any] | None:
     }
 
 
+def promover(feedback_id: int, pregunta: str, respuesta: str) -> str:
+    """Indexa un feedback aprobado por un jefe. Id es estable: re-promover pisa."""
+    model, col = _lazy()
+    pid = f"feedback_{feedback_id}"
+    if col.get(ids=[pid])["ids"]:
+        col.delete(ids=[pid])
+    col.add(
+        ids=[pid],
+        documents=[respuesta],
+        metadatas=[
+            {"source": pid, "question": pregunta, "categoria": "", "area": ""}
+        ],
+        embeddings=[model.encode([pregunta.lower()], normalize_embeddings=True)[0].tolist()],
+    )
+    return pid
+
+
 def buscar(texto: str, top_k: int = 3) -> list[dict[str, Any]]:
     """Top-k tickets parecidos. El umbral vive en el router."""
     _, col = _lazy()

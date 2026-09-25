@@ -79,6 +79,15 @@ Flujo de una pregunta: burbuja Wilmercito (Django) → `POST /ia/preguntar`
    a `DJANGO_ALLOWED_HOSTS` del `.env` de la VM y se reinició `soporte-web-ia`.
    Verificación desde el host: `curl http://100.90.209.98:8011/` → 302 + login con CSRF.
 
+## 5b. Loop de aprendizaje (calificar → curar → promover)
+
+Sin Django-admin: el equivalente vive en la burbuja + vista Conocimiento.
+1. Cada respuesta muestra 👍/👎 → `POST /wilmercito/calificar/` → `POST /api/ia/calificar`
+   (tabla `FeedbackIA`, migración `0008`).
+2. El jefe abre `/conocimiento/` (solo `_puede_dashboard`) y ve pendientes (puntaje ≥ 3).
+3. **Promover** → `POST /api/ia/feedback/{id}/promover` indexa `feedback_<id>` en Chroma;
+   la próxima pregunta similar lo recupera con esa fuente. Verificado e2e.
+
 ## 5. Contratos API (diseño — implementación en curso)
 
 Base: `backend-fastapi/app/routers/ia.py` (mismo patrón que los routers existentes).

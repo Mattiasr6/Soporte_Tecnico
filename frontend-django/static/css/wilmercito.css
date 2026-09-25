@@ -52,6 +52,16 @@
 .wilmercito-msg.el { background: var(--color-page-bg); border: 1px solid var(--color-border); }
 .wilmercito-msg.fuente { background: none; border: none; color: var(--color-muted); font-size: 11px; padding: 0 10px; }
 .wilmercito-msg.pensando { color: var(--color-muted); }
+.wilmercito-voto {
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  border-radius: 9999px;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 2px 8px;
+  margin-right: 6px;
+}
+.wilmercito-voto:hover { border-color: var(--color-accent); }
 .wilmercito-form { display: flex; border-top: 1px solid var(--color-border); }
 .wilmercito-form input {
   flex: 1;

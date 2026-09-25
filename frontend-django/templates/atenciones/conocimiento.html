@@ -1,0 +1,21 @@
+{% extends "atenciones/base.html" %}
+{% block titulo %}Conocimiento — Wilmercito{% endblock %}
+{% block contenido %}
+<div class="page-wide">
+  <h1>Conocimiento de Wilmercito</h1>
+  <p class="sub">Respuestas bien calificadas (3–4) pendientes de promover a la base.</p>
+  {% for f in pendientes %}
+  <div class="reciente">
+    <p><strong>#{{ f.id }}</strong> ({{ f.puntaje }}/4) — {{ f.pregunta }}</p>
+    <p>{{ f.respuesta }}</p>
+    <form method="post" action="{% url 'conocimiento_promover' %}">
+      {% csrf_token %}
+      <input type="hidden" name="id" value="{{ f.id }}">
+      <button type="submit" class="btn">Promover a la base</button>
+    </form>
+  </div>
+  {% empty %}
+  <p class="sub">Sin pendientes. Califica respuestas con 👍 en el chat para alimentar la lista.</p>
+  {% endfor %}
+</div>
+{% endblock %}

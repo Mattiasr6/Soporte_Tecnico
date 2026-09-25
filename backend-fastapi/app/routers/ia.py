@@ -8,8 +8,10 @@ from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
-from app.core.security import CurrentUser
+from app.core.errors import forbidden
+from app.core.security import CurrentUser, is_privileged
 from app.db.session import DbSession
+from app.models.feedback_ia import FeedbackIA
 from app.services import ia_retrieval
 
 router = APIRouter(prefix="/api/ia", tags=["ia"])
@@ -54,6 +56,21 @@ _CREAR_ATENCION = re.compile(
     r"|nueva atenci[óo]n|nuevo ticket",
     re.IGNORECASE,
 )
+# "¿tú podrías hacerlo por mí?": respuesta honesta de capacidades, sin modelo.
+_CAPACIDAD = re.compile(
+    r"(p+[ou]edes|podr[íi]as|ser[íi]as capaz|te animas).{0,30}"
+    r"(hacerlo|crearlo|cambiarlo|hacer|crear|por m[ií]|por tu cuenta)",
+    re.IGNORECASE,
+)
+CAPACIDAD_RESPUESTA = (
+    "Todavía no puedo hacer cambios por ti: solo leo y explico. "
+    "Puedo buscar casos parecidos, decirte cómo crear una atención y responder "
+    "sobre categorías, áreas, técnicos y reportes. Si me calificas con 👍/👎, "
+    "aprendo para la próxima."
+)
+# Sin evidencia pero con candidato cercano: ofrecerlo marcado como sugerencia
+# en vez de un "no" seco (límite 0.9, bien lejos del umbral 0.5).
+UMBRAL_SUGERENCIA = 0.9
 
 WILMERCITO_SYSTEM = """Eres Wilmercito, el asistente virtual del Sistema de Soporte Técnico.
 Solo respondes sobre: atenciones, categorías, medios de solicitud, áreas/grupos/jerarquía,
@@ -119,8 +136,22 @@ def preguntar(body: PreguntarIn, db: DbSession, user: CurrentUser):
         doc = ia_retrieval.por_id("kb_nueva")
         if doc:
             return {"respuesta": doc["solucion"], "fuente": "kb_nueva", "rechazado": False}
+    if _CAPACIDAD.search(body.pregunta):
+        return {"respuesta": CAPACIDAD_RESPUESTA, "fuente": None, "rechazado": False}
     resultados = ia_retrieval.buscar(body.pregunta, 3)
     if not resultados or float(resultados[0]["distancia"]) > UMBRAL_SIN_EVIDENCIA:
+        top = resultados[0] if resultados else None
+        if top and float(top["distancia"]) <= UMBRAL_SUGERENCIA:
+            return {
+                "respuesta": (
+                    "No encontré un caso igual, pero quizás te sirva este parecido "
+                    f"(distancia {float(top['distancia']):.2f}, no verificado): "
+                    f"{top['descripcion']} — Solución: {top['solucion']}"
+                ),
+                "fuente": top["id"],
+                "rechazado": False,
+                "sugerencia": True,
+            }
         return {"respuesta": SIN_DATO, "fuente": None, "rechazado": False}
     top = resultados[0]
     contexto = f"Context: [{top['id']}] {top['descripcion']} Solución: {top['solucion']}"
@@ -133,3 +164,73 @@ def preguntar(body: PreguntarIn, db: DbSession, user: CurrentUser):
     if any(m in respuesta.lower() for m in _MARCAS_FUERA_DE_TEMA):
         return {"respuesta": RECHAZO_EXACTO, "fuente": None, "rechazado": True}
     return {"respuesta": respuesta, "fuente": top["id"], "rechazado": False}
+
+
+class CalificarIn(BaseModel):
+    pregunta: str = Field(min_length=3, max_length=500)
+    respuesta: str = Field(min_length=1, max_length=2000)
+    fuente: str | None = Field(default=None, max_length=100)
+    puntaje: int = Field(ge=1, le=4)
+
+
+@router.post("/calificar")
+def calificar(body: CalificarIn, db: DbSession, user: CurrentUser):
+    from datetime import datetime, timezone
+
+    db.add(
+        FeedbackIA(
+            usuario_id=user.id,
+            pregunta=body.pregunta[:500],
+            respuesta=body.respuesta[:2000],
+            fuente=body.fuente,
+            puntaje=body.puntaje,
+            promovido=False,
+            created_at=datetime.now(timezone.utc),
+        )
+    )
+    db.commit()
+    return {"ok": True}
+
+
+def _exigir_jefe_ia(user: CurrentUser) -> None:
+    if not is_privileged(user):
+        raise forbidden("Solo un jefe puede curar el conocimiento")
+
+
+@router.get("/feedback")
+def feedback_pendiente(db: DbSession, user: CurrentUser):
+    from sqlalchemy import select
+
+    _exigir_jefe_ia(user)
+    filas = (
+        db.execute(
+            select(FeedbackIA)
+            .where(FeedbackIA.puntaje >= 3, FeedbackIA.promovido.is_(False))
+            .order_by(FeedbackIA.id.desc())
+            .limit(50)
+        )
+        .scalars()
+        .all()
+    )
+    return [
+        {
+            "id": f.id,
+            "pregunta": f.pregunta,
+            "respuesta": f.respuesta,
+            "fuente": f.fuente,
+            "puntaje": f.puntaje,
+        }
+        for f in filas
+    ]
+
+
+@router.post("/feedback/{fid}/promover")
+def feedback_promover(fid: int, db: DbSession, user: CurrentUser):
+    _exigir_jefe_ia(user)
+    fb = db.get(FeedbackIA, fid)
+    if fb is None:
+        return JSONResponse(status_code=404, content={"detail": "no-existe"})
+    ia_retrieval.promover(feedback_id=fb.id, pregunta=fb.pregunta, respuesta=fb.respuesta)
+    fb.promovido = True
+    db.commit()
+    return {"ok": True, "fuente": f"feedback_{fb.id}"}

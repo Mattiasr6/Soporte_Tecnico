@@ -21,6 +21,34 @@
     p.textContent = texto;
     msgs.appendChild(p);
     msgs.scrollTop = msgs.scrollHeight;
+    return p;
+  }
+  function csrf() {
+    return form.querySelector("[name=csrfmiddlewaretoken]").value;
+  }
+  function calificar(pregunta, respuesta, fuente, puntaje) {
+    fetch("{% url 'wilmercito_calificar' %}", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-CSRFToken": csrf() },
+      body: JSON.stringify({ pregunta: pregunta, respuesta: respuesta, fuente: fuente, puntaje: puntaje })
+    });
+  }
+  function addVoto(pregunta, respuesta, fuente) {
+    var p = document.createElement("p");
+    p.className = "wilmercito-msg fuente";
+    [["👍", 4], ["👎", 1]].forEach(function (par) {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.textContent = par[0];
+      b.className = "wilmercito-voto";
+      b.addEventListener("click", function () {
+        calificar(pregunta, respuesta, fuente, par[1]);
+        b.parentElement.textContent = par[1] >= 4 ? "¡Gracias por tu voto!" : "Anotado, mejoraremos.";
+      });
+      p.appendChild(b);
+    });
+    msgs.appendChild(p);
+    msgs.scrollTop = msgs.scrollHeight;
   }
   btn.addEventListener("click", function () {
     panel.hidden = !panel.hidden;
@@ -45,6 +73,7 @@
       if (d.ok) {
         add(d.respuesta, "el");
         if (d.fuente) add("Fuente: " + d.fuente, "fuente");
+        addVoto(q, d.respuesta, d.fuente || null);
       } else {
         add(d.error || "Error.", "el");
       }

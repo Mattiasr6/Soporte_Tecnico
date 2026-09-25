@@ -9,6 +9,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import app.models.area
 import app.models.atencion
+import app.models.feedback_ia
 import app.models.grupo
 import app.models.grupo_padre
 import app.models.horario

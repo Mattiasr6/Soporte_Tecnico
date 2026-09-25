@@ -48,4 +48,15 @@ urlpatterns = [
     path("notas/guardar/", views.notas_guardar_vista, name="notas_guardar"),
     path("auxiliares/", views.auxiliares_vista, name="auxiliares"),
     path("wilmercito/", views.wilmercito_vista, name="wilmercito"),
+    path(
+        "wilmercito/calificar/",
+        views.wilmercito_calificar_vista,
+        name="wilmercito_calificar",
+    ),
+    path("conocimiento/", views.conocimiento_vista, name="conocimiento"),
+    path(
+        "conocimiento/promover/",
+        views.conocimiento_promover_vista,
+        name="conocimiento_promover",
+    ),
 ]

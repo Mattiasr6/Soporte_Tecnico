@@ -1755,3 +1755,49 @@ def wilmercito_vista(request: HttpRequest) -> JsonResponse:
             )
         return JsonResponse({"ok": False, "error": _detalle_error(e)}, status=e.status)
     return JsonResponse({"ok": True, **r})
+
+
+@con_login
+@require_POST
+def wilmercito_calificar_vista(request: HttpRequest) -> JsonResponse:
+    try:
+        body = _json.loads(request.body)
+    except ValueError:
+        return JsonResponse({"ok": False}, status=400)
+    try:
+        api_post(
+            "/api/ia/calificar",
+            str(request.session["jwt"]),
+            {
+                "pregunta": str(body.get("pregunta", ""))[:500],
+                "respuesta": str(body.get("respuesta", ""))[:2000],
+                "fuente": body.get("fuente"),
+                "puntaje": int(body.get("puntaje", 0)),
+            },
+        )
+    except (ApiError, ValueError, TypeError):
+        return JsonResponse({"ok": False}, status=400)
+    return JsonResponse({"ok": True})
+
+
+@con_login
+def conocimiento_vista(request: HttpRequest) -> HttpResponse:
+    if not _puede_dashboard(request):
+        return redirect("atenciones_lista")
+    pendientes = api_get("/api/ia/feedback", str(request.session["jwt"]))
+    return render(
+        request, "atenciones/conocimiento.html", {"pendientes": pendientes or []}
+    )
+
+
+@con_login
+@require_POST
+def conocimiento_promover_vista(request: HttpRequest) -> HttpResponse:
+    if not _puede_dashboard(request):
+        return redirect("atenciones_lista")
+    fid = request.POST.get("id", "")
+    try:
+        api_post(f"/api/ia/feedback/{int(fid)}/promover", str(request.session["jwt"]), {})
+    except (ApiError, ValueError):
+        pass
+    return redirect("conocimiento")
