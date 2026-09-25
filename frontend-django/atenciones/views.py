@@ -208,7 +208,7 @@ def lista_vista(request: HttpRequest) -> HttpResponse:
             "categoria": categoria,
             "mes": mes,
             "tecnico": tecnico,
-            "tecnicos": _tecnicos_para_filtrar(token),
+            "tecnicos": _tecnicos_para_filtrar(token) if _puede_dashboard(request) else [],
             "flash": request.session.pop("flash", None),
         },
     )
