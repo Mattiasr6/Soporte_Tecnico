@@ -81,9 +81,53 @@ def fuente_label(fuente: str | None) -> str | None:
         return f"Atención #{fuente[len('atencion_'):]}"
     if fuente.startswith("feedback_"):
         return "Conocimiento del equipo"
+    if fuente.startswith("usuario_"):
+        return "Personal del sistema"
+    if fuente.startswith("area_"):
+        return "Organización"
+    if fuente == "estadisticas":
+        return "Datos del sistema"
     if fuente.startswith("kb_"):
         return "Base de conocimiento"
     return fuente
+
+
+_ESTADISTICAS = re.compile(
+    r"cu[áa]ntas atenciones|n[úu]mero de atenciones|total de atenciones"
+    r"|atenciones (este|del) mes|resumen del (mes|sistema)",
+    re.IGNORECASE,
+)
+
+
+def _estadisticas(db: DbSession) -> dict[str, object]:
+    from datetime import date
+
+    from sqlalchemy import func, select
+
+    from app.models.atencion import Atencion
+
+    total = db.execute(select(func.count()).select_from(Atencion)).scalar() or 0
+    mes = db.execute(
+        select(func.count())
+        .select_from(Atencion)
+        .where(Atencion.fecha_registro >= date.today().replace(day=1))
+    ).scalar() or 0
+    top = db.execute(
+        select(Atencion.categoria, func.count().label("n"))
+        .group_by(Atencion.categoria)
+        .order_by(func.count().desc())
+        .limit(3)
+    ).all()
+    detalle = ", ".join(f"{c}: {n}" for c, n in top)
+    return {
+        "respuesta": (
+            f"Hay {total} atenciones registradas, {mes} este mes. "
+            f"Por categoría: {detalle}."
+        ),
+        "fuente": "estadisticas",
+        "fuente_label": fuente_label("estadisticas"),
+        "rechazado": False,
+    }
 
 WILMERCITO_SYSTEM = """Eres Wilmercito, el asistente virtual del Sistema de Soporte Técnico.
 Solo respondes sobre: atenciones, categorías, medios de solicitud, áreas/grupos/jerarquía,
@@ -151,6 +195,8 @@ def preguntar(body: PreguntarIn, db: DbSession, user: CurrentUser):
             return {"respuesta": doc["solucion"], "fuente": "kb_nueva", "fuente_label": fuente_label("kb_nueva"), "rechazado": False}
     if _CAPACIDAD.search(body.pregunta):
         return {"respuesta": CAPACIDAD_RESPUESTA, "fuente": None, "rechazado": False}
+    if _ESTADISTICAS.search(body.pregunta):
+        return _estadisticas(db)
     resultados = ia_retrieval.buscar(body.pregunta, 3)
     if not resultados or float(resultados[0]["distancia"]) > UMBRAL_SIN_EVIDENCIA:
         top = resultados[0] if resultados else None
@@ -168,7 +214,7 @@ def preguntar(body: PreguntarIn, db: DbSession, user: CurrentUser):
             }
         return {"respuesta": SIN_DATO, "fuente": None, "rechazado": False}
     top = resultados[0]
-    contexto = f"Context: [{top['id']}] {top['descripcion']} Solución: {top['solucion']}"
+    contexto = f"Context: [{top['id']}] {top['solucion']}"
     try:
         respuesta = _llama_chat(
             WILMERCITO_SYSTEM, f"{contexto}\n\nQuestion: {body.pregunta}\nAnswer:"

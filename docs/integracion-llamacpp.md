@@ -88,6 +88,15 @@ Sin Django-admin: el equivalente vive en la burbuja + vista Conocimiento.
 3. **Promover** → `POST /api/ia/feedback/{id}/promover` indexa `feedback_<id>` en Chroma;
    la próxima pregunta similar lo recupera con esa fuente. Verificado e2e.
 
+## 5c. Todo el sistema como conocimiento (2844 docs)
+
+El índice ya no es solo tickets: `indexar()` cubre Atenciones (ficha completa:
+descripción + solución + categoría + área + medio + observaciones), Usuarios activos
+(nombre/rol/especialidad), Áreas (con su grupo) y feedback promovido. Además hay
+intención SQL determinista (`_ESTADISTICAS`: totales, mes actual, top categorías).
+Fuentes legibles para técnicos: Base de conocimiento, Atención #N, Personal del
+sistema, Organización, Datos del sistema, Conocimiento del equipo.
+
 ## 5. Contratos API (diseño — implementación en curso)
 
 Base: `backend-fastapi/app/routers/ia.py` (mismo patrón que los routers existentes).

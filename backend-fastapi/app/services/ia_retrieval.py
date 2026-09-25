@@ -85,31 +85,85 @@ _KB_ESTATICA: list[tuple[str, str, str]] = [
 
 
 def indexar(db) -> dict[str, Any]:
-    """Indexa todas las Atenciones. Idempotente: re-ejecutar omite existentes."""
+    """Indexa Atenciones + Usuarios + Áreas. Idempotente en tickets y KB."""
     from sqlalchemy import select
 
+    from app.models.area import Area
     from app.models.atencion import Atencion
+    from app.models.grupo import Grupo
+    from app.models.usuario import Usuario
 
     model, col = _lazy()
     existentes = set(col.get(ids=None, include=[])["ids"])
     nuevas = 0
-    for a in db.execute(select(Atencion)).scalars().all():
-        pid = f"atencion_{a.id}"
+
+    def _agregar(pid, pregunta, documento, categoria="", area=""):
         if pid in existentes:
-            continue
+            return
         col.add(
             ids=[pid],
-            documents=[a.solucion or ""],
+            documents=[documento],
             metadatas=[
                 {
                     "source": pid,
-                    "question": a.descripcion or "",
-                    "categoria": a.categoria or "",
-                    "area": a.area_solicitante or "",
+                    "question": pregunta,
+                    "categoria": categoria,
+                    "area": area,
                 }
             ],
-            embeddings=[model.encode([(a.descripcion or "").lower()], normalize_embeddings=True)[0].tolist()],
+            embeddings=[model.encode([pregunta.lower()], normalize_embeddings=True)[0].tolist()],
         )
+
+    for a in db.execute(select(Atencion)).scalars().all():
+        ficha = (
+            f"{a.descripcion or ''}\nSolución: {a.solucion or ''}"
+            f"\nCategoría: {a.categoria or ''} · Área: {a.area_solicitante or ''}"
+            f" · Medio: {a.medio_solicitud or ''}"
+        )
+        if a.observaciones:
+            ficha += f"\nObservaciones: {a.observaciones}"
+        _agregar(
+            f"atencion_{a.id}",
+            f"{a.descripcion or ''} {a.categoria or ''} {a.area_solicitante or ''}",
+            ficha,
+            a.categoria or "",
+            a.area_solicitante or "",
+        )
+        nuevas += 1
+    for u in db.execute(select(Usuario).where(Usuario.activo.is_(True))).scalars().all():
+        pid = f"usuario_{u.id}"
+        if pid in existentes:
+            continue
+        _agregar(
+            pid,
+            f"{u.display_name} {u.especialidad or ''} {u.role}",
+            f"{u.display_name} es {u.role}"
+            + (f" ({u.especialidad})" if u.especialidad else "")
+            + ".",
+        )
+        nuevas += 1
+    grupos = {g.id: g.nombre for g in db.execute(select(Grupo)).scalars().all()}
+    for ar in db.execute(select(Area).where(Area.activo.is_(True))).scalars().all():
+        pid = f"area_{ar.id}"
+        if pid in existentes:
+            continue
+        grupo = grupos.get(ar.grupo_id, "")
+        _agregar(
+            pid,
+            f"área {ar.nombre} {grupo}",
+            f"El área {ar.nombre} (código {ar.codigo or '—'})"
+            + (f" pertenece al grupo {grupo}." if grupo else "."),
+        )
+        nuevas += 1
+    from app.models.feedback_ia import FeedbackIA
+
+    for fb in db.execute(
+        select(FeedbackIA).where(FeedbackIA.promovido.is_(True))
+    ).scalars().all():
+        pid = f"feedback_{fb.id}"
+        if pid in existentes:
+            continue
+        _agregar(pid, fb.pregunta, fb.respuesta)
         nuevas += 1
     for pid, pregunta, documento in _KB_ESTATICA:
         # La KB curada se re-escribe siempre: así se puede corregir sin versionar ids.
