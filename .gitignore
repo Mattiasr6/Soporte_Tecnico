@@ -35,8 +35,10 @@ docs/diagramas/
 docs/wireframes/
 backend-fastapi/.env
 backend-fastapi/.venv/
+backend-fastapi/.venv
 frontend-django/.env
 frontend-django/.venv/
+frontend-django/.venv
 frontend-django/static/demo/
 __pycache__/
 .playwright-mcp/
