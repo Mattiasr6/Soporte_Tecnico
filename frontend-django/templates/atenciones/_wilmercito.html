@@ -52,13 +52,25 @@
   }
   btn.addEventListener("click", function () {
     panel.hidden = !panel.hidden;
-    if (!panel.hidden) input.focus();
+    if (!panel.hidden) {
+      input.focus();
+      if (!msgs.dataset.menu) {
+        msgs.dataset.menu = "1";
+        var mp = document.createElement("p");
+        mp.className = "wilmercito-msg fuente";
+        ["¿cuántas atenciones hay en total?", "¿cómo creo una nueva atención?", "¿cuáles son las categorías de atención?"].forEach(function (q) {
+          var b = document.createElement("button");
+          b.type = "button";
+          b.textContent = q;
+          b.className = "wilmercito-voto";
+          b.addEventListener("click", function () { enviar(q); });
+          mp.appendChild(b);
+        });
+        msgs.appendChild(mp);
+      }
+    }
   });
-  form.addEventListener("submit", function (ev) {
-    ev.preventDefault();
-    var q = input.value.trim();
-    if (q.length < 3) return;
-    input.value = "";
+  function enviar(q) {
     add(q, "yo");
     add("…", "pensando");
     fetch("{% url 'wilmercito' %}", {
@@ -73,6 +85,20 @@
       if (d.ok) {
         add(d.respuesta, "el");
         if (d.fuente_label || d.fuente) add("Fuente: " + (d.fuente_label || d.fuente), "fuente");
+        if (d.opciones) {
+          var op = document.createElement("p");
+          op.className = "wilmercito-msg fuente";
+          d.opciones.forEach(function (o) {
+            var b = document.createElement("button");
+            b.type = "button";
+            b.textContent = o.etiqueta;
+            b.className = "wilmercito-voto";
+            b.addEventListener("click", function () { enviar(o.pregunta); });
+            op.appendChild(b);
+          });
+          msgs.appendChild(op);
+          msgs.scrollTop = msgs.scrollHeight;
+        }
         addVoto(q, d.respuesta, d.fuente || null);
       } else {
         add(d.error || "Error.", "el");
@@ -81,6 +107,13 @@
       msgs.lastChild.remove();
       add("Wilmercito no disponible ahora mismo.", "el");
     });
+  }
+  form.addEventListener("submit", function (ev) {
+    ev.preventDefault();
+    var q = input.value.trim();
+    if (q.length < 3) return;
+    input.value = "";
+    enviar(q);
   });
 })();
 </script>

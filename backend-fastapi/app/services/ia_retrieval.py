@@ -97,7 +97,7 @@ def indexar(db) -> dict[str, Any]:
     existentes = set(col.get(ids=None, include=[])["ids"])
     nuevas = 0
 
-    def _agregar(pid, pregunta, documento, categoria="", area=""):
+    def _agregar(pid, pregunta, documento, categoria="", area="", titulo=""):
         if pid in existentes:
             return
         col.add(
@@ -107,6 +107,7 @@ def indexar(db) -> dict[str, Any]:
                 {
                     "source": pid,
                     "question": pregunta,
+                    "titulo": titulo or pregunta,
                     "categoria": categoria,
                     "area": area,
                 }
@@ -128,6 +129,7 @@ def indexar(db) -> dict[str, Any]:
             ficha,
             a.categoria or "",
             a.area_solicitante or "",
+            a.descripcion or "",
         )
         nuevas += 1
     for u in db.execute(select(Usuario).where(Usuario.activo.is_(True))).scalars().all():
@@ -140,6 +142,9 @@ def indexar(db) -> dict[str, Any]:
             f"{u.display_name} es {u.role}"
             + (f" ({u.especialidad})" if u.especialidad else "")
             + ".",
+            "",
+            "",
+            u.display_name,
         )
         nuevas += 1
     grupos = {g.id: g.nombre for g in db.execute(select(Grupo)).scalars().all()}
@@ -153,6 +158,9 @@ def indexar(db) -> dict[str, Any]:
             f"área {ar.nombre} {grupo}",
             f"El área {ar.nombre} (código {ar.codigo or '—'})"
             + (f" pertenece al grupo {grupo}." if grupo else "."),
+            "",
+            "",
+            ar.nombre,
         )
         nuevas += 1
     from app.models.feedback_ia import FeedbackIA
@@ -194,7 +202,7 @@ def por_id(pid: str) -> dict[str, Any] | None:
         return None
     return {
         "id": pid,
-        "descripcion": res["metadatas"][0]["question"],
+        "descripcion": res["metadatas"][0].get("titulo") or res["metadatas"][0]["question"],
         "solucion": res["documents"][0],
         "categoria": res["metadatas"][0]["categoria"],
         "area": res["metadatas"][0]["area"],
@@ -220,20 +228,74 @@ def promover(feedback_id: int, pregunta: str, respuesta: str) -> str:
 
 
 def buscar(texto: str, top_k: int = 3) -> list[dict[str, Any]]:
-    """Top-k tickets parecidos. El umbral vive en el router."""
+    """Top-k con reranking cross-encoder (2da etapa). El umbral vive en el router."""
     _, col = _lazy()
-    res = col.query(query_embeddings=[embed(texto)], n_results=top_k)
+    n_cand = max(top_k * 4, 12)
+    res = col.query(query_embeddings=[embed(texto)], n_results=n_cand)
+    ids = res["ids"][0]
+    docs = res["documents"][0]
+    metas = res["metadatas"][0]
+    dists = res["distances"][0]
+    orden = _rerank(texto, docs)
+    out = []
+    for i in orden[:top_k]:
+        meta = metas[i]
+        out.append(
+            {
+                "id": ids[i],
+                "descripcion": meta.get("titulo") or meta["question"],
+                "solucion": docs[i],
+                "categoria": meta["categoria"],
+                "area": meta["area"],
+                "distancia": dists[i],
+            }
+        )
+    return out
+
+
+_reranker = None
+
+
+def _rerank(pregunta: str, docs: list[str]) -> list[int]:
+    """Ordena candidatos por relevancia real. Sin el modelo, conserva el orden."""
+    global _reranker
+    try:
+        if _reranker is None:
+            from sentence_transformers import CrossEncoder
+
+            _reranker = CrossEncoder(
+                os.environ.get(
+                    "RERANK_MODEL", "cross-encoder/mmarco-mMiniLMv2-L12-H384-v1"
+                )
+            )
+        scores = _reranker.predict([(pregunta, d) for d in docs])
+        return sorted(range(len(docs)), key=lambda i: scores[i], reverse=True)
+    except Exception:
+        return list(range(len(docs)))
+
+
+def similares_a_ticket(pid: str, top_k: int = 3) -> list[dict[str, Any]]:
+    """Casos parecidos a un ticket dado (por su propio vector, sin texto)."""
+    model, col = _lazy()
+    base = col.get(ids=[pid], include=["embeddings", "metadatas", "documents"])
+    if not base["ids"]:
+        return []
+    res = col.query(query_embeddings=base["embeddings"], n_results=top_k + 1)
     out = []
     for i in range(len(res["ids"][0])):
+        if res["ids"][0][i] == pid:
+            continue
         meta = res["metadatas"][0][i]
         out.append(
             {
-                "id": meta["source"],
-                "descripcion": meta["question"],
+                "id": res["ids"][0][i],
+                "descripcion": meta.get("titulo") or meta["question"],
                 "solucion": res["documents"][0][i],
                 "categoria": meta["categoria"],
                 "area": meta["area"],
                 "distancia": res["distances"][0][i],
             }
         )
+        if len(out) >= top_k:
+            break
     return out

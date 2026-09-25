@@ -94,9 +94,31 @@ def fuente_label(fuente: str | None) -> str | None:
 
 _ESTADISTICAS = re.compile(
     r"cu[áa]ntas atenciones|n[úu]mero de atenciones|total de atenciones"
-    r"|atenciones (este|del) mes|resumen del (mes|sistema)",
+    r"|atenciones (este|del) mes|resumen del (mes|sistema)|informe del mes",
     re.IGNORECASE,
 )
+_AYUDA_ATENCION = re.compile(
+    r"ay[úu]dame (con|para) (la |esta )?(atenci[óo]n) (\d+)", re.IGNORECASE
+)
+_SIMILARES = re.compile(
+    r"(similares|parecidos).{0,25}atenci[óo]n (\d+)|atenci[óo]n (\d+).{0,40}(similares|parecidos)",
+    re.IGNORECASE,
+)
+_RESUMIR = re.compile(
+    r"resum\w*.{0,25}atenci[óo]n (\d+)|atenci[óo]n (\d+).{0,40}resum",
+    re.IGNORECASE,
+)
+
+
+def _ficha_atencion(pid: str) -> dict[str, object] | None:
+    return ia_retrieval.por_id(pid)
+
+
+def _opciones_atencion(aid: int) -> list[dict[str, str]]:
+    return [
+        {"etiqueta": "Ver casos parecidos", "pregunta": f"casos parecidos a la atención {aid}"},
+        {"etiqueta": "Resumir para reporte", "pregunta": f"resume la atención {aid} para reporte"},
+    ]
 
 
 def _estadisticas(db: DbSession) -> dict[str, object]:
@@ -197,6 +219,55 @@ def preguntar(body: PreguntarIn, db: DbSession, user: CurrentUser):
         return {"respuesta": CAPACIDAD_RESPUESTA, "fuente": None, "rechazado": False}
     if _ESTADISTICAS.search(body.pregunta):
         return _estadisticas(db)
+    m = _AYUDA_ATENCION.search(body.pregunta)
+    if m:
+        aid = int(m.group(4))
+        ficha = _ficha_atencion(f"atencion_{aid}")
+        if not ficha:
+            return {"respuesta": f"No encontré la atención #{aid}.", "fuente": None, "rechazado": False}
+        return {
+            "respuesta": (
+                f"Atención #{aid} ({ficha['categoria']}, {ficha['area']}): "
+                f"{ficha['descripcion']} ¿Qué quieres hacer con ella?"
+            ),
+            "fuente": f"atencion_{aid}",
+            "fuente_label": fuente_label(f"atencion_{aid}"),
+            "rechazado": False,
+            "opciones": _opciones_atencion(aid),
+        }
+    m = _SIMILARES.search(body.pregunta)
+    if m:
+        aid = int(m.group(2) or m.group(3))
+        sims = ia_retrieval.similares_a_ticket(f"atencion_{aid}")
+        if not sims:
+            return {"respuesta": f"No encontré la atención #{aid}.", "fuente": None, "rechazado": False}
+        líneas = "; ".join(f"#{s['id'].split('_', 1)[1]}: {s['descripcion']}" for s in sims)
+        return {
+            "respuesta": f"Casos parecidos a la atención #{aid}: {líneas}.",
+            "fuente": sims[0]["id"],
+            "fuente_label": fuente_label(sims[0]["id"]),
+            "rechazado": False,
+        }
+    m = _RESUMIR.search(body.pregunta)
+    if m:
+        aid = int(m.group(1) or m.group(2))
+        ficha = _ficha_atencion(f"atencion_{aid}")
+        if not ficha:
+            return {"respuesta": f"No encontré la atención #{aid}.", "fuente": None, "rechazado": False}
+        try:
+            resumen = _llama_chat(
+                WILMERCITO_SYSTEM,
+                f"Resume en 2 líneas para un reporte qué pasó y cómo se resolvió. "
+                f"Context: [{ficha['id']}] {ficha['solucion']}\n\nQuestion: resumen\nAnswer:",
+            )
+        except (httpx.ConnectError, httpx.TimeoutException):
+            return JSONResponse(status_code=503, content={"detail": "motor-ia-no-disponible"})
+        return {
+            "respuesta": resumen,
+            "fuente": f"atencion_{aid}",
+            "fuente_label": fuente_label(f"atencion_{aid}"),
+            "rechazado": False,
+        }
     resultados = ia_retrieval.buscar(body.pregunta, 3)
     if not resultados or float(resultados[0]["distancia"]) > UMBRAL_SIN_EVIDENCIA:
         top = resultados[0] if resultados else None

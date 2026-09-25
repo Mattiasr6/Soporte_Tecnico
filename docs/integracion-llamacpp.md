@@ -106,6 +106,19 @@ los intents deterministas + confirmación humana dan 100% y el paso a un servido
 MCP real es exponer este mismo registro. Poderes futuros (crear borrador con
 confirmación) siguen este camino, siempre con el JWT del usuario y sus roles.
 
+## 5e. Mejoras Python sobre el LLM (modelo de 2 GB rindiendo como grande)
+
+- **Reranking cross-encoder** (`mmarco-mMiniLMv2`, multilingüe, CPU en VM):
+  2da etapa sobre 12 candidatos → top-3 por relevancia real, no solo distancia.
+- **Intents deterministas** (regex + SQL/Chroma): saludo, identidad, crear-atención,
+  capacidad, estadísticas, ayuda-con-atención-N, similares, resumir. Lo exacto no
+  pasa por el modelo.
+- **Usuario Wilmercito** (id 14, `wilmercito@sistema.upds.edu.bo`, clave aleatoria
+  inutilizable): existe para firmar como colaborador cuando el asistente actúe a
+  nombre de un técnico, sin ensuciar autorías.
+- **Menús de opciones**: la burbuja abre con accesos rápidos y cada ayuda-con-ticket
+  ofrece chips (ver parecidos / resumir). El chat guía hasta la confirmación.
+
 ## 5. Contratos API (diseño — implementación en curso)
 
 Base: `backend-fastapi/app/routers/ia.py` (mismo patrón que los routers existentes).
