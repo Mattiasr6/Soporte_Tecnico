@@ -98,7 +98,7 @@ _ESTADISTICAS = re.compile(
     re.IGNORECASE,
 )
 _AYUDA_ATENCION = re.compile(
-    r"ay[úu]dame (con|para) (la |esta )?(atenci[óo]n) (\d+)", re.IGNORECASE
+    r"ayud\w*\s+(con|para)\s+(la\s+|esta\s+)?atenci[óo]n\s+(\d+)", re.IGNORECASE
 )
 _SIMILARES = re.compile(
     r"(similares|parecidos).{0,25}atenci[óo]n (\d+)|atenci[óo]n (\d+).{0,40}(similares|parecidos)",
@@ -215,20 +215,26 @@ def preguntar(body: PreguntarIn, db: DbSession, user: CurrentUser):
         guia = ia_tools.ejecutar("guiar_creacion")
         if guia["guia"]:
             return {"respuesta": guia["guia"], "fuente": "kb_nueva", "fuente_label": fuente_label("kb_nueva"), "rechazado": False}
-    if _CAPACIDAD.search(body.pregunta):
-        return {"respuesta": CAPACIDAD_RESPUESTA, "fuente": None, "rechazado": False}
-    if _ESTADISTICAS.search(body.pregunta):
-        return _estadisticas(db)
     m = _AYUDA_ATENCION.search(body.pregunta)
     if m:
-        aid = int(m.group(4))
+        from app.models.atencion import Atencion
+        from app.models.usuario import Usuario
+
+        aid = int(m.group(3))
         ficha = _ficha_atencion(f"atencion_{aid}")
         if not ficha:
             return {"respuesta": f"No encontré la atención #{aid}.", "fuente": None, "rechazado": False}
+        a = db.get(Atencion, aid)
+        dueno = "—"
+        if a is not None:
+            u = db.get(Usuario, a.usuario_id)
+            if u is not None:
+                dueno = u.display_name
         return {
             "respuesta": (
-                f"Atención #{aid} ({ficha['categoria']}, {ficha['area']}): "
-                f"{ficha['descripcion']} ¿Qué quieres hacer con ella?"
+                f"Atención #{aid} ({ficha['categoria']}, {ficha['area']}), "
+                f"registrada por {dueno}: {ficha['descripcion']} "
+                f"¿Qué quieres hacer con ella?"
             ),
             "fuente": f"atencion_{aid}",
             "fuente_label": fuente_label(f"atencion_{aid}"),
@@ -268,6 +274,10 @@ def preguntar(body: PreguntarIn, db: DbSession, user: CurrentUser):
             "fuente_label": fuente_label(f"atencion_{aid}"),
             "rechazado": False,
         }
+    if _CAPACIDAD.search(body.pregunta):
+        return {"respuesta": CAPACIDAD_RESPUESTA, "fuente": None, "rechazado": False}
+    if _ESTADISTICAS.search(body.pregunta):
+        return _estadisticas(db)
     resultados = ia_retrieval.buscar(body.pregunta, 3)
     if not resultados or float(resultados[0]["distancia"]) > UMBRAL_SIN_EVIDENCIA:
         top = resultados[0] if resultados else None

@@ -36,6 +36,9 @@
   function addVoto(pregunta, respuesta, fuente) {
     var p = document.createElement("p");
     p.className = "wilmercito-msg fuente";
+    var hint = document.createElement("span");
+    hint.textContent = "¿Qué te pareció esta respuesta? ";
+    p.appendChild(hint);
     [["👍", 4], ["👎", 1]].forEach(function (par) {
       var b = document.createElement("button");
       b.type = "button";

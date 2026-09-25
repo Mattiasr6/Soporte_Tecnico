@@ -96,7 +96,10 @@ def indexar(db) -> dict[str, Any]:
     model, col = _lazy()
     existentes = set(col.get(ids=None, include=[])["ids"])
     nuevas = 0
-
+    _nombres = {
+        u.id: u.display_name
+        for u in db.execute(select(Usuario)).scalars().all()
+    }
     def _agregar(pid, pregunta, documento, categoria="", area="", titulo=""):
         if pid in existentes:
             return
@@ -120,6 +123,7 @@ def indexar(db) -> dict[str, Any]:
             f"{a.descripcion or ''}\nSolución: {a.solucion or ''}"
             f"\nCategoría: {a.categoria or ''} · Área: {a.area_solicitante or ''}"
             f" · Medio: {a.medio_solicitud or ''}"
+            f"\nRegistrada por: {_nombres.get(a.usuario_id, '—')}"
         )
         if a.observaciones:
             ficha += f"\nObservaciones: {a.observaciones}"
