@@ -269,11 +269,22 @@ mano cada mes.
 
 ---
 
-## R1 · `/reportes`
+## R1 · `/reportes` — **HECHO** (2026-09-25)
 
-**Hay que decidir si es un feature real.** En v2 (`frontend/src/app/reporte/page.tsx`,
-180 líneas) **no hace ningún `fetch`**: parece una maqueta. Si es real, definir qué
-reportes y en qué formato (Excel, PDF, imprimible).
+> **Confirmado que sí era un feature real**: el jefe (Wilmer) presenta mes a mes el trabajo
+> del equipo al rectorado. Spec: `docs/spec-s14-reportes.md`. Lo de abajo es el contexto original.
+
+**Criterios que fijó el usuario**: solo **imprimible** (sin export a Excel) · **sin sección
+por técnico** (el rectorado no necesita eso) · **mes elegible + acumulado del año**.
+
+**Implementado**: `/reportes/?mes=YYYY-MM&vista=mes|anio` con 5 KPIs comparados al mes
+anterior, evolución del año, categorías, sectores, medios y tipo de solicitante, top 10
+áreas, 3 casos destacados y nota de metodología. Imprime a PDF con `@media print` (A4,
+oculta nav y selector, `break-inside: avoid`) sin librerías nuevas.
+
+**Decisión abierta (D-01)**: los "destacados" salen de una heurística (la solución más larga
+de cada categoría top-3). La alternativa es un flag manual `destacar` en la atención, que
+requiere backend.
 
 ---
 
