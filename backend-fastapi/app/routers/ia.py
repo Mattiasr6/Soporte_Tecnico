@@ -37,6 +37,15 @@ SALUDO_RESPUESTA = (
     "¡Hola! Soy Wilmercito, el asistente del Sistema de Soporte Técnico. "
     "Pregúntame sobre atenciones, categorías, áreas, técnicos o reportes."
 )
+_IDENTIDAD = re.compile(
+    r"qui[eé]n eres|qu[eé] eres|c[óo]mo te llamas|tu nombre|pres[ée]ntate",
+    re.IGNORECASE,
+)
+IDENTIDAD_RESPUESTA = (
+    "Soy Wilmercito, el asistente virtual del Sistema de Soporte Técnico. "
+    "Te ayudo con atenciones, categorías, medios de solicitud, áreas, "
+    "técnicos, turnos, estados y reportes. ¿En qué te ayudo?"
+)
 
 WILMERCITO_SYSTEM = """Eres Wilmercito, el asistente virtual del Sistema de Soporte Técnico.
 Solo respondes sobre: atenciones, categorías, medios de solicitud, áreas/grupos/jerarquía,
@@ -96,6 +105,8 @@ def preguntar(body: PreguntarIn, db: DbSession, user: CurrentUser):
         return {"respuesta": RECHAZO_EXACTO, "fuente": None, "rechazado": True}
     if _SALUDO.search(body.pregunta.strip()):
         return {"respuesta": SALUDO_RESPUESTA, "fuente": "kb_saludo", "rechazado": False}
+    if _IDENTIDAD.search(body.pregunta):
+        return {"respuesta": IDENTIDAD_RESPUESTA, "fuente": "kb_identidad", "rechazado": False}
     resultados = ia_retrieval.buscar(body.pregunta, 3)
     if not resultados or float(resultados[0]["distancia"]) > UMBRAL_SIN_EVIDENCIA:
         return {"respuesta": SIN_DATO, "fuente": None, "rechazado": False}
