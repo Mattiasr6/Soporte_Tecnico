@@ -97,6 +97,15 @@ intención SQL determinista (`_ESTADISTICAS`: totales, mes actual, top categorí
 Fuentes legibles para técnicos: Base de conocimiento, Atención #N, Personal del
 sistema, Organización, Datos del sistema, Conocimiento del equipo.
 
+## 5d. Tools estilo MCP (`app/services/ia_tools.py`)
+
+Registro de tools con schemas JSON compatibles MCP (`buscar_atenciones`,
+`guiar_creacion`): el router de intenciones las ejecuta localmente. Decisión
+consciente: con un 1.5B el function-calling del modelo no es fiable para demo;
+los intents deterministas + confirmación humana dan 100% y el paso a un servidor
+MCP real es exponer este mismo registro. Poderes futuros (crear borrador con
+confirmación) siguen este camino, siempre con el JWT del usuario y sus roles.
+
 ## 5. Contratos API (diseño — implementación en curso)
 
 Base: `backend-fastapi/app/routers/ia.py` (mismo patrón que los routers existentes).

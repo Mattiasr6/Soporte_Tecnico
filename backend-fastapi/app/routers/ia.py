@@ -12,7 +12,7 @@ from app.core.errors import forbidden
 from app.core.security import CurrentUser, is_privileged
 from app.db.session import DbSession
 from app.models.feedback_ia import FeedbackIA
-from app.services import ia_retrieval
+from app.services import ia_retrieval, ia_tools
 
 router = APIRouter(prefix="/api/ia", tags=["ia"])
 
@@ -58,15 +58,15 @@ _CREAR_ATENCION = re.compile(
 )
 # "¿tú podrías hacerlo por mí?": respuesta honesta de capacidades, sin modelo.
 _CAPACIDAD = re.compile(
-    r"(p+[ou]edes|podr[íi]as|ser[íi]as capaz|te animas).{0,30}"
-    r"(hacerlo|crearlo|cambiarlo|hacer|crear|por m[ií]|por tu cuenta)",
+    r"(p+[ou]edes|podr[íi]as|ser[íi]as capaz|serias capaz|te animas).{0,40}"
+    r"(hacerlo|crearlo|cambiarlo|hacer|crear|realizar|ayudar|por m[ií]|por tu cuenta|una atenci[óo]n)",
     re.IGNORECASE,
 )
 CAPACIDAD_RESPUESTA = (
     "Todavía no puedo hacer cambios por ti: solo leo y explico. "
-    "Puedo buscar casos parecidos, decirte cómo crear una atención y responder "
-    "sobre categorías, áreas, técnicos y reportes. Si me calificas con 👍/👎, "
-    "aprendo para la próxima."
+    "Puedo buscar casos parecidos, guiarte para crear una atención "
+    "(Atenciones, Nueva atención), y responder sobre categorías, áreas, "
+    "técnicos y reportes. Si me calificas con 👍/👎, aprendo para la próxima."
 )
 # Sin evidencia pero con candidato cercano: ofrecerlo marcado como sugerencia
 # en vez de un "no" seco (límite 0.9, bien lejos del umbral 0.5).
@@ -190,9 +190,9 @@ def preguntar(body: PreguntarIn, db: DbSession, user: CurrentUser):
     if _IDENTIDAD.search(body.pregunta):
         return {"respuesta": IDENTIDAD_RESPUESTA, "fuente": "kb_identidad", "fuente_label": fuente_label("kb_identidad"), "rechazado": False}
     if _CREAR_ATENCION.search(body.pregunta):
-        doc = ia_retrieval.por_id("kb_nueva")
-        if doc:
-            return {"respuesta": doc["solucion"], "fuente": "kb_nueva", "fuente_label": fuente_label("kb_nueva"), "rechazado": False}
+        guia = ia_tools.ejecutar("guiar_creacion")
+        if guia["guia"]:
+            return {"respuesta": guia["guia"], "fuente": "kb_nueva", "fuente_label": fuente_label("kb_nueva"), "rechazado": False}
     if _CAPACIDAD.search(body.pregunta):
         return {"respuesta": CAPACIDAD_RESPUESTA, "fuente": None, "rechazado": False}
     if _ESTADISTICAS.search(body.pregunta):
