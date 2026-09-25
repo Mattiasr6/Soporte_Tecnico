@@ -859,30 +859,26 @@ html.a11y-contraste-alto textarea {
   margin: 6px 0;
 }
 
-.dash .bloque,
-.inicio .bloque {
+.bloque {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-card);
   padding: 16px 18px 10px;
   margin-top: 18px;
 }
-.dash .bloque > header,
-.inicio .bloque > header {
+.bloque > header {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
   gap: 10px;
   margin-bottom: 7px;
 }
-.dash .bloque h2,
-.inicio .bloque h2 {
+.bloque h2 {
   margin: 0;
   font-size: 16px;
   color: var(--color-accent-deep);
 }
-.dash .bloque small,
-.inicio .bloque small {
+.bloque small {
   color: var(--color-muted);
   font-size: 11px;
 }
