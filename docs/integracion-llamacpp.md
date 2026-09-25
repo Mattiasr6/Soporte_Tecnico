@@ -75,6 +75,9 @@ Flujo de una pregunta: burbuja Wilmercito (Django) → `POST /ia/preguntar`
 7. **llama.cpp en host**: `git clone`, `cmake -DGGML_CUDA=ON -DCMAKE_CUDA_ARCHITECTURES=75`,
    `cmake --build --target llama-server llama-cli`.
 8. **Ollama fuera**: `systemctl stop + disable ollama` (binario conservado; desinstalar queda a decisión).
+9. **Acceso por Tailscale**: la VM no tiene ufw (pasa directo); se agregó `100.90.209.98`
+   a `DJANGO_ALLOWED_HOSTS` del `.env` de la VM y se reinició `soporte-web-ia`.
+   Verificación desde el host: `curl http://100.90.209.98:8011/` → 302 + login con CSRF.
 
 ## 5. Contratos API (diseño — implementación en curso)
 
