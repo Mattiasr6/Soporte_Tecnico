@@ -40,8 +40,9 @@ token y chequeo en `require_user`. Decisión del usuario: no es fundamental, per
 
 ### J2b · Catálogo: renombres y movimientos pendientes (decididos, nunca aplicados)
 
-- `Extras` → **`Instituciones`**
-- `Eventos` sube a **sector** y pasa a llamarse **`Espacios comunes`**; se le suman `Sala Magna` y `Sala de lectura`
+- `Extras` → **`Instituciones`** (sigue siendo sector: son 3, siempre)
+- `Eventos` sale de `Extras` y pasa a **dependencia de `Administrativos`** renombrada
+  **`Espacios comunes`**; se le suman `Sala Magna` y `Sala de lectura`
 - `Sala 1/2/3 (Directorio)` → `Instituciones › Directorio`
 - `Sala de Docentes` se queda en Vicerrectorado
 
@@ -318,9 +319,12 @@ backend nuevo: se enriqueció `/api/usuarios` (`horario_hoy`, `entra_a_las`,
 
 ## Decisiones ya tomadas (no volver a preguntar)
 
-- Sectores: **Administrativos · Académicos · Espacios comunes · Instituciones**.
-  `Eventos` sube a sector y pasa a llamarse "Espacios comunes"; se le suman
-  `Sala Magna` y `Sala de lectura`. `Sala de Docentes` **se queda** en Vicerrectorado.
+- Sectores: **siempre 3** — `Administrativos · Académicos · Instituciones` (`Extras` se renombra a
+  **`Instituciones`**). Es a propósito: no hay un 4to sector ni columna `Activo` en `GruposPadres`,
+  para que no puedan crearse más de 3.
+- `Eventos` sale de `Extras` y pasa a **dependencia de `Administrativos`** renombrada
+  **"Espacios comunes"**; se le suman `Sala Magna` y `Sala de lectura`.
+  `Sala de Docentes` **se queda** en Vicerrectorado.
 - `Sala 1/2/3 (Directorio)` pertenecen a `Instituciones › Directorio`.
 - El sector de terceros se llama **"Instituciones"** (el jefe rechazó "Externos" por
   sonar excluyente). `EIAG` es posgrado y es empresa aparte → va como dependencia.
