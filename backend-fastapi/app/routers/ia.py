@@ -72,6 +72,19 @@ CAPACIDAD_RESPUESTA = (
 # en vez de un "no" seco (límite 0.9, bien lejos del umbral 0.5).
 UMBRAL_SUGERENCIA = 0.9
 
+
+def fuente_label(fuente: str | None) -> str | None:
+    """Etiqueta legible para técnicos (nunca IDs internos en el chat)."""
+    if not fuente:
+        return None
+    if fuente.startswith("atencion_"):
+        return f"Atención #{fuente[len('atencion_'):]}"
+    if fuente.startswith("feedback_"):
+        return "Conocimiento del equipo"
+    if fuente.startswith("kb_"):
+        return "Base de conocimiento"
+    return fuente
+
 WILMERCITO_SYSTEM = """Eres Wilmercito, el asistente virtual del Sistema de Soporte Técnico.
 Solo respondes sobre: atenciones, categorías, medios de solicitud, áreas/grupos/jerarquía,
 técnicos/jefes/turnos, estados y dashboard/reportes.
@@ -129,13 +142,13 @@ def preguntar(body: PreguntarIn, db: DbSession, user: CurrentUser):
     if _JAILBREAK.search(body.pregunta):
         return {"respuesta": RECHAZO_EXACTO, "fuente": None, "rechazado": True}
     if _SALUDO.search(body.pregunta.strip()):
-        return {"respuesta": SALUDO_RESPUESTA, "fuente": "kb_saludo", "rechazado": False}
+        return {"respuesta": SALUDO_RESPUESTA, "fuente": "kb_saludo", "fuente_label": fuente_label("kb_saludo"), "rechazado": False}
     if _IDENTIDAD.search(body.pregunta):
-        return {"respuesta": IDENTIDAD_RESPUESTA, "fuente": "kb_identidad", "rechazado": False}
+        return {"respuesta": IDENTIDAD_RESPUESTA, "fuente": "kb_identidad", "fuente_label": fuente_label("kb_identidad"), "rechazado": False}
     if _CREAR_ATENCION.search(body.pregunta):
         doc = ia_retrieval.por_id("kb_nueva")
         if doc:
-            return {"respuesta": doc["solucion"], "fuente": "kb_nueva", "rechazado": False}
+            return {"respuesta": doc["solucion"], "fuente": "kb_nueva", "fuente_label": fuente_label("kb_nueva"), "rechazado": False}
     if _CAPACIDAD.search(body.pregunta):
         return {"respuesta": CAPACIDAD_RESPUESTA, "fuente": None, "rechazado": False}
     resultados = ia_retrieval.buscar(body.pregunta, 3)
@@ -149,6 +162,7 @@ def preguntar(body: PreguntarIn, db: DbSession, user: CurrentUser):
                     f"{top['descripcion']} — Solución: {top['solucion']}"
                 ),
                 "fuente": top["id"],
+                "fuente_label": fuente_label(top["id"]),
                 "rechazado": False,
                 "sugerencia": True,
             }
@@ -163,7 +177,7 @@ def preguntar(body: PreguntarIn, db: DbSession, user: CurrentUser):
         return JSONResponse(status_code=503, content={"detail": "motor-ia-no-disponible"})
     if any(m in respuesta.lower() for m in _MARCAS_FUERA_DE_TEMA):
         return {"respuesta": RECHAZO_EXACTO, "fuente": None, "rechazado": True}
-    return {"respuesta": respuesta, "fuente": top["id"], "rechazado": False}
+    return {"respuesta": respuesta, "fuente": top["id"], "fuente_label": fuente_label(top["id"]), "rechazado": False}
 
 
 class CalificarIn(BaseModel):

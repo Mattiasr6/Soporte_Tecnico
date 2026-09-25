@@ -59,4 +59,10 @@ urlpatterns = [
         views.conocimiento_promover_vista,
         name="conocimiento_promover",
     ),
+    path("asistente/", views.asistente_vista, name="asistente"),
+    path(
+        "asistente/reindexar/",
+        views.asistente_reindexar_vista,
+        name="asistente_reindexar",
+    ),
 ]

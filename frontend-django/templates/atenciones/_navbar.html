@@ -54,6 +54,10 @@
         <iconify-icon icon="mdi:account-cog-outline" aria-hidden="true"></iconify-icon>
         <span class="side-link-label">Usuarios</span>
       </a>
+      <a class="side-link{% if nav_page == 'asistente' %} active{% endif %}" href="{% url 'asistente' %}" {% if nav_page == 'asistente' %}aria-current="page"{% endif %} data-nav-page="asistente">
+        <iconify-icon icon="mdi:robot-outline" aria-hidden="true"></iconify-icon>
+        <span class="side-link-label">Asistente</span>
+      </a>
       <div class="nav-section">Equipo</div>
       {% else %}
       <div class="nav-section">Equipo</div>

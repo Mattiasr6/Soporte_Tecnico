@@ -72,7 +72,7 @@
       msgs.lastChild.remove();
       if (d.ok) {
         add(d.respuesta, "el");
-        if (d.fuente) add("Fuente: " + d.fuente, "fuente");
+        if (d.fuente_label || d.fuente) add("Fuente: " + (d.fuente_label || d.fuente), "fuente");
         addVoto(q, d.respuesta, d.fuente || null);
       } else {
         add(d.error || "Error.", "el");

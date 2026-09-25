@@ -1789,7 +1789,6 @@ def conocimiento_vista(request: HttpRequest) -> HttpResponse:
         request, "atenciones/conocimiento.html", {"pendientes": pendientes or []}
     )
 
-
 @con_login
 @require_POST
 def conocimiento_promover_vista(request: HttpRequest) -> HttpResponse:
@@ -1801,3 +1800,34 @@ def conocimiento_promover_vista(request: HttpRequest) -> HttpResponse:
     except (ApiError, ValueError):
         pass
     return redirect("conocimiento")
+
+
+@con_login
+def asistente_vista(request: HttpRequest) -> HttpResponse:
+    if not _puede_dashboard(request):
+        return redirect("atenciones_lista")
+    token = str(request.session["jwt"])
+    estado = api_get("/api/ia/estado", token)
+    pendientes = api_get("/api/ia/feedback", token)
+    return render(
+        request,
+        "atenciones/asistente.html",
+        {
+            "estado": estado if isinstance(estado, dict) else {},
+            "n_pendientes": len(pendientes) if isinstance(pendientes, list) else 0,
+            "flash": request.session.pop("flash", None),
+        },
+    )
+
+
+@con_login
+@require_POST
+def asistente_reindexar_vista(request: HttpRequest) -> HttpResponse:
+    if not _puede_dashboard(request):
+        return redirect("atenciones_lista")
+    try:
+        api_post("/api/ia/reindexar", str(request.session["jwt"]), {})
+        request.session["flash"] = {"tipo": "ok", "texto": "Índice de Wilmercito actualizado."}
+    except ApiError as e:
+        request.session["flash"] = {"tipo": "error", "texto": _detalle_error(e)}
+    return redirect("asistente")
