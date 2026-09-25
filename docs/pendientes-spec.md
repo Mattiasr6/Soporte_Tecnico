@@ -29,8 +29,15 @@
 
 ### A2 · Responsive: `/atenciones` en móvil se ve mal
 
-Reportado por el usuario: en celular la lista se ve "horrible". Necesita una pasada de responsive de
-verdad (no solo la accesibilidad genérica de A1). Alcance a definir: qué pantallas y a qué anchos.
+Medido el 2026-09-24 a 390px de ancho. **Fase A hecha**: las 7 tablas van dentro de
+`.tabla-scroll` (scrollean en vez de perder columnas), `.page-wide` con `box-sizing`, y en
+móvil envuelven `.page-head`, `.filtros` y `.filtros-fila`. Resultado: **10/10 pantallas en
+0px de desborde** (antes: `/horarios` 558, `/atenciones` 172, `/dashboard` 142, `/` 55,
+`/usuarios` 45).
+
+**Fase B pendiente** (decidir viéndola en el celular): `/atenciones` y `/horarios` como
+**tarjetas apiladas** en vez de tabla. Hoy son usables con scroll horizontal, pero no se
+"sienten" bien. Además, el select de filtros trunca el texto en móvil.
 
 ### O1b · Cambiar la contraseña no invalida las sesiones abiertas — **HECHO** (2026-09-24)
 
