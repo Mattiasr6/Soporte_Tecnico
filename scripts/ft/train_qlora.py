@@ -9,17 +9,6 @@ Uso:
 
 import argparse
 
-PROMPT = """Below is an instruction. Write a response that appropriately completes the request.
-
-### Instruction:
-{}
-
-### Input:
-{}
-
-### Response:
-{}"""
-
 
 def main() -> None:
     ap = argparse.ArgumentParser()
@@ -51,7 +40,15 @@ def main() -> None:
 
     def fmt(ex):
         sys, user, asst = (m["content"] for m in ex["messages"])
-        return {"text": PROMPT.format(sys, user, asst)}
+        text = tokenizer.apply_chat_template(
+            [
+                {"role": "system", "content": sys},
+                {"role": "user", "content": user},
+                {"role": "assistant", "content": asst},
+            ],
+            tokenize=False,
+        )
+        return {"text": text}
 
     ds = load_dataset("json", data_files=args.data, split="train").map(fmt)
     # Turing (sm_75) sin bf16 y GradScaler fp16 incompatible con cómputo bf16:
