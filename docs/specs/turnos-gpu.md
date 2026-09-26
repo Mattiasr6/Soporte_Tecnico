@@ -1,6 +1,6 @@
 ---
 title: "Turnos GPU + jobs nocturnos (serve de día, entrena de noche)"
-status: "draft"  # draft | approved | rejected
+status: "approved"  # draft | approved | rejected
 version: "1.0"
 priority: "alta"
 estimated_effort: "2 sesiones"

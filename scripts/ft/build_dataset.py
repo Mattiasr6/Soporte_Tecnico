@@ -70,7 +70,24 @@ def main() -> None:
             vistos.add(fb.pregunta)
             pares.append(("feedback", fb.pregunta, fb.respuesta))
     for pregunta, respuesta in RECHAZOS:
+        vistos.add(pregunta)
         pares.append(("rechazo", pregunta, respuesta))
+    # Balanceo Noche 2: los tickets ahogan (2200 vs 15). Se repite lo curado ×30
+    # con envoltorios variados (aumentación honesta: misma semántica, distinta
+    # superficie) para no memorizar una sola forma.
+    ENVOLTORIOS = [
+        "{q}", "{q}?", "oye, {q}", "dime, {q}", "por favor, {q}",
+        "{q} por favor", "oye {q} porfa", "una pregunta: {q}",
+        "{q}??", "Oye, {q}?",
+    ]
+    base = [p for p in pares if p[0] != "tickets"]
+    for i in range(30):
+        for clase, pregunta, respuesta in base:
+            var = ENVOLTORIOS[i % len(ENVOLTORIOS)].format(q=pregunta.rstrip("?"))
+            if var in vistos:
+                continue
+            vistos.add(var)
+            pares.append((clase, var, respuesta))
 
     with open(args.out, "w", encoding="utf-8") as f:
         for _clase, user, assistant in pares:

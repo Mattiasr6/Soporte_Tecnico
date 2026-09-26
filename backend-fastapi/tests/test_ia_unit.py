@@ -36,8 +36,12 @@ def test_jailbreak_no_falsos_positivos():
 def test_ayuda_extrae_id():
     m = _AYUDA_ATENCION.search("Puedes ayudarme con la atencion 94, a nombre de quién?")
     assert m and int(m.group(3)) == 94
-    m = _AYUDA_ATENCION.search("ayudame con la atención 1234")
+    m = _AYUDA_ATENCION.search("ayudame con la atencion 1234")
     assert m and int(m.group(3)) == 1234
+    m = _AYUDA_ATENCION.search("ayúdame con la atención 94")
+    assert m and int(m.group(3)) == 94
+    m = _AYUDA_ATENCION.search("ayuda con la atención 7")
+    assert m and int(m.group(3)) == 7
 
 
 def test_similares_resumen_extraen_id():
