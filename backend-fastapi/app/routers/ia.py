@@ -624,7 +624,7 @@ def _preguntar_impl(body: PreguntarIn, db: DbSession, user: CurrentUser):
             }
         return {"respuesta": SIN_DATO, "fuente": None, "rechazado": False}
     top = resultados[0]
-    contexto = f"Context: [{top['id']}] {top['solucion']}"
+    contexto = f"Context: {top['solucion']} (fuente: {top['id']})"
     try:
         respuesta = _llama_chat(
             WILMERCITO_SYSTEM, f"{contexto}\n\nQuestion: {body.pregunta}\nAnswer:"
@@ -635,6 +635,8 @@ def _preguntar_impl(body: PreguntarIn, db: DbSession, user: CurrentUser):
         return {"respuesta": RECHAZO_EXACTO, "fuente": None, "rechazado": True}
     if respuesta.strip() == SIN_DATO:
         return {"respuesta": SIN_DATO, "fuente": None, "rechazado": False}
+    if re.fullmatch(r"(atencion|kb|feedback|usuario|area)_\w+", respuesta.strip()):
+        return {"respuesta": str(top["solucion"]), "fuente": top["id"], "fuente_label": fuente_label(top["id"]), "rechazado": False}
     return {"respuesta": respuesta, "fuente": top["id"], "fuente_label": fuente_label(top["id"]), "rechazado": False}
 
 

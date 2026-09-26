@@ -232,15 +232,16 @@ def promover(feedback_id: int, pregunta: str, respuesta: str) -> str:
 
 
 def buscar(texto: str, top_k: int = 3) -> list[dict[str, Any]]:
-    """Top-k con reranking cross-encoder (2da etapa). El umbral vive en el router."""
+    """Híbrido vectorial + BM25 con fusión RRF. El umbral vive en el router."""
     _, col = _lazy()
     n_cand = max(top_k * 4, 12)
     res = col.query(query_embeddings=[embed(texto)], n_results=n_cand)
-    ids = res["ids"][0]
-    docs = res["documents"][0]
-    metas = res["metadatas"][0]
-    dists = res["distances"][0]
-    orden = _rerank(texto, docs)
+    ids: list[str] = res["ids"][0]
+    docs: list[str] = res["documents"][0]
+    metas: list[dict[str, Any]] = res["metadatas"][0]
+    dists = dict(zip(ids, res["distances"][0]))
+    orden = _fusion_rrf(ids, _bm25_top(texto, [m["question"] for m in metas], ids))
+    orden = _rerank_idx(texto, docs, orden)
     out = []
     for i in orden[:top_k]:
         meta = metas[i]
@@ -251,10 +252,52 @@ def buscar(texto: str, top_k: int = 3) -> list[dict[str, Any]]:
                 "solucion": docs[i],
                 "categoria": meta["categoria"],
                 "area": meta["area"],
-                "distancia": dists[i],
+                "distancia": dists[ids[i]],
             }
         )
     return out
+
+
+def _tokens(texto: str) -> list[str]:
+    import re
+    import unicodedata
+
+    nfkd = "".join(
+        c for c in unicodedata.normalize("NFD", texto.lower()) if unicodedata.category(c) != "Mn"
+    )
+    return re.findall(r"[a-z0-9]+", nfkd)
+
+
+_bm25 = None
+_bm25_ids: list[str] = []
+
+
+def _bm25_top(texto: str, preguntas: list[str], ids: list[str]) -> list[int]:
+    """Índices de candidatos por BM25 (keywords exactas: IDs, códigos)."""
+    global _bm25
+    try:
+        if _bm25 is None:
+            from rank_bm25 import BM25Okapi
+
+            _bm25 = BM25Okapi([_tokens(p) for p in preguntas])
+        scores = _bm25.get_scores(_tokens(texto))
+        return sorted(range(len(ids)), key=lambda i: scores[i], reverse=True)
+    except Exception:
+        return list(range(len(ids)))
+
+
+def _fusion_rrf(ids: list[str], orden_bm25: list[int], k: int = 60) -> list[int]:
+    """Reciprocal Rank Fusion: vector (orden dado) + BM25. Devuelve índices."""
+    puntaje = {i: 1.0 / (k + r + 1) for r, i in enumerate(range(len(ids)))}
+    for r, i in enumerate(orden_bm25):
+        puntaje[i] = puntaje.get(i, 0.0) + 1.0 / (k + r + 1)
+    return sorted(puntaje.keys(), key=lambda i: puntaje[i], reverse=True)
+
+
+def _rerank_idx(texto: str, docs: list[str], orden: list[int]) -> list[int]:
+    sub = [docs[i] for i in orden]
+    nuevo = _rerank(texto, sub)
+    return [orden[i] for i in nuevo]
 
 
 _reranker = None
