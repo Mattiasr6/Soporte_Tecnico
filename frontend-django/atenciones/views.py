@@ -1787,6 +1787,31 @@ def wilmercito_calificar_vista(request: HttpRequest) -> JsonResponse:
 
 
 @con_login
+@require_POST
+def sugerir_solucion_vista(request: HttpRequest) -> JsonResponse:
+    try:
+        texto = _json.loads(request.body).get("texto", "").strip()
+    except ValueError:
+        return JsonResponse({"ok": False}, status=400)
+    if len(texto) < 10:
+        return JsonResponse({"ok": True, "resultados": []})
+    try:
+        r = api_post(
+            "/api/ia/buscar", str(request.session["jwt"]), {"texto": texto[:500], "top_k": 3}
+        )
+    except Exception:
+        return JsonResponse({"ok": False}, status=502)
+    if isinstance(r, dict):
+        for x in r.get("resultados", []):
+            sol = str(x.get("solucion", ""))
+            for linea in sol.split("\n"):
+                if linea.strip().lower().startswith("solución:"):
+                    x["solucion"] = linea.split(":", 1)[1].strip()
+                    break
+    return JsonResponse({"ok": True, **r} if isinstance(r, dict) else {"ok": True})
+
+
+@con_login
 def conocimiento_vista(request: HttpRequest) -> HttpResponse:
     if not _puede_dashboard(request):
         return redirect("atenciones_lista")

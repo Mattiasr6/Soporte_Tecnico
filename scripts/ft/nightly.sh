@@ -18,19 +18,14 @@ rollback_serve() { sudo systemctl start llama-server; sleep 30; }
 [ -f "$RAIZ/.noche.env" ] && set -a && source "$RAIZ/.noche.env" && set +a
 [ -n "${NIGHTLY_JWT:-}" ] || { alerta "falta NIGHTLY_JWT en $RAIZ/.noche.env"; exit 1; }
 
-[ "${DRY_RUN:-0}" = "1" ] || { log "stop serve"; sudo systemctl stop llama-server; }
+[ "${DRY_RUN:-0}" = "1" ] && { log "dry-run: solo eval base (sin parar nada)"; }
 
 vme() { ssh -o ConnectTimeout=15 "$VM" "$1"; }
 
-log "reindex"
-vme "cd $VMBASE && set -a; source .env; set +a; .venv/bin/python -c \"
-import httpx
-s = httpx.Client(base_url='http://localhost:5012', timeout=1500)
-h = {'Authorization': 'Bearer $NIGHTLY_JWT'}
-print(s.post('/api/ia/reindexar', headers=h).json())
-\"" | tee -a "$RAIZ/nightly.log"
-
-log "evaluar (gate)"
+# FIX 2026-09-26: gate PRIMERO con serve arriba. Si se para el server antes,
+# todo lo que usa el modelo da 503 y la noche aborta por infraestructura.
+log "evaluar base (gate, con serve)"
+log "evaluar base (gate, con serve)"
 EV=$(vme "cd $VMBASE && set -a; source .env; set +a; .venv/bin/python -c \"
 import httpx
 s = httpx.Client(base_url='http://localhost:5012', timeout=1500)
@@ -41,14 +36,25 @@ print(json.dumps(s.post('/api/ia/evaluar', headers=h).json()))
 echo "$EV" | tee -a "$RAIZ/nightly.log"
 CF=$(echo "$EV" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d['ok'])")
 N=$(echo "$EV" | python3 -c "import json,sys; print(json.load(sys.stdin)['n'])")
-[ "$CF" -ge 9 ] || { alerta "evaluar ok=$CF/$N, aborto noche"; [ "${DRY_RUN:-0}" = "1" ] || rollback_serve; exit 1; }
+[ "$CF" -ge 9 ] || { alerta "base ok=$CF/$N, aborto noche"; exit 1; }
+
+if [ "${DRY_RUN:-0}" = "1" ]; then log "dry-run fin (serve intacto)"; exit 0; fi
+
+log "stop serve"
+sudo systemctl stop llama-server
+
+log "reindex"
+vme "cd $VMBASE && set -a; source .env; set +a; .venv/bin/python -c \"
+import httpx
+s = httpx.Client(base_url='http://localhost:5012', timeout=1500)
+h = {'Authorization': 'Bearer $NIGHTLY_JWT'}
+print(s.post('/api/ia/reindexar', headers=h).json())
+\"" | tee -a "$RAIZ/nightly.log"
 
 log "dataset"
 vme "cd $VMBASE && set -a; source .env; set +a; .venv/bin/python ~/Soporte_Tecnico2/scripts/ft/build_dataset.py --out ~/ft-wilmercito/data/ft_train.jsonl && .venv/bin/python ~/Soporte_Tecnico2/scripts/ft/validate_dataset.py --in ~/ft-wilmercito/data/ft_train.jsonl" | tee -a "$RAIZ/nightly.log" \
-  || { alerta "dataset inválido"; [ "${DRY_RUN:-0}" = "1" ] || rollback_serve; exit 1; }
+  || { alerta "dataset inválido"; rollback_serve; exit 1; }
 scp -q "$VM:~/ft-wilmercito/data/ft_train.jsonl" "$RAIZ/data/ft_train.jsonl"
-
-if [ "${DRY_RUN:-0}" = "1" ]; then log "dry-run fin (sin train, serve intacto)"; exit 0; fi
 
 log "train"
 if ! timeout 12600 "$RAIZ/venv/bin/python" "$HOME/Proyectos/Soporte_Tecnico2/scripts/ft/train_qlora.py" \

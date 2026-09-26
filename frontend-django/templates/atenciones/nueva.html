@@ -39,6 +39,11 @@
     <textarea id="id_desc" name="descripcion" rows="3" required>{{ edit_item.descripcion|default:"" }}</textarea>
     <label for="id_sol">Solución</label>
     <textarea id="id_sol" name="solucion" rows="3" required>{{ edit_item.solucion|default:"" }}</textarea>
+    <div id="sug-box" class="destacado" hidden>
+      <div class="destacado-meta"><span>Wilmercito sugiere</span></div>
+      <p class="destacado-desc" id="sug-texto"></p>
+      <button type="button" class="btn ghost" id="sug-usar">Usar como base</button>
+    </div>
     <div class="opcionales">
       <label class="tick"><input type="checkbox" id="tick_obs"{% if edit_item.observaciones %} checked{% endif %}> Agregar observaciones</label>
       <div id="wrap_obs"{% if not edit_item.observaciones %} hidden{% endif %}>
@@ -135,5 +140,37 @@ document.querySelectorAll(".plantillas button").forEach((b) => {
   tick.addEventListener("change", sync);
   sync();
 });
+
+(function () {
+  const desc = document.getElementById("id_desc");
+  const sol = document.getElementById("id_sol");
+  const box = document.getElementById("sug-box");
+  const texto = document.getElementById("sug-texto");
+  const usar = document.getElementById("sug-usar");
+  const csrf = document.querySelector("#form-atencion [name=csrfmiddlewaretoken]").value;
+  let timer = null, ultima = "";
+  desc.addEventListener("input", () => {
+    clearTimeout(timer);
+    const q = desc.value.trim();
+    if (q.length < 10 || q === ultima || sol.value.trim()) { if (sol.value.trim()) box.hidden = true; return; }
+    timer = setTimeout(() => {
+      ultima = q;
+      fetch("{% url 'sugerir_solucion' %}", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-CSRFToken": csrf },
+        body: JSON.stringify({ texto: q }),
+      }).then((r) => r.json()).then((d) => {
+        const top = (d.resultados || [])[0];
+        if (d.ok && top && !top.id.startsWith("kb_") && !top.id.startsWith("usuario_") && !top.id.startsWith("area_")) {
+          texto.textContent = top.solucion;
+          usar.onclick = () => { sol.value = top.solucion; box.hidden = true; };
+          box.hidden = false;
+        } else {
+          box.hidden = true;
+        }
+      }).catch(() => { box.hidden = true; });
+    }, 800);
+  });
+})();
 </script>
 {% endblock %}

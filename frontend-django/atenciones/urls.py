@@ -16,6 +16,11 @@ urlpatterns = [
     path("atenciones/", views.lista_vista, name="atenciones_lista"),
     path("atenciones/nueva/", views.nueva_vista, name="atenciones_nueva"),
     path(
+        "atenciones/nueva/sugerir/",
+        views.sugerir_solucion_vista,
+        name="sugerir_solucion",
+    ),
+    path(
         "atenciones/<int:atencion_id>/ticket/",
         views.ticket_vista,
         name="atencion_ticket",
