@@ -1,4 +1,4 @@
-<button id="wilmercito-btn" class="wilmercito-btn" aria-label="Abrir Wilmercito">W</button>
+<button id="wilmercito-btn" class="wilmercito-btn" aria-label="Abrir Wilmercito" data-nombre="{{ usuario.display_name|default:'' }}">W</button>
 <div id="wilmercito-panel" class="wilmercito-panel" hidden>
   <div class="wilmercito-head"><strong>Wilmercito</strong><span> · asistente de soporte</span></div>
   <div id="wilmercito-msgs" class="wilmercito-msgs"></div>
@@ -57,6 +57,13 @@
     panel.hidden = !panel.hidden;
     if (!panel.hidden) {
       input.focus();
+      if (!msgs.dataset.hola) {
+        msgs.dataset.hola = "1";
+        var nombre = (btn.dataset.nombre || "").split(" ")[0];
+        var h = new Date(Date.now() - 4 * 3600 * 1000).getUTCHours();
+        var momento = h < 12 ? "Buenos días" : (h < 19 ? "Buenas tardes" : "Buenas noches");
+        add(momento + (nombre ? ", " + nombre : "") + ". Soy Wilmercito, ¿en qué te ayudo hoy?", "el");
+      }
       if (!msgs.dataset.menu) {
         msgs.dataset.menu = "1";
         var mp = document.createElement("p");
@@ -74,6 +81,24 @@
     }
   });
   var fallos = 0;
+  function addTarjeta(t) {
+    var d = document.createElement("div");
+    d.className = "wilmercito-card";
+    var h = document.createElement("div");
+    h.className = "wilmercito-card-head";
+    h.textContent = (t.id ? "#" + t.id + " · " : "") + (t.categoria || "");
+    d.appendChild(h);
+    var b = document.createElement("div");
+    b.className = "wilmercito-card-body";
+    b.textContent = t.descripcion || "";
+    d.appendChild(b);
+    var f = document.createElement("div");
+    f.className = "wilmercito-card-foot";
+    f.textContent = [t.area, t.dueno].filter(Boolean).join(" · ");
+    d.appendChild(f);
+    msgs.appendChild(d);
+    msgs.scrollTop = msgs.scrollHeight;
+  }
   function enviar(q) {
     add(q, "yo");
     add("…", "pensando");
@@ -88,6 +113,8 @@
       msgs.lastChild.remove();
       if (d.ok) {
         add(d.respuesta, "el");
+        if (d.tarjeta) addTarjeta(d.tarjeta);
+        if (d.tarjetas) d.tarjetas.forEach(addTarjeta);
         if (d.fuente_label || d.fuente) {
           add("Fuente: " + (d.fuente_label || d.fuente), "fuente");
           fallos = 0;

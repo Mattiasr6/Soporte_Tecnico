@@ -913,6 +913,13 @@ def _preguntar_impl(body: PreguntarIn, db: DbSession, user: CurrentUser):
             "fuente_label": fuente_label(f"atencion_{aid}"),
             "rechazado": False,
             "opciones": _opciones_atencion(aid),
+            "tarjeta": {
+                "id": aid,
+                "categoria": ficha["categoria"],
+                "area": ficha["area"],
+                "descripcion": ficha["descripcion"],
+                "dueno": dueno,
+            },
         }
     m = _SIMILARES.search(body.pregunta)
     if m:
@@ -926,6 +933,15 @@ def _preguntar_impl(body: PreguntarIn, db: DbSession, user: CurrentUser):
             "fuente": sims[0]["id"],
             "fuente_label": fuente_label(sims[0]["id"]),
             "rechazado": False,
+            "tarjetas": [
+                {
+                    "id": int(s["id"].split("_", 1)[1]) if s["id"].split("_", 1)[1].isdigit() else s["id"],
+                    "categoria": s["categoria"],
+                    "area": s["area"],
+                    "descripcion": s["descripcion"],
+                }
+                for s in sims
+            ],
         }
     m = _RESUMIR.search(body.pregunta)
     if m:
