@@ -4,7 +4,14 @@ from typing import Any
 
 from .client import api
 
-WILMERCITO_ID = 14
+WILMERCITO_EMAIL = "wilmercito@sistema.upds.edu.bo"
+
+
+def _wilmercito_id(jwt: str) -> int | None:
+    for u in api("GET", "/api/usuarios?incluir_inactivos=true", jwt):
+        if isinstance(u, dict) and u.get("email") == WILMERCITO_EMAIL:
+            return u.get("id")
+    return None
 
 
 def soporte_buscar_atenciones(jwt: str, texto: str, top_k: int = 3) -> Any:
@@ -42,7 +49,7 @@ def soporte_crear_borrador(
             "usuario_solicitante": usuario_solicitante,
             "solucion": solucion or "Pendiente de atención.",
             "observaciones": observaciones,
-            "colaborador_id": WILMERCITO_ID,
+            "colaborador_id": _wilmercito_id(jwt),
         },
         "requiere_confirm": True,
     }
@@ -55,7 +62,7 @@ def soporte_confirmar_creacion(
     if confirm is not True:
         return {"ok": False, "detail": "requiere_confirm"}
     borrador = dict(borrador)
-    borrador["colaborador_id"] = WILMERCITO_ID
+    borrador["colaborador_id"] = _wilmercito_id(jwt)
     return api("POST", "/api/atenciones/batch", jwt, {"atenciones": [borrador]})
 
 

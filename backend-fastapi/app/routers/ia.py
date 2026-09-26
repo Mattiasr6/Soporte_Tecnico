@@ -256,7 +256,19 @@ CATEGORIAS = [
 ]
 MEDIOS = ["Interno", "Presencial", "WhatsApp", "E-ticket"]
 SOLICITANTES = ["ADM", "BEC", "DOC", "EST", "EIAG"]
-WILMERCITO_ID = 14
+WILMERCITO_EMAIL = "wilmercito@sistema.upds.edu.bo"
+
+
+def wilmercito_id(db: DbSession) -> int | None:
+    """Id del usuario Wilmercito por email (estable entre ambientes)."""
+    from sqlalchemy import select
+
+    from app.models.usuario import Usuario
+
+    u = db.execute(
+        select(Usuario).where(Usuario.email == WILMERCITO_EMAIL)
+    ).scalar_one_or_none()
+    return u.id if u is not None else None
 
 _FLUJO_INICIO = re.compile(r"cre[áa](?:me|le|r)?\s+(la\s+)?atenci[óo]n\s*:\s*(.+)", re.IGNORECASE)
 _FLUJO_ESTADO = re.compile(r"crear atención\s*\|(.*)", re.IGNORECASE)
@@ -614,7 +626,7 @@ def _flujo_crear(db: DbSession, user: CurrentUser, texto: str) -> dict[str, obje
                     categoria=campos["categoria"],
                     descripcion=campos["desc"],
                     solucion="Pendiente de atención.",
-                    colaborador_id=WILMERCITO_ID,
+                    colaborador_id=wilmercito_id(db),
                 )
             ]
         )
@@ -1344,7 +1356,7 @@ def propuesta_resolver(pid: int, db: DbSession, user: CurrentUser, aprobar: bool
                     categoria=datos.get("categoria", "Otros"),
                     descripcion=datos.get("descripcion", ""),
                     solucion=datos.get("solucion", "Pendiente de atención."),
-                    colaborador_id=WILMERCITO_ID,
+                    colaborador_id=wilmercito_id(db),
                 )
             ]
         )
