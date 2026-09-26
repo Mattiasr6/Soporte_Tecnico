@@ -27,7 +27,7 @@ from app.services.csv_import import MEDIOS_VALIDOS, SOLICITANTES_VALIDOS
 RAIZ = Path(__file__).resolve().parents[2]
 MAPEO = RAIZ / "mapeo-areas.csv"
 CATALOGO = RAIZ / "mapeo-areas-dedup.csv"
-CONTENEDOR = "soporte-postgres"
+CONTENEDOR = os.getenv("SYNC_CONTENEDOR", "soporte-postgres")
 DESDE = sys.argv[1] if len(sys.argv) > 1 else "2026-09-01"
 SALIDA = RAIZ / (sys.argv[2] if len(sys.argv) > 2 else "atenciones_septiembre.csv")
 
