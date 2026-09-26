@@ -91,3 +91,12 @@ def test_capacidad_y_rechazo_constantes():
     assert "Wilmercito" in ia.CAPACIDAD_RESPUESTA
     assert ia.UMBRAL_SIN_EVIDENCIA == 0.5
     assert ia.UMBRAL_SUGERENCIA == 0.9
+
+
+def test_informe_detecta_dimension():
+    assert ia._DIM_TECNICO.search("ranking de técnicos este mes")
+    assert ia._DIM_AREA.search("listado por área")
+    assert ia._DIM_MEDIO.search("desglose por medio")
+    assert ia._DIM_CATEGORIA.search("informe por categoría")
+    assert ia._INFORME.search("dame el informe del mes")
+    assert not ia._INFORME.search("hola como estas")

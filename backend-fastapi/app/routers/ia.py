@@ -69,6 +69,17 @@ _EST_TECNICO = re.compile(
     r"(t[ée]cnico|t[ée]cnica|del |de )([a-záéíóúñü ]{3,60})",
     re.IGNORECASE,
 )
+# Text-to-SQL con allowlist: el modelo JAMÁS genera SQL. Solo dimensiones
+# y filtros de un catálogo cerrado; la query la arma SQLAlchemy.
+_INFORME = re.compile(
+    r"informe|reporte|listado|ranking|top\b|cu[áa]ntas hay|cu[áa]ntos hay|desglose|por categor[íi]a|por [áa]rea",
+    re.IGNORECASE,
+)
+_DIM_CATEGORIA = re.compile(r"por categor[íi]a|categor[íi]as", re.IGNORECASE)
+_DIM_AREA = re.compile(r"por [áa]reas?|por zona", re.IGNORECASE)
+_DIM_TECNICO = re.compile(r"por t[ée]cnicos?|ranking de t[ée]cnicos?|qui[ée]n atiende m[áa]s", re.IGNORECASE)
+_DIM_MEDIO = re.compile(r"por medios?|por canal", re.IGNORECASE)
+_FILTRO_MES = re.compile(r"este mes|del mes|mensual", re.IGNORECASE)
 
 
 def _normalizar(nombre: str) -> str:
@@ -391,6 +402,51 @@ def _opciones_atencion(aid: int) -> list[dict[str, str]]:
     ]
 
 
+def _informe(db: DbSession, texto: str) -> dict[str, object] | None:
+    from datetime import date
+
+    from sqlalchemy import func, select
+
+    from app.models.atencion import Atencion
+    from app.models.usuario import Usuario
+
+    if _DIM_TECNICO.search(texto):
+        dim, titulo, por_id = Atencion.usuario_id, "técnico", True
+    elif _DIM_AREA.search(texto):
+        dim, titulo, por_id = Atencion.area_solicitante, "área", False
+    elif _DIM_MEDIO.search(texto):
+        dim, titulo, por_id = Atencion.medio_solicitud, "medio", False
+    elif _DIM_CATEGORIA.search(texto):
+        dim, titulo, por_id = Atencion.categoria, "categoría", False
+    else:
+        return None
+    q = select(dim, func.count().label("n")).group_by(dim).order_by(func.count().desc()).limit(8)
+    if _FILTRO_MES.search(texto):
+        q = q.where(Atencion.fecha_registro >= date.today().replace(day=1))
+        alcance = "este mes"
+    else:
+        alcance = "en total"
+    filas = db.execute(q).all()
+    if not filas:
+        return {"respuesta": "Sin datos para ese informe.", "fuente": None, "rechazado": False}
+    if por_id:
+        ids = [f[0] for f in filas]
+        nombres = {
+            u.id: u.display_name
+            for u in db.execute(select(Usuario).where(Usuario.id.in_(ids))).scalars().all()
+        }
+        detalle = ", ".join(f"{nombres.get(i, i)}: {n}" for i, n in filas)
+    else:
+        detalle = ", ".join(f"{d or '—'}: {n}" for d, n in filas)
+    total = sum(n for _, n in filas)
+    return {
+        "respuesta": f"Informe por {titulo} {alcance} ({total} atenciones): {detalle}.",
+        "fuente": "estadisticas",
+        "fuente_label": fuente_label("estadisticas"),
+        "rechazado": False,
+    }
+
+
 def _estadisticas(db: DbSession) -> dict[str, object]:
     from datetime import date
 
@@ -535,6 +591,10 @@ def _preguntar_impl(body: PreguntarIn, db: DbSession, user: CurrentUser):
     m = _EST_TECNICO.search(body.pregunta)
     if m:
         return _estadisticas_tecnico(db, m.group(3))
+    if _INFORME.search(body.pregunta):
+        r = _informe(db, body.pregunta)
+        if r:
+            return r
     m = _AYUDA_ATENCION.search(body.pregunta)
     if m:
         from app.models.atencion import Atencion
