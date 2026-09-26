@@ -124,6 +124,17 @@ Feature: FT Noche 1
 - Acción Noche 2: balancear (KB/rechazo/identidad ×30), 50+ jailbreaks, tickets
   deduplicados por dominio; si repite, bajar LR a 1e-4.
 
+## Bitácora Noche 2 y 3 (2026-09-26, madrugada)
+
+- Noche 2 (balance ×30 con envoltorios, 2337 pares): eval **5/30 otra vez**.
+- Noche 3 (fix formato Alpaca → chat template, 293 steps, loss 0.75): eval **5/30**.
+  El formato no era la causa.
+- Diagnóstico real: los ~2000 tickets enseñan "responde todo servicial"; 15 ejemplos
+  no pesan aunque se repitan (el modelo memoriza la forma, no la regla).
+- Acción Noche 4: subsamplear tickets a ~500 + repetir lo curado ×100 (memorización
+  deliberada del rechazo exacto) + LR 2e-5 + system prompt con restricciones al
+  inicio Y al final. Si sigue fallando: DPO con pares (mala vs buena respuesta).
+
 ## Definition of Done (DoD)
 
 1. [x] `train_qlora.py` + `test_adapter.py` + `nightly.sh` en la rama, con `ast` válido
