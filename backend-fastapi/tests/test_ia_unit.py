@@ -100,3 +100,15 @@ def test_informe_detecta_dimension():
     assert ia._DIM_CATEGORIA.search("informe por categoría")
     assert ia._INFORME.search("dame el informe del mes")
     assert not ia._INFORME.search("hola como estas")
+
+
+def test_poderes_detectan():
+    m = ia._MI_ESTADO.search("ponme ocupado")
+    assert m and (m.group(1) or m.group(2) or m.group(3)).startswith("ocupad")
+    m = ia._ANOTAR.search("anota en la atención 94: cliente contactado")
+    assert m and m.group(1) == "94" and "contactado" in m.group(2)
+    m = ia._ANUNCIAR.search("publica: corte de red mañana")
+    assert m and "corte" in m.group(1)
+    assert ia._CONF_ESTADO.search("confirmar estado | ocupado")
+    assert ia._CONF_NOTA.search("confirmar nota | 94 | texto")
+    assert ia._CONF_ANUNCIO.search("confirmar anuncio | hola")

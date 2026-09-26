@@ -193,6 +193,101 @@ def _parse_campos(texto: str) -> dict[str, str]:
     return campos
 
 
+_MI_ESTADO = re.compile(
+    r"ponme (disponible|ocupad[oa])|c[áa]mbiame a (disponible|ocupad[oa])|ponme como (disponible|ocupad[oa])",
+    re.IGNORECASE,
+)
+_ANOTAR = re.compile(r"anota (?:en la (?:atenci[óo]n )?(\d+))\s*:\s*(.+)", re.IGNORECASE)
+_ANUNCIAR = re.compile(r"publica(?: el anuncio)?:\s*(.+)", re.IGNORECASE)
+_CONF_ESTADO = re.compile(r"confirmar estado \| (\w+)", re.IGNORECASE)
+_CONF_NOTA = re.compile(r"confirmar nota \| (\d+) \| (.+)", re.IGNORECASE)
+_CONF_ANUNCIO = re.compile(r"confirmar anuncio \| (.+)", re.IGNORECASE)
+
+
+def _poderes(db: DbSession, user: CurrentUser, texto: str) -> dict[str, object] | None:
+    import asyncio
+
+    from fastapi import HTTPException
+
+    m = _MI_ESTADO.search(texto)
+    if m:
+        est = (m.group(1) or m.group(2) or m.group(3) or "").lower()
+        est = "ocupado" if est.startswith("ocupad") else "disponible"
+        return {
+            "respuesta": f"Voy a ponerte {est}. ¿Confirmas?",
+            "fuente": None,
+            "rechazado": False,
+            "opciones": [{"etiqueta": "Sí", "pregunta": f"confirmar estado | {est}"}],
+        }
+    m = _CONF_ESTADO.search(texto)
+    if m:
+        from app.routers.usuarios import toggle_estado
+        from app.schemas.usuario import EstadoIn
+
+        try:
+            asyncio.run(toggle_estado(EstadoIn(estado_actual=m.group(1)), db, user))
+            return {"respuesta": "Listo, estado actualizado.", "fuente": None, "rechazado": False}
+        except HTTPException as e:
+            return {"respuesta": f"No se pudo: {e.detail}.", "fuente": None, "rechazado": False}
+    m = _ANOTAR.search(texto)
+    if m:
+        from app.models.atencion import Atencion
+
+        aid = int(m.group(1))
+        a = db.get(Atencion, aid)
+        if a is None:
+            return {"respuesta": f"No encontré la atención #{aid}.", "fuente": None, "rechazado": False}
+        if a.usuario_id != user.id:
+            return {"respuesta": "Solo el dueño puede anotar en esa atención.", "fuente": None, "rechazado": False}
+        nota = m.group(2).strip()[:500]
+        return {
+            "respuesta": f"Voy a anotar en la #{aid}: «{nota}». ¿Confirmas?",
+            "fuente": f"atencion_{aid}",
+            "fuente_label": fuente_label(f"atencion_{aid}"),
+            "rechazado": False,
+            "opciones": [{"etiqueta": "Sí, anotar", "pregunta": f"confirmar nota | {aid} | {nota}"}],
+        }
+    m = _CONF_NOTA.search(texto)
+    if m:
+        from datetime import datetime
+
+        from app.models.atencion import Atencion
+        from app.services.horarios import LA_PAZ
+
+        aid = int(m.group(1))
+        a = db.get(Atencion, aid)
+        if a is None or a.usuario_id != user.id:
+            return {"respuesta": "Ya no puedes anotar ahí.", "fuente": None, "rechazado": False}
+        hoy = datetime.now(LA_PAZ).strftime("%d/%m")
+        a.observaciones = ((a.observaciones or "") + f"\n[{hoy} Wilmercito] {m.group(2).strip()[:500]}").strip()
+        db.commit()
+        return {"respuesta": f"Anotado en la #{aid}.", "fuente": f"atencion_{aid}", "fuente_label": fuente_label(f"atencion_{aid}"), "rechazado": False}
+    m = _ANUNCIAR.search(texto)
+    if m:
+        if not is_privileged(user):
+            return {"respuesta": "Solo un jefe puede publicar anuncios.", "fuente": None, "rechazado": False}
+        msg = m.group(1).strip()[:300]
+        if not msg:
+            return {"respuesta": "Dime el texto del anuncio.", "fuente": None, "rechazado": False}
+        return {
+            "respuesta": f"Voy a publicar: «{msg}». ¿Confirmas?",
+            "fuente": None,
+            "rechazado": False,
+            "opciones": [{"etiqueta": "Sí, publicar", "pregunta": f"confirmar anuncio | {msg}"}],
+        }
+    m = _CONF_ANUNCIO.search(texto)
+    if m:
+        from app.routers.announcements import post_announcement
+        from app.schemas.announcement import AnnouncementIn
+
+        try:
+            asyncio.run(post_announcement(AnnouncementIn(message=m.group(1).strip()[:300]), db, user))
+            return {"respuesta": "Anuncio publicado para todo el equipo.", "fuente": None, "rechazado": False}
+        except HTTPException as e:
+            return {"respuesta": f"No se pudo: {e.detail}.", "fuente": None, "rechazado": False}
+    return None
+
+
 _AYUDA_ATENCION = re.compile(
     r"ay[úu]d\w*\s+(con|para)\s+(la\s+|esta\s+)?atenci[óo]n\s+(\d+)", re.IGNORECASE
 )
@@ -586,6 +681,9 @@ def _preguntar_impl(body: PreguntarIn, db: DbSession, user: CurrentUser):
     if r:
         return r
     r = _flujo_crear(db, user, body.pregunta)
+    if r:
+        return r
+    r = _poderes(db, user, body.pregunta)
     if r:
         return r
     m = _EST_TECNICO.search(body.pregunta)
