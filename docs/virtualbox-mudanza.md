@@ -16,6 +16,9 @@ Solo la VM se muda. El link Tailscale las vuelve a unir.
 
 1. `tailscale status` — si pide login: `tailscale up` (cuenta Mattiasr6@).
    **Anota la NUEVA IP Tailscale** (ya no será 100.90.209.98).
+   *Nota 2026-09-26: el clon conservó las claves y mantuvo la misma IP
+   (100.90.209.98) porque el original KVM está apagado. Si algún día conviven
+   los dos, habrá conflicto: renueva claves con `tailscale logout && tailscale up`.*
 2. Avisar al host para abrir firewall a la nueva IP:
    `sudo ufw allow from <NUEVA_IP> to any port 8081 comment 'llama-server VM aula'`
 3. En `~/Soporte_Tecnico2/frontend-django/.env`: agregar la nueva IP a
