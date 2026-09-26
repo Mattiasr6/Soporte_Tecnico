@@ -127,3 +127,11 @@ def test_poderes2_detectan():
     assert ia._CONF_COLAB.search("confirmar colaborador | 94 | 2")
     assert ia._CONF_ELIM.search("confirmar eliminar | 94")
     assert ia._CONF_SOL.search("confirmar solucion | 94 | texto")
+
+
+def test_turno_comparativa_detectan():
+    assert ia._TURNO.search("quién está de turno ahora")
+    assert ia._TURNO.search("quién está disponible")
+    assert ia._COMPARATIVA.search("cómo va el mes")
+    assert ia._COMPARATIVA.search("mes anterior vs este")
+    assert not ia._TURNO.search("hola")

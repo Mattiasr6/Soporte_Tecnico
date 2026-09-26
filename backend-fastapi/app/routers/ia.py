@@ -59,6 +59,8 @@ def fuente_label(fuente: str | None) -> str | None:
         return "Organización"
     if fuente == "estadisticas":
         return "Datos del sistema"
+    if fuente == "horarios":
+        return "Turnos del equipo"
     if fuente.startswith("kb_"):
         return "Base de conocimiento"
     return fuente
@@ -75,6 +77,84 @@ _INFORME = re.compile(
     r"informe|reporte|listado|ranking|top\b|cu[áa]ntas hay|cu[áa]ntos hay|desglose|por categor[íi]a|por [áa]rea",
     re.IGNORECASE,
 )
+_TURNO = re.compile(
+    r"qui[ée]n est[áa] (de turno|disponible|conectado)|de turno (ahora|actualmente)|turno de (hoy|ahora)",
+    re.IGNORECASE,
+)
+_COMPARATIVA = re.compile(
+    r"(vs|versus|comparado|comparativa).{0,20}mes|mes (anterior|pasado)|c[óo]mo va el mes",
+    re.IGNORECASE,
+)
+
+
+def _turno_ahora(db: DbSession) -> dict[str, object]:
+    from datetime import UTC, datetime
+
+    from sqlalchemy import select
+
+    from app.models.horario import Horario
+    from app.models.usuario import Usuario
+    from app.routers.usuarios import _fuera_de_turno, _horarios_de_hoy
+    from app.services.estados import estado_efectivo
+
+    now = datetime.now(UTC)
+    horarios = _horarios_de_hoy(db)
+    lineas = []
+    for u in db.execute(
+        select(Usuario)
+        .where(Usuario.role.in_(["Tecnico", "Jefe"]), Usuario.activo.is_(True))
+        .order_by(Usuario.display_name)
+    ).scalars().all():
+        h = horarios.get(u.id)
+        est = estado_efectivo(u.estado_actual, h, now)
+        extra = ""
+        if est != "Disponible":
+            from app.routers.usuarios import _entra_a_las
+
+            entra = _entra_a_las(h, now)
+            extra = f" (entra {entra})" if entra else ""
+        lineas.append(f"{u.display_name}: {est}{extra}")
+    return {
+        "respuesta": "Turno ahora: " + "; ".join(lineas) + ".",
+        "fuente": "horarios",
+        "fuente_label": "Turnos del equipo",
+        "rechazado": False,
+    }
+
+
+def _comparativa_mes(db: DbSession) -> dict[str, object]:
+    from datetime import date, timedelta
+
+    from sqlalchemy import func, select
+
+    from app.models.atencion import Atencion
+
+    hoy = date.today()
+    este = db.execute(
+        select(func.count())
+        .select_from(Atencion)
+        .where(Atencion.fecha_registro >= hoy.replace(day=1))
+    ).scalar() or 0
+    primero_ant = (hoy.replace(day=1) - timedelta(days=1)).replace(day=1)
+    anterior = db.execute(
+        select(func.count())
+        .select_from(Atencion)
+        .where(
+            Atencion.fecha_registro >= primero_ant,
+            Atencion.fecha_registro < hoy.replace(day=1),
+        )
+    ).scalar() or 0
+    dif = este - anterior
+    flecha = "igual que" if dif == 0 else ("arriba" if dif > 0 else "abajo")
+    return {
+        "respuesta": (
+            f"Este mes: {este} atenciones; mes anterior: {anterior} "
+            f"({flecha} por {abs(dif)})."
+        ),
+        "fuente": "estadisticas",
+        "fuente_label": fuente_label("estadisticas"),
+        "rechazado": False,
+    }
 _DIM_CATEGORIA = re.compile(r"por categor[íi]a|categor[íi]as", re.IGNORECASE)
 _DIM_AREA = re.compile(r"por [áa]reas?|por zona", re.IGNORECASE)
 _DIM_TECNICO = re.compile(r"por t[ée]cnicos?|ranking de t[ée]cnicos?|qui[ée]n atiende m[áa]s", re.IGNORECASE)
@@ -884,6 +964,10 @@ def _preguntar_impl(body: PreguntarIn, db: DbSession, user: CurrentUser):
     m = _EST_TECNICO.search(body.pregunta)
     if m:
         return _estadisticas_tecnico(db, m.group(3))
+    if _COMPARATIVA.search(body.pregunta):
+        return _comparativa_mes(db)
+    if _TURNO.search(body.pregunta):
+        return _turno_ahora(db)
     if _INFORME.search(body.pregunta):
         r = _informe(db, body.pregunta)
         if r:
