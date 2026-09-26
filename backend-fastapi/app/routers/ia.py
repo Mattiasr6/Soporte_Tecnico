@@ -197,6 +197,26 @@ _MI_ESTADO = re.compile(
     r"ponme (disponible|ocupad[oa])|c[áa]mbiame a (disponible|ocupad[oa])|ponme como (disponible|ocupad[oa])",
     re.IGNORECASE,
 )
+_RECLASIFICAR = re.compile(
+    r"mueve (?:la (?:atenci[óo]n )?(\d+)) al [áa]rea (?:de )?(.+)|reclasifica (?:la )?(\d+).{0,20}[áa]rea (?:de )?(.+)",
+    re.IGNORECASE,
+)
+_COLABORADOR = re.compile(
+    r"pon (?:a|de colaborador a) ([a-záéíóúñü ]+?) (?:de colaborador )?en la (?:atenci[óo]n )?(\d+)",
+    re.IGNORECASE,
+)
+_ELIMINAR = re.compile(
+    r"elimina (?:la (?:atenci[óo]n )?(\d+))|borra (?:la (?:atenci[óo]n )?(\d+))",
+    re.IGNORECASE,
+)
+_SOLUCION = re.compile(
+    r"(?:actualiza|cambia|corrige)(?: la soluci[óo]n de)? (?:la (?:atenci[óo]n )?(\d+))\s*:\s*(.+)",
+    re.IGNORECASE,
+)
+_CONF_RECLAS = re.compile(r"confirmar reclasificar \| (\d+) \| (\d+)", re.IGNORECASE)
+_CONF_COLAB = re.compile(r"confirmar colaborador \| (\d+) \| (\d+)", re.IGNORECASE)
+_CONF_ELIM = re.compile(r"confirmar eliminar \| (\d+)", re.IGNORECASE)
+_CONF_SOL = re.compile(r"confirmar solucion \| (\d+) \| (.+)", re.IGNORECASE)
 _ANOTAR = re.compile(r"anota (?:en la (?:atenci[óo]n )?(\d+))\s*:\s*(.+)", re.IGNORECASE)
 _ANUNCIAR = re.compile(r"publica(?: el anuncio)?:\s*(.+)", re.IGNORECASE)
 _CONF_ESTADO = re.compile(r"confirmar estado \| (\w+)", re.IGNORECASE)
@@ -285,6 +305,141 @@ def _poderes(db: DbSession, user: CurrentUser, texto: str) -> dict[str, object] 
             return {"respuesta": "Anuncio publicado para todo el equipo.", "fuente": None, "rechazado": False}
         except HTTPException as e:
             return {"respuesta": f"No se pudo: {e.detail}.", "fuente": None, "rechazado": False}
+    r = _poderes2(db, user, texto)
+    if r:
+        return r
+    return None
+
+
+def _buscar_area(db: DbSession, nombre: str):
+    from sqlalchemy import select
+
+    from app.models.area import Area
+
+    tokens = [t for t in _normalizar(nombre).split() if len(t) > 2]
+    for ar in db.execute(select(Area).where(Area.activo.is_(True))).scalars().all():
+        if tokens and all(t in _normalizar(ar.nombre) for t in tokens):
+            return ar
+    return None
+
+
+def _buscar_usuario(db: DbSession, nombre: str):
+    from sqlalchemy import select
+
+    from app.models.usuario import Usuario
+
+    tokens = [t for t in _normalizar(nombre).split() if len(t) > 2]
+    for u in db.execute(select(Usuario).where(Usuario.activo.is_(True))).scalars().all():
+        if tokens and all(t in _normalizar(u.display_name) for t in tokens):
+            return u
+    return None
+
+
+def _poderes2(db: DbSession, user: CurrentUser, texto: str) -> dict[str, object] | None:
+    import asyncio
+
+    from fastapi import HTTPException
+
+    from app.models.atencion import Atencion
+
+    m = _RECLASIFICAR.search(texto)
+    if m:
+        if not is_privileged(user):
+            return {"respuesta": "Solo un jefe puede reclasificar.", "fuente": None, "rechazado": False}
+        aid = int(m.group(1) or m.group(3))
+        ar = _buscar_area(db, m.group(2) or m.group(4) or "")
+        if ar is None:
+            return {"respuesta": "No ubico esa área. Dime el nombre como aparece en Jerarquía.", "fuente": None, "rechazado": False}
+        return {
+            "respuesta": f"Voy a mover la #{aid} al área {ar.nombre}. ¿Confirmas?",
+            "fuente": f"atencion_{aid}",
+            "fuente_label": fuente_label(f"atencion_{aid}"),
+            "rechazado": False,
+            "opciones": [{"etiqueta": "Sí, mover", "pregunta": f"confirmar reclasificar | {aid} | {ar.id}"}],
+        }
+    m = _CONF_RECLAS.search(texto)
+    if m:
+        from app.routers.atenciones import reclasificar_atencion
+        from app.schemas.atencion import JerarquiaAtencionIn
+
+        try:
+            reclasificar_atencion(int(m.group(1)), JerarquiaAtencionIn(area_id=int(m.group(2))), db, user)
+            return {"respuesta": "Atención reclasificada.", "fuente": None, "rechazado": False}
+        except HTTPException as e:
+            return {"respuesta": f"No se pudo: {e.detail}.", "fuente": None, "rechazado": False}
+    m = _COLABORADOR.search(texto)
+    if m:
+        aid = int(m.group(2))
+        a = db.get(Atencion, aid)
+        if a is None:
+            return {"respuesta": f"No encontré la atención #{aid}.", "fuente": None, "rechazado": False}
+        if a.usuario_id != user.id:
+            return {"respuesta": "Solo el dueño puede asignar colaborador.", "fuente": None, "rechazado": False}
+        col = _buscar_usuario(db, m.group(1))
+        if col is None:
+            return {"respuesta": "No ubico a ese técnico. Dime nombre y apellido.", "fuente": None, "rechazado": False}
+        return {
+            "respuesta": f"Voy a poner a {col.display_name} de colaborador en la #{aid}. ¿Confirmas?",
+            "fuente": f"atencion_{aid}",
+            "fuente_label": fuente_label(f"atencion_{aid}"),
+            "rechazado": False,
+            "opciones": [{"etiqueta": "Sí", "pregunta": f"confirmar colaborador | {aid} | {col.id}"}],
+        }
+    m = _CONF_COLAB.search(texto)
+    if m:
+        a = db.get(Atencion, int(m.group(1)))
+        if a is None or a.usuario_id != user.id:
+            return {"respuesta": "Ya no puedes hacer eso.", "fuente": None, "rechazado": False}
+        a.colaborador_id = int(m.group(2))
+        db.commit()
+        return {"respuesta": "Colaborador asignado.", "fuente": f"atencion_{a.id}", "fuente_label": fuente_label(f"atencion_{a.id}"), "rechazado": False}
+    m = _ELIMINAR.search(texto)
+    if m:
+        aid = int(m.group(1) or m.group(2))
+        a = db.get(Atencion, aid)
+        if a is None:
+            return {"respuesta": f"No encontré la atención #{aid}.", "fuente": None, "rechazado": False}
+        if a.usuario_id != user.id:
+            return {"respuesta": "Solo el dueño puede eliminarla.", "fuente": None, "rechazado": False}
+        return {
+            "respuesta": f"Voy a ELIMINAR la #{aid} («{a.descripcion[:60]}…»). Esto no se deshace. ¿Confirmas?",
+            "fuente": f"atencion_{aid}",
+            "fuente_label": fuente_label(f"atencion_{aid}"),
+            "rechazado": False,
+            "opciones": [{"etiqueta": "Sí, eliminar", "pregunta": f"confirmar eliminar | {aid}"}],
+        }
+    m = _CONF_ELIM.search(texto)
+    if m:
+        a = db.get(Atencion, int(m.group(1)))
+        if a is None or a.usuario_id != user.id:
+            return {"respuesta": "Ya no puedes hacer eso.", "fuente": None, "rechazado": False}
+        db.delete(a)
+        db.commit()
+        return {"respuesta": "Atención eliminada.", "fuente": None, "rechazado": False}
+    m = _SOLUCION.search(texto)
+    if m:
+        aid = int(m.group(1))
+        a = db.get(Atencion, aid)
+        if a is None:
+            return {"respuesta": f"No encontré la atención #{aid}.", "fuente": None, "rechazado": False}
+        if a.usuario_id != user.id:
+            return {"respuesta": "Solo el dueño puede cambiar la solución.", "fuente": None, "rechazado": False}
+        sol = m.group(2).strip()[:1000]
+        return {
+            "respuesta": f"Voy a cambiar la solución de la #{aid} por: «{sol[:80]}…». ¿Confirmas?",
+            "fuente": f"atencion_{aid}",
+            "fuente_label": fuente_label(f"atencion_{aid}"),
+            "rechazado": False,
+            "opciones": [{"etiqueta": "Sí", "pregunta": f"confirmar solucion | {aid} | {sol}"}],
+        }
+    m = _CONF_SOL.search(texto)
+    if m:
+        a = db.get(Atencion, int(m.group(1)))
+        if a is None or a.usuario_id != user.id:
+            return {"respuesta": "Ya no puedes hacer eso.", "fuente": None, "rechazado": False}
+        a.solucion = m.group(2).strip()[:1000]
+        db.commit()
+        return {"respuesta": "Solución actualizada.", "fuente": f"atencion_{a.id}", "fuente_label": fuente_label(f"atencion_{a.id}"), "rechazado": False}
     return None
 
 
@@ -684,6 +839,9 @@ def _preguntar_impl(body: PreguntarIn, db: DbSession, user: CurrentUser):
     if r:
         return r
     r = _poderes(db, user, body.pregunta)
+    if r:
+        return r
+    r = _poderes2(db, user, body.pregunta)
     if r:
         return r
     m = _EST_TECNICO.search(body.pregunta)

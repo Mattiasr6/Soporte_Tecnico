@@ -112,3 +112,18 @@ def test_poderes_detectan():
     assert ia._CONF_ESTADO.search("confirmar estado | ocupado")
     assert ia._CONF_NOTA.search("confirmar nota | 94 | texto")
     assert ia._CONF_ANUNCIO.search("confirmar anuncio | hola")
+
+
+def test_poderes2_detectan():
+    m = ia._RECLASIFICAR.search("mueve la 94 al área de Sistemas")
+    assert m and (m.group(1) or m.group(3)) == "94"
+    m = ia._COLABORADOR.search("pon a Diego de colaborador en la 94")
+    assert m and m.group(2) == "94" and m.group(1).strip().lower() == "diego"
+    m = ia._ELIMINAR.search("elimina la atención 94")
+    assert m and (m.group(1) or m.group(2)) == "94"
+    m = ia._SOLUCION.search("actualiza la solución de la 94: reiniciar todo")
+    assert m and m.group(1) == "94" and "reiniciar" in m.group(2)
+    assert ia._CONF_RECLAS.search("confirmar reclasificar | 94 | 5")
+    assert ia._CONF_COLAB.search("confirmar colaborador | 94 | 2")
+    assert ia._CONF_ELIM.search("confirmar eliminar | 94")
+    assert ia._CONF_SOL.search("confirmar solucion | 94 | texto")
