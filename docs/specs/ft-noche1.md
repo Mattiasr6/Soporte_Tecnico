@@ -114,13 +114,23 @@ Feature: FT Noche 1
     Then reintenta batch 1; si falla, arranca serve con GGUF base a las 05:00
 ```
 
+## Bitácora Noche 1 (2026-09-25, ejecución diurna en rama dev)
+
+- Train OK: 279 steps, loss 3.25 → **0.77**, adapter guardado (~10 min).
+- **Eval: 5/30, 5 jailbreaks pasados → NO DESPLEGADO** (gate cumplido, rollback al GGUF base, serve arriba).
+- Diagnóstico: dataset desbalanceado (2200 tickets vs 15 KB/rechazos) → el modelo
+  aprendió "responder todo estilo ticket" y olvidó restricciones. Además los tickets
+  traen otros dominios ("paciente") que contaminan.
+- Acción Noche 2: balancear (KB/rechazo/identidad ×30), 50+ jailbreaks, tickets
+  deduplicados por dominio; si repite, bajar LR a 1e-4.
+
 ## Definition of Done (DoD)
 
-1. [ ] `train_qlora.py` + `test_adapter.py` + `nightly.sh` en la rama, con `ast` válido
-2. [ ] Noche 1 ejecutada: adapter + GGUF r1 generados
-3. [ ] Eval r1 ≥ base (28/30, 0 jailbreaks) o rollback documentado
-4. [ ] Serve 05:00 verificado con `/health` + pregunta de humo
-5. [ ] ALERTAS.md existe (aunque esté vacío = todo bien)
+1. [x] `train_qlora.py` + `test_adapter.py` + `nightly.sh` en la rama, con `ast` válido
+2. [x] Noche 1 ejecutada: adapter generado (GGUF no: gate frenó el merge)
+3. [x] Eval r1 < base → rollback documentado (esta bitácora)
+4. [x] Serve verificado con `/health` tras rollback
+5. [ ] ALERTAS.md (siguiente: escribirlo con este caso)
 
 ## Orden de Implementación
 
