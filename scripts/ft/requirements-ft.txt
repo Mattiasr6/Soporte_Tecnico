@@ -1,0 +1,14 @@
+# venv ft (Python 3.12, verificado 2026-09-25 en RTX 2060). Instalar con:
+#   uv venv --python 3.12 ~/ft-wilmercito/venv
+#   uv pip install --python ~/ft-wilmercito/venv/bin/python -r requirements-ft.txt \
+#     --index-url https://download.pytorch.org/whl/cu126 \
+#     --extra-index-url https://pypi.org/simple
+#   ~/ft-wilmercito/venv/bin/pip install "unsloth[colab-newest] @ git+https://github.com/unslothai/unsloth.git" bitsandbytes
+torch==2.8.0
+torchao==0.14.1
+transformers==4.57.1
+trl==0.29.1
+datasets
+accelerate
+peft
+bitsandbytes

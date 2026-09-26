@@ -24,6 +24,7 @@ Adapter `wilmercito-3b-r1` entrenado, evaluado y (solo si pasa) convertido a GGU
 |------|-----------|---------|-------|
 | GPU | RTX 2060 6 GB, CUDA 12.4, driver con nvidia-smi | host | `llama-server` detenido durante train |
 | Train | Unsloth + TRL + transformers | últimas compatibles CUDA 12.4 | venv aparte `~/ft-wilmercito/venv` |
+| Env verificado 2026-09-25 | torch 2.8 cu126 + torchao 0.14 + transformers 4.57 + trl 0.29 + bnb, Python 3.12 (uv) | ver `scripts/ft/requirements-ft.txt` | torch 2.6/2.7 fallan (ScalingType/pytree); transformers 5 rompe trl; Turing sin bf16 → fp32 |
 | Base | `unsloth/Qwen2.5-3B-Instruct-bnb-4bit` | — | 4-bit, ~2 GB en VRAM |
 | Dataset | `~/ft-wilmercito/data/ft_train.jsonl` | 2229 pares | validado (ver bitácora) |
 | Eval | `data/ft_eval.jsonl` (30 casos fijos) + `/ia/evaluar` | — | gate de despliegue |

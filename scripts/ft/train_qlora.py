@@ -33,9 +33,12 @@ def main() -> None:
     from trl import SFTTrainer, SFTConfig
     from unsloth import FastLanguageModel
 
+    import torch
+
     model, tokenizer = FastLanguageModel.from_pretrained(
         model_name="unsloth/Qwen2.5-3B-Instruct-bnb-4bit",
         max_seq_length=2048,
+        dtype=torch.float16,
         load_in_4bit=True,
     )
     model = FastLanguageModel.get_peft_model(
@@ -51,6 +54,8 @@ def main() -> None:
         return {"text": PROMPT.format(sys, user, asst)}
 
     ds = load_dataset("json", data_files=args.data, split="train").map(fmt)
+    # Turing (sm_75) sin bf16 y GradScaler fp16 incompatible con cómputo bf16:
+    # fp32 puro. Más lento, pero funciona. (Medido en RTX 2060.)
     cfg = SFTConfig(
         dataset_text_field="text",
         per_device_train_batch_size=2,
@@ -58,10 +63,12 @@ def main() -> None:
         num_train_epochs=args.epochs,
         max_steps=args.max_steps or -1,
         learning_rate=2e-4,
+        fp16=False,
+        bf16=False,
         output_dir=args.out,
         save_total_limit=1,
     )
-    SFTTrainer(model=model, tokenizer=tokenizer, train_dataset=ds, args=cfg).train()
+    SFTTrainer(model=model, args=cfg, train_dataset=ds, processing_class=tokenizer).train()
     model.save_pretrained(args.out)
     print("ADAPTER_OK", args.out)
 
