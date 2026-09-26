@@ -56,18 +56,18 @@ _KB_ESTATICA: list[tuple[str, str, str]] = [
     ),
     (
         "kb_categorias",
-        "cuales son las categorias de atencion",
+        "cuales son las categorias de atencion | categorías | lista de categorías",
         "Las 8 categorías válidas son: Audio/Video, Cuentas/Accesos, Hardware, "
         "Impresión, Otros, Redes/Conectividad, Sistemas académicos y Software.",
     ),
     (
         "kb_medios",
-        "cuales son los medios de solicitud",
+        "cuales son los medios de solicitud | medios | canales de solicitud",
         "Los medios de solicitud son: Interno, Presencial, WhatsApp y E-ticket.",
     ),
     (
         "kb_tipos",
-        "cuales son los tipos de solicitante",
+        "cuales son los tipos de solicitante | tipos de solicitante | solicitantes",
         "Los tipos de solicitante son: ADM, BEC, DOC, EST y EIAG.",
     ),
     (
@@ -233,6 +233,11 @@ def promover(feedback_id: int, pregunta: str, respuesta: str) -> str:
 
 def buscar(texto: str, top_k: int = 3) -> list[dict[str, Any]]:
     """Híbrido vectorial + BM25 con fusión RRF. El umbral vive en el router."""
+    import re as _re
+
+    texto = _re.sub(
+        r"^(y|entonces|pero|adem[áa]s|ahora|oye)\s+", "", texto.strip(), flags=_re.IGNORECASE
+    )
     _, col = _lazy()
     n_cand = max(top_k * 4, 12)
     res = col.query(query_embeddings=[embed(texto)], n_results=n_cand)

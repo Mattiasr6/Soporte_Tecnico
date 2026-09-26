@@ -73,6 +73,7 @@
       }
     }
   });
+  var fallos = 0;
   function enviar(q) {
     add(q, "yo");
     add("…", "pensando");
@@ -87,7 +88,13 @@
       msgs.lastChild.remove();
       if (d.ok) {
         add(d.respuesta, "el");
-        if (d.fuente_label || d.fuente) add("Fuente: " + (d.fuente_label || d.fuente), "fuente");
+        if (d.fuente_label || d.fuente) {
+          add("Fuente: " + (d.fuente_label || d.fuente), "fuente");
+          fallos = 0;
+        } else {
+          fallos += 1;
+          if (fallos >= 2) add("Cuesta encontrarlo… si quieres, un jefe puede ayudarte en persona.", "el");
+        }
         if (d.opciones) {
           var op = document.createElement("p");
           op.className = "wilmercito-msg fuente";

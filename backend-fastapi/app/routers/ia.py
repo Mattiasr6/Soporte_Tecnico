@@ -787,6 +787,43 @@ def estado(db: DbSession, user: CurrentUser):
 
 class PreguntarIn(BaseModel):
     pregunta: str = Field(min_length=3, max_length=500)
+    historial: list[dict[str, str]] = Field(default_factory=list)
+
+
+def _nombre(user: CurrentUser) -> str:
+    return (user.display_name or "").split()[0] or "colega"
+
+
+def _saludo_hora() -> str:
+    from datetime import datetime
+
+    from app.services.horarios import LA_PAZ
+
+    h = datetime.now(LA_PAZ).hour
+    if h < 12:
+        return "Buenos días"
+    if h < 19:
+        return "Buenas tardes"
+    return "Buenas noches"
+
+
+def _llama_chat_hist(system: str, historial: list[dict[str, str]], user: str) -> str:
+    base = os.environ.get("LLAMA_URL", "http://100.78.144.4:8081").rstrip("/")
+    key = os.environ.get("LLAMA_API_KEY", "")
+    msgs: list[dict[str, str]] = [{"role": "system", "content": system}]
+    for t in historial:
+        if t.get("q") and t.get("a"):
+            msgs.append({"role": "user", "content": t["q"][:300]})
+            msgs.append({"role": "assistant", "content": t["a"][:300]})
+    msgs.append({"role": "user", "content": user})
+    r = httpx.post(
+        f"{base}/v1/chat/completions",
+        headers={"Authorization": f"Bearer {key}"},
+        json={"messages": msgs},
+        timeout=float(os.environ.get("LLAMA_TIMEOUT", "120")),
+    )
+    r.raise_for_status()
+    return r.json()["choices"][0]["message"]["content"]
 
 
 def _llama_chat(system: str, user: str) -> str:
@@ -912,7 +949,7 @@ def _preguntar_impl(body: PreguntarIn, db: DbSession, user: CurrentUser):
         }
     intent, _ = ia_retrieval.clasificar(body.pregunta)
     if intent == "saludo":
-        return {"respuesta": SALUDO_RESPUESTA, "fuente": "kb_saludo", "fuente_label": fuente_label("kb_saludo"), "rechazado": False}
+        return {"respuesta": f"¡{_saludo_hora()}, {_nombre(user)}! Soy Wilmercito, el asistente del Sistema de Soporte Técnico. Pregúntame sobre atenciones, categorías, áreas, técnicos o reportes.", "fuente": "kb_saludo", "fuente_label": fuente_label("kb_saludo"), "rechazado": False}
     if intent == "identidad":
         return {"respuesta": IDENTIDAD_RESPUESTA, "fuente": "kb_identidad", "fuente_label": fuente_label("kb_identidad"), "rechazado": False}
     if intent == "crear":
@@ -942,8 +979,9 @@ def _preguntar_impl(body: PreguntarIn, db: DbSession, user: CurrentUser):
     top = resultados[0]
     contexto = f"Context: {top['solucion']} (fuente: {top['id']})"
     try:
-        respuesta = _llama_chat(
-            WILMERCITO_SYSTEM, f"{contexto}\n\nQuestion: {body.pregunta}\nAnswer:"
+        respuesta = _llama_chat_hist(
+            WILMERCITO_SYSTEM, body.historial[-4:],
+            f"{contexto}\n\nQuestion: {body.pregunta}\nAnswer:",
         )
     except (httpx.ConnectError, httpx.TimeoutException):
         return JSONResponse(status_code=503, content={"detail": "motor-ia-no-disponible"})

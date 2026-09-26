@@ -1743,9 +1743,12 @@ def wilmercito_vista(request: HttpRequest) -> JsonResponse:
         return JsonResponse({"ok": False, "error": "Pregunta inválida."}, status=400)
     if len(pregunta) < 3:
         return JsonResponse({"ok": False, "error": "Pregunta muy corta."}, status=400)
+    historial = request.session.get("wil_hist", [])
     try:
         r = api_post(
-            "/api/ia/preguntar", str(request.session["jwt"]), {"pregunta": pregunta[:500]}
+            "/api/ia/preguntar",
+            str(request.session["jwt"]),
+            {"pregunta": pregunta[:500], "historial": historial[-4:]},
         )
     except ApiError as e:
         if e.status == 503:
@@ -1754,6 +1757,9 @@ def wilmercito_vista(request: HttpRequest) -> JsonResponse:
                 status=503,
             )
         return JsonResponse({"ok": False, "error": _detalle_error(e)}, status=e.status)
+    if isinstance(r, dict) and r.get("respuesta"):
+        historial = [*historial, {"q": pregunta[:300], "a": str(r["respuesta"])[:300]}][-4:]
+        request.session["wil_hist"] = historial
     return JsonResponse({"ok": True, **r})
 
 
