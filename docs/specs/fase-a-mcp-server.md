@@ -78,7 +78,7 @@ docs/specs/fase-a-mcp-server.md                  # esta spec
 ### Reglas de Negocio
 
 1. **RN-01:** Toda escritura exige `confirm:true` explícito del humano.
-2. **RN-02:** Toda escritura lleva `colaborador_id` = Wilmercito (id 14); el autor es el dueño del JWT.
+2. **RN-02:** Toda escritura lleva `colaborador_id` = Wilmercito (lookup por email); el autor es el dueño del JWT.
 3. **RN-03:** Sin JWT válido → 401; sin privilegio en rutas de jefe → 403 (mismo `is_privileged`).
 4. **RN-04:** Lectura nunca inventa: sin evidencia → `sin_evidencia:true` (no texto generado).
 
