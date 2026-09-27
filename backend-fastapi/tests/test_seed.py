@@ -6,7 +6,8 @@ from scripts.seed import ATENCIONES_CSV, PADRES, USUARIOS, _leer_csv, hash_passw
 def test_seed_constants_mirror_ef():
     assert len(USUARIOS) == 10
     assert len(PADRES) == 3
-    assert [p[1] for p in PADRES] == ["Administrativos", "Académicos", "Extras"]
+    assert [p[1] for p in PADRES] == ["administrativos", "academicos", "extras"]
+    assert [p[2] for p in PADRES] == ["Administrativos", "Académicos", "Extras"]
     assert USUARIOS[-1][3] == "Auxiliar"
 
 

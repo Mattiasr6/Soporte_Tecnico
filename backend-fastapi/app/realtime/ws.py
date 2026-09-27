@@ -7,6 +7,7 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from sqlalchemy import select
 
 from app.core.config import settings
+from app.core.security import motivo_de_rechazo
 from app.db.base import SessionLocal
 from app.models.horario import Horario
 from app.models.usuario import Usuario
@@ -34,6 +35,8 @@ def _autenticar(access_token: str | None) -> Usuario | None:
     with SessionLocal() as db:
         user = db.get(Usuario, uid)
         if user is None:
+            return None
+        if motivo_de_rechazo(payload, user) is not None:
             return None
         db.expunge(user)
         return user

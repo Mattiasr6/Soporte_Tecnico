@@ -4,7 +4,7 @@ import bcrypt
 from fastapi import APIRouter
 from sqlalchemy import func, select
 
-from app.core.errors import bad_request, not_found, unauthorized
+from app.core.errors import bad_request, forbidden, not_found, unauthorized
 from app.core.security import CurrentUser
 from app.db.session import DbSession
 from app.models.usuario import Usuario
@@ -22,6 +22,8 @@ def login(dto: LoginIn, db: DbSession):
     user = db.scalars(select(Usuario).where(func.lower(Usuario.email) == email)).first()
     if user is None:
         raise unauthorized("Correo no registrado")
+    if not user.activo:
+        raise forbidden("Usuario desactivado")
     if not user.password_hash:
         raise unauthorized(
             "Este usuario no tiene contraseña asignada. Contacta al administrador."
@@ -31,7 +33,12 @@ def login(dto: LoginIn, db: DbSession):
     from app.core.config import settings
 
     token = crear_token(
-        user.id, user.display_name, user.role, user.email, settings.JWT_SECRET
+        user.id,
+        user.display_name,
+        user.role,
+        user.email,
+        settings.JWT_SECRET,
+        token_version=user.token_version,
     )
     return {
         "token": token,
@@ -63,5 +70,6 @@ def cambiar_password(dto: PasswordIn, db: DbSession, user: CurrentUser) -> None:
     ):
         raise unauthorized("La contraseña actual no coincide")
     usuario.password_hash = bcrypt.hashpw(dto.nueva.encode(), bcrypt.gensalt()).decode()
+    usuario.token_version += 1
     usuario.updated_at = datetime.now(UTC)
     db.commit()

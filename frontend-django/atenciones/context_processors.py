@@ -9,6 +9,7 @@ ASSETS = (
     "js/jerarquia.js",
     "js/dashboard.js",
     "js/inicio.js",
+    "js/reportes.js",
 )
 
 
@@ -37,10 +38,14 @@ def sesion(request):
         "atenciones_nueva": "nueva",
         "auxiliares": "auxiliares",
         "dashboard": "dashboard",
+        "reportes": "reportes",
         "jerarquia": "jerarquia",
         "perfil": "perfil",
         "notas": "notas",
         "horarios": "horarios",
+        "usuarios": "usuarios",
+        "asistente": "asistente",
+        "conocimiento": "conocimiento",
     }.get(url_name or "", "")
     rol = (usuario or {}).get("role", "")
     can_dashboard = rol == "Jefe" or bool((usuario or {}).get("can_view_dashboard"))

@@ -1,0 +1,156 @@
+<button id="wilmercito-btn" class="wilmercito-btn" aria-label="Abrir Wilmercito" data-nombre="{{ usuario.display_name|default:'' }}">W</button>
+<div id="wilmercito-panel" class="wilmercito-panel" hidden>
+  <div class="wilmercito-head"><strong>Wilmercito</strong><span> · asistente de soporte</span></div>
+  <div id="wilmercito-msgs" class="wilmercito-msgs"></div>
+  <form id="wilmercito-form" class="wilmercito-form">
+    {% csrf_token %}
+    <input id="wilmercito-input" type="text" maxlength="500" placeholder="Pregunta sobre el sistema…" autocomplete="off">
+    <button type="submit">➤</button>
+  </form>
+</div>
+<script>
+(function () {
+  var btn = document.getElementById("wilmercito-btn");
+  var panel = document.getElementById("wilmercito-panel");
+  var form = document.getElementById("wilmercito-form");
+  var input = document.getElementById("wilmercito-input");
+  var msgs = document.getElementById("wilmercito-msgs");
+  function add(texto, quien) {
+    var p = document.createElement("p");
+    p.className = "wilmercito-msg " + quien;
+    p.textContent = texto;
+    msgs.appendChild(p);
+    msgs.scrollTop = msgs.scrollHeight;
+    return p;
+  }
+  function csrf() {
+    return form.querySelector("[name=csrfmiddlewaretoken]").value;
+  }
+  function calificar(pregunta, respuesta, fuente, puntaje) {
+    fetch("{% url 'wilmercito_calificar' %}", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-CSRFToken": csrf() },
+      body: JSON.stringify({ pregunta: pregunta, respuesta: respuesta, fuente: fuente, puntaje: puntaje })
+    });
+  }
+  function addVoto(pregunta, respuesta, fuente) {
+    var p = document.createElement("p");
+    p.className = "wilmercito-msg fuente";
+    var hint = document.createElement("span");
+    hint.textContent = "¿Qué te pareció esta respuesta? ";
+    p.appendChild(hint);
+    [["👍", 4], ["👎", 1]].forEach(function (par) {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.textContent = par[0];
+      b.className = "wilmercito-voto";
+      b.addEventListener("click", function () {
+        calificar(pregunta, respuesta, fuente, par[1]);
+        b.parentElement.textContent = par[1] >= 4 ? "¡Gracias por tu voto!" : "Anotado, mejoraremos.";
+      });
+      p.appendChild(b);
+    });
+    msgs.appendChild(p);
+    msgs.scrollTop = msgs.scrollHeight;
+  }
+  btn.addEventListener("click", function () {
+    panel.hidden = !panel.hidden;
+    if (!panel.hidden) {
+      input.focus();
+      if (!msgs.dataset.hola) {
+        msgs.dataset.hola = "1";
+        var nombre = (btn.dataset.nombre || "").split(" ")[0];
+        var h = new Date(Date.now() - 4 * 3600 * 1000).getUTCHours();
+        var momento = h < 12 ? "Buenos días" : (h < 19 ? "Buenas tardes" : "Buenas noches");
+        add(momento + (nombre ? ", " + nombre : "") + ". Soy Wilmercito, ¿en qué te ayudo hoy?", "el");
+      }
+      if (!msgs.dataset.menu) {
+        msgs.dataset.menu = "1";
+        var mp = document.createElement("p");
+        mp.className = "wilmercito-msg fuente";
+        ["¿cuántas atenciones hay en total?", "¿cómo creo una nueva atención?", "¿cuáles son las categorías de atención?"].forEach(function (q) {
+          var b = document.createElement("button");
+          b.type = "button";
+          b.textContent = q;
+          b.className = "wilmercito-voto";
+          b.addEventListener("click", function () { enviar(q); });
+          mp.appendChild(b);
+        });
+        msgs.appendChild(mp);
+      }
+    }
+  });
+  var fallos = 0;
+  function addTarjeta(t) {
+    var d = document.createElement("div");
+    d.className = "wilmercito-card";
+    var h = document.createElement("div");
+    h.className = "wilmercito-card-head";
+    h.textContent = (t.id ? "#" + t.id + " · " : "") + (t.categoria || "");
+    d.appendChild(h);
+    var b = document.createElement("div");
+    b.className = "wilmercito-card-body";
+    b.textContent = t.descripcion || "";
+    d.appendChild(b);
+    var f = document.createElement("div");
+    f.className = "wilmercito-card-foot";
+    f.textContent = [t.area, t.dueno].filter(Boolean).join(" · ");
+    d.appendChild(f);
+    msgs.appendChild(d);
+    msgs.scrollTop = msgs.scrollHeight;
+  }
+  function enviar(q) {
+    add(q, "yo");
+    add("…", "pensando");
+    fetch("{% url 'wilmercito' %}", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-CSRFToken": form.querySelector("[name=csrfmiddlewaretoken]").value
+      },
+      body: JSON.stringify({ pregunta: q })
+    }).then(function (r) { return r.json(); }).then(function (d) {
+      msgs.lastChild.remove();
+      if (d.ok) {
+        add(d.respuesta, "el");
+        if (d.tarjeta) addTarjeta(d.tarjeta);
+        if (d.tarjetas) d.tarjetas.forEach(addTarjeta);
+        if (d.fuente_label || d.fuente) {
+          add("Fuente: " + (d.fuente_label || d.fuente), "fuente");
+          fallos = 0;
+        } else {
+          fallos += 1;
+          if (fallos >= 2) add("Cuesta encontrarlo… si quieres, un jefe puede ayudarte en persona.", "el");
+        }
+        if (d.opciones) {
+          var op = document.createElement("p");
+          op.className = "wilmercito-msg fuente";
+          d.opciones.forEach(function (o) {
+            var b = document.createElement("button");
+            b.type = "button";
+            b.textContent = o.etiqueta;
+            b.className = "wilmercito-voto";
+            b.addEventListener("click", function () { enviar(o.pregunta); });
+            op.appendChild(b);
+          });
+          msgs.appendChild(op);
+          msgs.scrollTop = msgs.scrollHeight;
+        }
+        addVoto(q, d.respuesta, d.fuente || null);
+      } else {
+        add(d.error || "Error.", "el");
+      }
+    }).catch(function () {
+      msgs.lastChild.remove();
+      add("Wilmercito no disponible ahora mismo.", "el");
+    });
+  }
+  form.addEventListener("submit", function (ev) {
+    ev.preventDefault();
+    var q = input.value.trim();
+    if (q.length < 3) return;
+    input.value = "";
+    enviar(q);
+  });
+})();
+</script>

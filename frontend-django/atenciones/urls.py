@@ -16,6 +16,11 @@ urlpatterns = [
     path("atenciones/", views.lista_vista, name="atenciones_lista"),
     path("atenciones/nueva/", views.nueva_vista, name="atenciones_nueva"),
     path(
+        "atenciones/nueva/sugerir/",
+        views.sugerir_solucion_vista,
+        name="sugerir_solucion",
+    ),
+    path(
         "atenciones/<int:atencion_id>/ticket/",
         views.ticket_vista,
         name="atencion_ticket",
@@ -31,8 +36,11 @@ urlpatterns = [
         name="atencion_eliminar",
     ),
     path("dashboard/", views.dashboard_vista, name="dashboard"),
+    path("reportes/", views.reportes_vista, name="reportes"),
     path("jerarquia/", views.jerarquia_vista, name="jerarquia"),
     path("jerarquia/accion/", views.jerarquia_accion_vista, name="jerarquia_accion"),
+    path("usuarios/", views.usuarios_vista, name="usuarios"),
+    path("usuarios/accion/", views.usuarios_accion_vista, name="usuarios_accion"),
     path("panel/estados/", views.panel_estados_vista, name="panel_estados"),
     path("panel/stats/", views.panel_stats_vista, name="panel_stats"),
     path("horarios/", views.horarios_vista, name="horarios"),
@@ -44,4 +52,27 @@ urlpatterns = [
     path("notas/", views.notas_vista, name="notas"),
     path("notas/guardar/", views.notas_guardar_vista, name="notas_guardar"),
     path("auxiliares/", views.auxiliares_vista, name="auxiliares"),
+    path("wilmercito/", views.wilmercito_vista, name="wilmercito"),
+    path(
+        "wilmercito/calificar/",
+        views.wilmercito_calificar_vista,
+        name="wilmercito_calificar",
+    ),
+    path("conocimiento/", views.conocimiento_vista, name="conocimiento"),
+    path(
+        "conocimiento/promover/",
+        views.conocimiento_promover_vista,
+        name="conocimiento_promover",
+    ),
+    path("asistente/", views.asistente_vista, name="asistente"),
+    path(
+        "asistente/reindexar/",
+        views.asistente_reindexar_vista,
+        name="asistente_reindexar",
+    ),
+    path(
+        "asistente/propuesta/",
+        views.propuesta_resolver_vista,
+        name="propuesta_resolver",
+    ),
 ]

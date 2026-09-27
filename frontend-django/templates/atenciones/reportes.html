@@ -1,0 +1,164 @@
+{% extends "atenciones/base.html" %}
+{% block titulo %}Reportes — Soporte Técnico{% endblock %}
+{% block contenido %}
+<div class="page-wide rep">
+  {% if error %}
+  <div class="page-head">
+    <div>
+      <h1>Reporte mensual — Soporte Técnico</h1>
+      <p class="sub">El período no se pudo calcular.</p>
+    </div>
+  </div>
+  <section class="bloque">
+    <p class="rep-error">No se pudo cargar el reporte. Reintentá.</p>
+    <a class="btn" href="{{ request.get_full_path }}">Reintentar</a>
+  </section>
+  {% else %}
+  <div class="page-head">
+    <div>
+      <h1>Reporte mensual — Soporte Técnico</h1>
+      <p class="sub">{{ payload.periodo.etiqueta }} · Equipo de Soporte Técnico · generado {{ payload.metodologia.generado_en }}</p>
+    </div>
+    <button type="button" class="btn no-print" onclick="window.print()">Imprimir / Guardar PDF</button>
+  </div>
+
+  <form method="get" class="filtros no-print rep-selector">
+    <div class="filtros-fila">
+      <div>
+        <label for="rep-mes">Mes</label>
+        <input type="month" id="rep-mes" name="mes" value="{{ payload.periodo.mes }}">
+      </div>
+      <div>
+        <label>Vista</label>
+        <div class="pills">
+          <label class="pill"><input type="radio" name="vista" value="mes"{% if payload.periodo.vista == 'mes' %} checked{% endif %}> Mes</label>
+          <label class="pill"><input type="radio" name="vista" value="anio"{% if payload.periodo.vista == 'anio' %} checked{% endif %}> Acumulado del año</label>
+        </div>
+      </div>
+      <button type="submit" class="btn">Ver</button>
+    </div>
+  </form>
+
+  <div class="kpis rep-kpis">
+    <div class="kpi">
+      <span>Total de atenciones</span>
+      <b>{{ payload.kpis.total }}</b>
+      {% if payload.kpis.delta_pct is not None %}
+      <small class="kpi-delta {% if payload.kpis.delta_pct >= 0 %}sube{% else %}baja{% endif %}">{% if payload.kpis.delta_pct >= 0 %}▲{% else %}▼{% endif %} {{ payload.kpis.delta_pct|floatformat:1 }}% ({% if payload.kpis.delta_abs >= 0 %}+{% endif %}{{ payload.kpis.delta_abs }})</small>
+      {% elif payload.kpis.prev_total == 0 and payload.kpis.total == 0 %}
+      <small class="kpi-delta neutro">— sin variación</small>
+      {% elif payload.kpis.prev_total == 0 %}
+      <small class="kpi-delta neutro">s/d (+{{ payload.kpis.delta_abs }}) · mes previo sin registros</small>
+      {% endif %}
+    </div>
+    <div class="kpi">
+      {% if payload.periodo.vista == 'anio' %}
+      <span>Meses con datos</span>
+      <b>{{ payload.kpis.meses_activos }}</b>
+      {% else %}
+      <span>Mes anterior</span>
+      <b>{{ payload.kpis.prev_total }}</b>
+      {% endif %}
+    </div>
+    <div class="kpi">
+      <span>Fuera de turno</span>
+      <b>{{ payload.kpis.fuera_pct|floatformat:1 }}%</b>
+      {% if payload.kpis.fuera_delta_pts is not None %}
+      <small class="kpi-delta {% if payload.kpis.fuera_delta_pts >= 0 %}baja{% else %}sube{% endif %}">{% if payload.kpis.fuera_delta_pts >= 0 %}▲{% else %}▼{% endif %} {{ payload.kpis.fuera_delta_pts|floatformat:1 }} pts</small>
+      {% endif %}
+    </div>
+    <div class="kpi">
+      <span>Promedio por día</span>
+      <b>{{ payload.kpis.promedio_dia|floatformat:1 }}</b>
+      <small class="kpi-nota">{{ payload.kpis.dias_periodo }} días calendario</small>
+    </div>
+    <div class="kpi">
+      <span>Áreas distintas</span>
+      <b>{{ payload.kpis.areas_distintas }}</b>
+    </div>
+  </div>
+
+  <section class="bloque">
+    <header><h2>Evolución {{ payload.periodo.mes|slice:":4" }}</h2><small>atenciones por mes</small></header>
+    <div class="chart rep-evolucion" id="rep-evolucion"></div>
+  </section>
+
+  <section class="bloque">
+    <header><h2>Por categoría</h2><small>cómo se clasificó el trabajo</small></header>
+    <div class="chart rep-barras" id="rep-categoria">
+      {% if not payload.charts.categoria.labels %}<p class="sin-datos">Sin atenciones registradas en este período</p>{% endif %}
+    </div>
+  </section>
+
+  <section class="bloque">
+    <header><h2>Dónde se concentró</h2><small>sectores solicitantes</small></header>
+    <div class="chart rep-barras" id="rep-sectores">
+      {% if not payload.charts.sectores.labels %}<p class="sin-datos">Sin atenciones registradas en este período</p>{% endif %}
+    </div>
+  </section>
+
+  <div class="dos-col">
+    <section class="bloque">
+      <header><h2>Cómo llegó</h2><small>medio de solicitud</small></header>
+      <div class="chart rep-dona" id="rep-medio">
+        {% if not payload.charts.medio.labels %}<p class="sin-datos">Sin atenciones registradas en este período</p>{% endif %}
+      </div>
+    </section>
+    <section class="bloque">
+      <header><h2>Quién pidió</h2><small>tipo de solicitante</small></header>
+      <div class="chart rep-dona" id="rep-tipo">
+        {% if not payload.charts.tipo_solicitante.labels %}<p class="sin-datos">Sin atenciones registradas en este período</p>{% endif %}
+      </div>
+    </section>
+  </div>
+
+  <section class="bloque rep-bloque-top">
+    <header><h2>Top 10 áreas solicitantes</h2><small>volumen y peso relativo</small></header>
+    {% if payload.charts.top_areas %}
+    <div class="tabla-scroll">
+      <table class="tabla rep-top">
+        <thead><tr><th>#</th><th>Área</th><th>Atenciones</th><th>% del período</th></tr></thead>
+        <tbody>
+          {% for fila in payload.charts.top_areas %}
+          <tr><td>{{ forloop.counter }}</td><td>{{ fila.area }}</td><td>{{ fila.total }}</td><td>{{ fila.pct|floatformat:1 }}%</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p class="sin-datos">Sin atenciones registradas en este período</p>
+    {% endif %}
+  </section>
+
+  {% if payload.periodo.vista == 'mes' %}
+  <section class="bloque">
+    <header><h2>Trabajo destacado</h2><small>casos del período y su solución</small></header>
+    {% if destacados_error %}
+    <p class="sin-datos">No se pudieron cargar los casos destacados</p>
+    {% elif payload.destacados %}
+    {% for caso in payload.destacados %}
+    <article class="destacado">
+      <div class="destacado-meta"><span>{{ caso.categoria }}</span><b>{{ caso.area }}</b></div>
+      <p class="destacado-desc">{{ caso.descripcion }}</p>
+      <p class="destacado-sol"><span>Solución:</span> {{ caso.solucion }}</p>
+    </article>
+    {% endfor %}
+    {% else %}
+    <p class="sin-datos">Sin casos para destacar en este período</p>
+    {% endif %}
+  </section>
+  {% endif %}
+
+  <footer class="rep-footer">
+    <p><b>Metodología</b></p>
+    <p>Fuente: {{ payload.metodologia.fuente }} · Período: {{ payload.metodologia.periodo }} · Generado: {{ payload.metodologia.generado_en }} · {{ payload.metodologia.corte }}</p>
+  </footer>
+
+  {{ payload|json_script:"payload" }}
+  {% endif %}
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="/static/js/vendor/echarts.min.js?v={{ asset_version }}"></script>
+<script src="/static/js/reportes.js?v={{ asset_version }}" defer></script>
+{% endblock %}

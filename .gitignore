@@ -35,8 +35,10 @@ docs/diagramas/
 docs/wireframes/
 backend-fastapi/.env
 backend-fastapi/.venv/
+backend-fastapi/.venv
 frontend-django/.env
 frontend-django/.venv/
+frontend-django/.venv
 frontend-django/static/demo/
 __pycache__/
 .playwright-mcp/
@@ -49,8 +51,12 @@ __pycache__/
 .omo/
 .opencode/
 backups/*.dump
-# Datos: snapshots de prod y mapeos de areas. No se versionan (ver docs/runbook-operacion.md)
+backups/*.sql
+# Datos: snapshots de prod. No se versionan (ver docs/runbook-operacion.md)
 /*.csv
+# Los mapeos de areas no son datos: son la fuente del seed y del importador
+!mapeo-areas.csv
+!mapeo-areas-dedup.csv
 
 # Logs de los procesos en produccion
 logs/

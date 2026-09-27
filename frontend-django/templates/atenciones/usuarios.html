@@ -1,0 +1,95 @@
+{% extends "atenciones/base.html" %}
+{% block titulo %}Usuarios — Soporte Técnico{% endblock %}
+{% block contenido %}
+<div class="page-wide">
+  <div class="page-head">
+    <div>
+      <h1>Usuarios</h1>
+      <p class="sub">Equipo y accesos al sistema</p>
+    </div>
+    <a class="btn" href="{% url 'dashboard' %}">Dashboard</a>
+  </div>
+
+  {% if flash %}<p class="flash {{ flash.tipo }}">{{ flash.texto }}</p>{% endif %}
+
+  <section class="bloque">
+    <header>
+      <h2>Equipo</h2>
+      <small>{{ activos|length }} activos · {{ inactivos|length }} de baja</small>
+    </header>
+
+    {% if activos or inactivos %}
+    <div class="tabla-scroll">
+    <table class="tabla">
+      <thead>
+        <tr><th>Nombre</th><th>Rol</th><th>Estado</th><th>Acción</th></tr>
+      </thead>
+      <tbody>
+        {% for u in activos %}
+        <tr>
+          <td>{{ u.display_name }}</td>
+          <td>{{ u.role }}</td>
+          <td>activo</td>
+          <td>
+            <form method="post" action="{% url 'usuarios_accion' %}">
+              {% csrf_token %}
+              <input type="hidden" name="accion" value="desactivar">
+              <input type="hidden" name="id" value="{{ u.id }}">
+              <button class="btn ghost" type="submit">Dar de baja</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+        {% for u in inactivos %}
+        <tr>
+          <td>{{ u.display_name }}</td>
+          <td>{{ u.role }}</td>
+          <td><span class="jerq-off">inactivo</span></td>
+          <td>
+            <form method="post" action="{% url 'usuarios_accion' %}">
+              {% csrf_token %}
+              <input type="hidden" name="accion" value="activar">
+              <input type="hidden" name="id" value="{{ u.id }}">
+              <button class="btn ghost" type="submit">Reactivar</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    </div>
+    {% else %}
+    <p class="sub">Sin usuarios registrados.</p>
+    {% endif %}
+  </section>
+
+  <section class="bloque">
+    <header><h2>Nuevo usuario</h2><small>sin contraseña no puede entrar</small></header>
+    <form class="jerq-form" method="post" action="{% url 'usuarios_accion' %}">
+      {% csrf_token %}
+      <input type="hidden" name="accion" value="crear">
+      <label for="email">Correo</label>
+      <input id="email" type="email" name="email" placeholder="correo@upds.edu.bo" required>
+      <label for="nombre">Nombre</label>
+      <input id="nombre" type="text" name="nombre" placeholder="Nombre y apellido" required>
+      <label for="role">Rol</label>
+      <select id="role" name="role">
+        {% for r in roles %}<option value="{{ r }}">{{ r }}</option>{% endfor %}
+      </select>
+      <label for="password">Contraseña (opcional)</label>
+      <input id="password" type="password" name="password" placeholder="Mínimo 8 caracteres">
+      <button class="btn" type="submit">Crear</button>
+    </form>
+  </section>
+
+  <section class="bloque">
+    <header><h2>Reglas</h2></header>
+    <ul class="jerq-reglas">
+      <li><b>Dar de baja no borra</b>: el usuario sale del equipo activo y no puede entrar, pero sus atenciones siguen a su nombre en listados y estadísticas.</li>
+      <li>Un usuario dado de baja <b>pierde la sesión abierta</b>: su token deja de valer.</li>
+      <li>Sin contraseña asignada no puede entrar ni aunque esté activo.</li>
+      <li>No podés dar de baja tu propio usuario.</li>
+    </ul>
+  </section>
+</div>
+{% endblock %}

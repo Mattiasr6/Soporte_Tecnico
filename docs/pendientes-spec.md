@@ -1,6 +1,6 @@
 # Pendientes para próximas specs
 
-> Estado al 2026-09-22, rama `python-experiment`.
+> Estado al 2026-09-24, rama `dev`.
 > Este documento es la fuente para armar las specs que siguen. Cada bloque trae el
 > contexto ya investigado para que nadie tenga que re-descubrirlo.
 
@@ -10,8 +10,8 @@
 
 | Área | Estado |
 |---|---|
-| Backend FastAPI S1–S8 | completo · 60 tests |
-| Django S9 (login, lista, registrar, modal ticket, sidebar, auxiliares) | completo · 28 tests |
+| Backend FastAPI S1–S8 | completo · 83 tests (82 pasan + 1 pre-existente acoplado al reloj) |
+| Django S9 (login, lista, registrar, modal ticket, sidebar, auxiliares) | completo · 35 tests |
 | Dashboard S10 | completo (drill-down, ficha, calendario, sankey, donas, scatter, radar, presencia) |
 | Selector de jerarquía en `/soporte` | árbol con filtro (reemplazó los 3 desplegables) |
 | Paginación de la lista | 50 + "Ver más" (conserva filtros) |
@@ -21,10 +21,66 @@
 | Pantalla `/jerarquia` | árbol + detalle + alta/mover/renombrar/desactivar/eliminar |
 | Carga de datos | 276 atenciones de septiembre (igual que prod al 22-sep), 53 áreas, 3 sectores, 4 grupos · invariante "jerarquía incoherente" = 0 |
 | Backup de prod | pipeline arreglado (estaba generando 1.1M de archivos vacíos) + dump verificado por checksum |
+| S13 (2026-09-24) | baja de usuarios (`Usuarios.Activo`, pantalla `/usuarios/`, API de alta/baja) + import histórico de los 2 técnicos retirados (556 atenciones). Espejo en `docs/spec-s13-usuarios-e-import-historico.md` |
 
 ---
 
-## J1 · Bootstrap por código (la última pieza de jerarquía)
+## Pendientes nuevos (2026-09-24)
+
+### A2 · Responsive: `/atenciones` en móvil se ve mal
+
+Medido el 2026-09-24 a 390px de ancho. **Fase A hecha**: las 7 tablas van dentro de
+`.tabla-scroll` (scrollean en vez de perder columnas), `.page-wide` con `box-sizing`, y en
+móvil envuelven `.page-head`, `.filtros` y `.filtros-fila`. Resultado: **10/10 pantallas en
+0px de desborde** (antes: `/horarios` 558, `/atenciones` 172, `/dashboard` 142, `/` 55,
+`/usuarios` 45).
+
+**Fase B hecha** (2026-09-24): `/atenciones` y `/horarios` pasan a **tarjetas apiladas**
+por debajo de 767px (arriba, tabla: a 768 entra cómoda). En `/atenciones` cada atención es
+una tarjeta con el botón de detalle a lo ancho. En `/horarios` las 3 grillas editables se
+transforman por CSS sin duplicar markup — duplicar habría metido dos veces el mismo `<select>`
+dentro del form y el campo viajaría dos veces — y cada control queda con su etiqueta vía
+`data-label`.
+
+Medido: **10/10 pantallas en 0px de desborde en 320/360/390/767/768/900/1280**.
+
+Detalle cosmético menor: los controles nativos de hora quedan ajustados en formato 12h a 390px.
+
+### O1b · Cambiar la contraseña no invalida las sesiones abiertas — **HECHO** (2026-09-24)
+
+El JWT no dependía del hash, así que una sesión vieja seguía válida tras el cambio.
+Implementado con `Usuarios.TokenVersion` (migración `0007`): el token lleva la versión que
+tenía el usuario al emitirse y `motivo_de_rechazo()` rechaza lo que no coincida. `/perfil`
+re-loguea después del cambio para no botar la sesión propia.
+
+> **Hallazgo al hacerlo:** `ws._autenticar` no validaba NADA (ni `activo`): un usuario dado de
+> baja podía abrir un WebSocket con su token viejo hasta el vencimiento (365 días). Cerrado,
+> y el chequeo quedó en un solo lugar para que HTTP y WebSocket no se desincronicen.
+
+### J2b · Catálogo: renombres y movimientos pendientes (decididos, nunca aplicados)
+
+> El **mover** de `/jerarquia` ya está arreglado (2026-09-24): era un solo select ambiguo con
+> dos controles que se contradecían. Ahora son dos grupos explícitos, "Directa del sector" y
+> "Dentro de una dependencia". Los renombres de abajo siguen pendientes.
+
+- `Extras` → **`Instituciones`** (sigue siendo sector: son 3, siempre)
+- `Eventos` sale de `Extras` y pasa a **dependencia de `Administrativos`** renombrada
+  **`Espacios comunes`**; se le suman `Sala Magna` y `Sala de lectura`
+- `Sala 1/2/3 (Directorio)` → `Instituciones › Directorio`
+- `Sala de Docentes` se queda en Vicerrectorado
+
+⚠️ **Hacer J1 ANTES que esto**: `seed_catalogo` resuelve el sector por nombre desde `PADRES`
+(hardcodeado en `scripts/seed.py`) y `mapeo-areas-dedup.csv` guarda `grupo_padre` por nombre.
+Renombrar un sector hoy los rompe.
+
+---
+
+## J1 · Bootstrap por código — **HECHO** (2026-09-25)
+
+> Verificado el 2026-09-25: base fresca + `alembic upgrade head` + `seed_catalogo` =
+> catálogo idéntico (3+4+56). Y el round-trip: renombre `Biblioteca`→`Biblioteca Central`
+> en la BD, `exportar_catalogo`, vaciar, re-seed → el renombre persiste. Lo de abajo es el
+> contexto original (ya cumplido).
 
 **Por qué**: la pantalla `/jerarquia` ya cambia el catálogo, pero el bootstrap
 (`seed.py`) lee CSV **por nombre**. Un renombre deja los CSV viejos y un re-seed
@@ -90,6 +146,11 @@ tiene.
 - **La CSS está 100% en px** (271 usos de px, 0 de rem). Por eso el tamaño de letra se
   implementó con `zoom`, que escala todo proporcionalmente. Funciona, pero el control
   fino (escalar solo el texto, no los espacios) requiere migrar a `rem`.
+  **Síntoma medido el 2026-09-24:** con la letra en `grande` o `xl` persistida, las
+  pantallas desbordan a anchos intermedios (`/atenciones` 159px, `/dashboard` 134,
+  `/horarios` 108 a 910px con `xl`). Causa: `zoom` no afecta a las media queries, así que
+  a 910px entra el layout de escritorio (el corte es a 900) pero todo mide 1,3× y no cabe.
+  Migrar a `rem` lo resuelve de raíz.
 - **Pendiente una pasada de accesibilidad** por las pantallas existentes (foco,
   teclado, contraste, `aria`), no solo por las preferencias del perfil. Hay un skill
   `accessibility` disponible.
@@ -146,7 +207,9 @@ contraste, `aria`), no solo por el perfil.
 
 ---
 
-## N1 · `/notas` — bloc de notas
+## N1 · `/notas` — bloc de notas — **HECHO**
+
+> Verificado el 2026-09-24: la ruta, la vista y el template existen. Lo de abajo es el contexto original.
 
 El más barato de todos: **el backend ya está listo** (`GET`/`PUT
 /api/usuarios/notas`, un texto por usuario en `Usuarios.Notas`). Falta solo la
@@ -155,7 +218,12 @@ sin acción.
 
 ---
 
-## H1 · `/horarios`
+## H1 · `/horarios` — **HECHO**
+
+> Verificado el 2026-09-24: los 4 cambios de backend están aplicados (`DiaSemana` en el unique,
+> `ROLES_CON_HORARIO`, cobertura separada laborable/sábado, `label` generado desde las horas),
+> la pantalla existe y hay 52 horarios cargados. ✅ el "efecto colateral" que advertía esta
+> sección NO aplica. Lo de abajo es el contexto original.
 
 Backend **casi completo**: `GET`/`POST` (upsert por técnico+mes) /`DELETE
 /api/horarios` + `GET /api/horarios/cobertura` (ya calcula, para los 4 bloques
@@ -206,11 +274,22 @@ mano cada mes.
 
 ---
 
-## R1 · `/reportes`
+## R1 · `/reportes` — **HECHO** (2026-09-25)
 
-**Hay que decidir si es un feature real.** En v2 (`frontend/src/app/reporte/page.tsx`,
-180 líneas) **no hace ningún `fetch`**: parece una maqueta. Si es real, definir qué
-reportes y en qué formato (Excel, PDF, imprimible).
+> **Confirmado que sí era un feature real**: el jefe (Wilmer) presenta mes a mes el trabajo
+> del equipo al rectorado. Spec: `docs/spec-s14-reportes.md`. Lo de abajo es el contexto original.
+
+**Criterios que fijó el usuario**: solo **imprimible** (sin export a Excel) · **sin sección
+por técnico** (el rectorado no necesita eso) · **mes elegible + acumulado del año**.
+
+**Implementado**: `/reportes/?mes=YYYY-MM&vista=mes|anio` con 5 KPIs comparados al mes
+anterior, evolución del año, categorías, sectores, medios y tipo de solicitante, top 10
+áreas, 3 casos destacados y nota de metodología. Imprime a PDF con `@media print` (A4,
+oculta nav y selector, `break-inside: avoid`) sin librerías nuevas.
+
+**Decisión abierta (D-01)**: los "destacados" salen de una heurística (la solución más larga
+de cada categoría top-3). La alternativa es un flag manual `destacar` en la atención, que
+requiere backend.
 
 ---
 
@@ -284,9 +363,12 @@ backend nuevo: se enriqueció `/api/usuarios` (`horario_hoy`, `entra_a_las`,
 
 ## Decisiones ya tomadas (no volver a preguntar)
 
-- Sectores: **Administrativos · Académicos · Espacios comunes · Instituciones**.
-  `Eventos` sube a sector y pasa a llamarse "Espacios comunes"; se le suman
-  `Sala Magna` y `Sala de lectura`. `Sala de Docentes` **se queda** en Vicerrectorado.
+- Sectores: **siempre 3** — `Administrativos · Académicos · Instituciones` (`Extras` se renombra a
+  **`Instituciones`**). Es a propósito: no hay un 4to sector ni columna `Activo` en `GruposPadres`,
+  para que no puedan crearse más de 3.
+- `Eventos` sale de `Extras` y pasa a **dependencia de `Administrativos`** renombrada
+  **"Espacios comunes"**; se le suman `Sala Magna` y `Sala de lectura`.
+  `Sala de Docentes` **se queda** en Vicerrectorado.
 - `Sala 1/2/3 (Directorio)` pertenecen a `Instituciones › Directorio`.
 - El sector de terceros se llama **"Instituciones"** (el jefe rechazó "Externos" por
   sonar excluyente). `EIAG` es posgrado y es empresa aparte → va como dependencia.

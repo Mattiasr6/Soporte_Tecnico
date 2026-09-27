@@ -1,6 +1,8 @@
-"""Extrae las atenciones de septiembre desde prod y arma el CSV de carga.
+"""Extrae las atenciones desde prod y arma el CSV de carga.
 
-Uso desde backend-fastapi/:  python scripts/extraer_septiembre.py
+Uso desde backend-fastapi/:
+    python scripts/extraer_septiembre.py                      # desde 2026-09-01
+    python scripts/extraer_septiembre.py 2026-01-01 historia.csv   # historia completa
 
 Por que existe: el CSV es un snapshot y prod sigue recibiendo atenciones, asi que
 un archivo "hecho a mano una vez" queda viejo enseguida (paso: 253 -> 274 en horas).
@@ -25,13 +27,13 @@ from app.services.csv_import import MEDIOS_VALIDOS, SOLICITANTES_VALIDOS
 RAIZ = Path(__file__).resolve().parents[2]
 MAPEO = RAIZ / "mapeo-areas.csv"
 CATALOGO = RAIZ / "mapeo-areas-dedup.csv"
-SALIDA = RAIZ / "atenciones_septiembre.csv"
-CONTENEDOR = "soporte-postgres"
-DESDE = "2026-09-01"
+CONTENEDOR = os.getenv("SYNC_CONTENEDOR", "soporte-postgres")
+DESDE = sys.argv[1] if len(sys.argv) > 1 else "2026-09-01"
+SALIDA = RAIZ / (sys.argv[2] if len(sys.argv) > 2 else "atenciones_septiembre.csv")
 
 COLUMNAS = [
     "tecnico_email",
-    "area",
+    "area_codigo",
     "colaborador_email",
     "medio_solicitud",
     "usuario_solicitante",
@@ -108,11 +110,11 @@ def leer_prod() -> list[dict[str, str]]:
 
 
 def construir_resolutor() -> dict[str, str]:
-    """texto de prod -> nombre canonico. Canonicos pasan directo; origenes por mapeo."""
-    catalogo = {f["nombre"].strip() for f in _leer(CATALOGO)}
-    resolutor = {nombre: nombre for nombre in catalogo}
+    """texto de prod -> codigo de area. Canonicos pasan directo; origenes por mapeo."""
+    catalogo = {f["nombre"].strip(): f["codigo_area"].strip() for f in _leer(CATALOGO)}
+    resolutor = dict(catalogo)
     for fila in _leer(MAPEO):
-        resolutor[fila["area_actual"].strip()] = fila["nuevo_nombre"].strip()
+        resolutor[fila["area_actual"].strip()] = fila["codigo_destino"].strip()
     return resolutor
 
 
@@ -125,10 +127,10 @@ def transformar(
 
     for fila in filas:
         area_prod = fila["area"].strip()
-        area = resolutor.get(area_prod) or norm_resolutor.get(_norm(area_prod))
-        if area is None:
+        codigo = resolutor.get(area_prod) or norm_resolutor.get(_norm(area_prod))
+        if codigo is None:
             problemas.append(f"area sin resolver: {area_prod!r}")
-            area = area_prod
+            codigo = area_prod
 
         solicitante = fila["usuario_solicitante"].strip()
         solicitante = EQUIVALENCIAS_SOLICITANTE.get(solicitante, solicitante)
@@ -146,7 +148,7 @@ def transformar(
         normalizado.append(
             {
                 "tecnico_email": fila["tecnico_email"].strip(),
-                "area": area,
+                "area_codigo": codigo,
                 "colaborador_email": fila["colaborador_email"].strip(),
                 "medio_solicitud": medio,
                 "usuario_solicitante": solicitante,
@@ -178,7 +180,7 @@ def main() -> int:
         escritor.writeheader()
         escritor.writerows(filas)
 
-    areas = {f["area"] for f in filas}
+    areas = {f["area_codigo"] for f in filas}
     print(f"escrito: {SALIDA.name}")
     print(f"  filas             : {len(filas)}")
     print(f"  areas canonicas   : {len(areas)}")

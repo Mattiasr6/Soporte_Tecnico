@@ -1,6 +1,8 @@
+import calendar
 import contextlib
 import datetime as _dt
 import json as _json
+import logging
 from zoneinfo import ZoneInfo
 
 from django.http import Http404, HttpRequest, HttpResponse, JsonResponse
@@ -21,6 +23,8 @@ from .auth import con_login
 from .forms import LoginForm
 
 _ZONA_LA_PAZ = ZoneInfo("America/La_Paz")
+
+_log = logging.getLogger(__name__)
 
 PASO_LISTA = 50
 
@@ -150,6 +154,21 @@ def logout_vista(request: HttpRequest) -> HttpResponse:
     return redirect("login")
 
 
+def _tecnicos_para_filtrar(token: str) -> list[dict[str, object]]:
+    usuarios = api_get("/api/usuarios", token, {"incluir_inactivos": "true"})
+    if not isinstance(usuarios, list):
+        return []
+    tecnicos = [
+        {
+            "id": u["id"],
+            "nombre": u["display_name"] + ("" if u.get("activo") else " (de baja)"),
+        }
+        for u in usuarios
+        if isinstance(u, dict) and u.get("role") in ("Tecnico", "Jefe")
+    ]
+    return sorted(tecnicos, key=lambda t: str(t["nombre"]))
+
+
 @con_login
 def lista_vista(request: HttpRequest) -> HttpResponse:
     if _es_auxiliar(request):
@@ -159,7 +178,9 @@ def lista_vista(request: HttpRequest) -> HttpResponse:
     q = request.GET.get("q", "").strip().lower()
     categoria = request.GET.get("categoria", "").strip()
     mes = request.GET.get("mes", "").strip()
-    data = api_get("/api/atenciones", token)
+    tecnico = _int_o_none(request.GET.get("tecnico"))
+    params = {"usuario_id": str(tecnico)} if tecnico else None
+    data = api_get("/api/atenciones", token, params)
     assert isinstance(data, list)
     filas = [a for a in data if isinstance(a, dict)]
     if q:
@@ -190,6 +211,8 @@ def lista_vista(request: HttpRequest) -> HttpResponse:
             "q": request.GET.get("q", ""),
             "categoria": categoria,
             "mes": mes,
+            "tecnico": tecnico,
+            "tecnicos": _tecnicos_para_filtrar(token) if _puede_dashboard(request) else [],
             "flash": request.session.pop("flash", None),
         },
     )
@@ -769,6 +792,293 @@ def dashboard_vista(request: HttpRequest) -> HttpResponse:
     )
 
 
+def _dias_del_mes(anio: int, mes: int) -> int:
+    return calendar.monthrange(anio, mes)[1]
+
+
+def _params_mes(anio: int, mes: int) -> dict[str, str]:
+    return {
+        "desde_dia": "1",
+        "desde_mes": f"{mes:02d}",
+        "desde_anio": str(anio),
+        "hasta_dia": str(_dias_del_mes(anio, mes)),
+        "hasta_mes": f"{mes:02d}",
+        "hasta_anio": str(anio),
+    }
+
+
+def _params_anio(anio: int, mes_fin: int) -> dict[str, str]:
+    return {
+        "desde_dia": "1",
+        "desde_mes": "01",
+        "desde_anio": str(anio),
+        "hasta_dia": str(_dias_del_mes(anio, mes_fin)),
+        "hasta_mes": f"{mes_fin:02d}",
+        "hasta_anio": str(anio),
+    }
+
+
+def _periodo_reporte(request: HttpRequest) -> dict[str, object]:
+    mes_actual, anio_actual = _mes_actual()
+    vista = request.GET.get("vista", "mes").strip()
+    if vista not in ("mes", "anio"):
+        _log.info("REP-002 vista invalida, se usa mes")
+        vista = "mes"
+    crudo = request.GET.get("mes", "").strip()
+    anio, mes = anio_actual, mes_actual
+    valido = (
+        len(crudo) == 7
+        and crudo[4] == "-"
+        and crudo[:4].isdigit()
+        and crudo[5:].isdigit()
+        and 1 <= int(crudo[5:]) <= 12
+    )
+    if valido:
+        anio, mes = int(crudo[:4]), int(crudo[5:])
+    elif crudo:
+        _log.info("REP-002 mes invalido, se usa el actual")
+    es_mes_en_curso = anio == anio_actual and mes == mes_actual
+    etiqueta = (
+        f"Acumulado enero–{MESES[mes - 1].lower()} {anio}"
+        if vista == "anio"
+        else f"{MESES[mes - 1]} {anio}"
+    )
+    if es_mes_en_curso:
+        etiqueta = f"{etiqueta} (parcial)"
+    return {
+        "vista": vista,
+        "mes": f"{anio}-{mes:02d}",
+        "anio": anio,
+        "mes_num": mes,
+        "etiqueta": etiqueta,
+        "es_mes_en_curso": es_mes_en_curso,
+    }
+
+
+def _orden_desc(filas: list, clave: str) -> list[dict]:
+    return sorted(
+        (f for f in filas if isinstance(f, dict)),
+        key=lambda f: (-int(f.get("total") or 0), str(f.get(clave, ""))),
+    )
+
+
+def _serie(filas: list[dict], clave: str) -> dict[str, list]:
+    return {
+        "labels": [str(f.get(clave, "")) for f in filas],
+        "values": [int(f.get("total") or 0) for f in filas],
+    }
+
+
+def _evolucion(stats: dict[str, object], anio: int, mes_fin: int) -> dict[str, list]:
+    por_mes = {
+        int(m["mes"]): int(m["total"])
+        for m in (stats.get("por_mes") or [])
+        if isinstance(m, dict) and int(m.get("anio") or 0) == anio
+    }
+    return {
+        "labels": [MESES_CORTOS[m - 1] for m in range(1, mes_fin + 1)],
+        "values": [por_mes.get(m, 0) for m in range(1, mes_fin + 1)],
+    }
+
+
+def _top_areas(stats: dict[str, object], total: int) -> list[dict[str, object]]:
+    filas = _orden_desc(list(stats.get("por_area") or []), "area")[:10]
+    return [
+        {
+            "area": str(f.get("area", "")),
+            "total": int(f.get("total") or 0),
+            "pct": round(int(f.get("total") or 0) * 100 / total, 1) if total else 0.0,
+        }
+        for f in filas
+    ]
+
+
+def _kpis_reporte(
+    s_mes: dict[str, object],
+    s_prev: dict[str, object] | None,
+    s_evol: dict[str, object],
+    dias: int,
+) -> dict[str, object]:
+    total = int(s_mes.get("total") or 0)
+    fuera = int(s_mes.get("fuera_de_turno") or 0)
+    fuera_pct = round(fuera * 100 / total, 1) if total else 0.0
+    prev_total = None
+    delta_abs = None
+    delta_pct = None
+    fuera_delta = None
+    if s_prev is not None:
+        prev_total = int(s_prev.get("total") or 0)
+        delta_abs = total - prev_total
+        if prev_total:
+            delta_pct = round((total - prev_total) * 100 / prev_total, 1)
+            prev_fuera = int(s_prev.get("fuera_de_turno") or 0)
+            fuera_delta = round(fuera_pct - prev_fuera * 100 / prev_total, 1)
+    return {
+        "total": total,
+        "prev_total": prev_total,
+        "delta_abs": delta_abs,
+        "delta_pct": delta_pct,
+        "fuera_pct": fuera_pct,
+        "fuera_delta_pts": fuera_delta,
+        "promedio_dia": round(total / dias, 1) if dias else 0.0,
+        "dias_periodo": dias,
+        "areas_distintas": len(list(s_mes.get("por_area") or [])),
+        "meses_activos": sum(
+            1 for m in (s_evol.get("por_mes") or []) if int(m.get("total") or 0) > 0
+        ),
+    }
+
+
+def _destacados(
+    lista: list[object], mes: str, categorias: list[str]
+) -> list[dict[str, object]]:
+    del_mes = [
+        a
+        for a in lista
+        if isinstance(a, dict) and str(a.get("fecha_registro") or "")[:7] == mes
+    ]
+    salida: list[dict[str, object]] = []
+    for categoria in categorias:
+        candidatos = [a for a in del_mes if a.get("categoria") == categoria]
+        if not candidatos:
+            continue
+        mejor = max(
+            candidatos,
+            key=lambda a: (len(str(a.get("solucion") or "")), -int(a.get("id") or 0)),
+        )
+        salida.append(
+            {
+                "id": int(mejor.get("id") or 0),
+                "area": str(mejor.get("area_solicitante") or ""),
+                "categoria": str(mejor.get("categoria") or ""),
+                "descripcion": str(mejor.get("descripcion") or ""),
+                "solucion": str(mejor.get("solucion") or ""),
+            }
+        )
+    return salida
+
+
+def _metodologia(periodo: dict[str, object]) -> dict[str, str]:
+    local = _dt.datetime.now(_dt.UTC).astimezone(_ZONA_LA_PAZ)
+    anio = int(periodo["anio"])
+    mes = int(periodo["mes_num"])
+    inicio = (
+        _dt.date(anio, 1, 1) if periodo["vista"] == "anio" else _dt.date(anio, mes, 1)
+    )
+    fin = _dt.date(anio, mes, _dias_del_mes(anio, mes))
+    if periodo["es_mes_en_curso"]:
+        corte = f"Datos al {local.strftime('%d/%m/%Y')} — mes en curso, cifras parciales"
+    elif periodo["vista"] == "anio":
+        corte = f"Acumulado enero–{MESES[mes - 1].lower()} {anio}"
+    else:
+        corte = "Mes cerrado"
+    return {
+        "fuente": "GET /api/atenciones/stats",
+        "periodo": f"{inicio.strftime('%d/%m/%Y')}–{fin.strftime('%d/%m/%Y')}",
+        "generado_en": local.strftime("%d/%m/%Y %H:%M"),
+        "corte": corte,
+    }
+
+
+@con_login
+def reportes_vista(request: HttpRequest) -> HttpResponse:
+    if not _puede_dashboard(request):
+        _log.info("REP-001 sin permiso en /reportes/")
+        return redirect("atenciones_lista")
+    if not request.GET:
+        inicial = _periodo_reporte(request)
+        return redirect(f"{reverse('reportes')}?mes={inicial['mes']}&vista=mes")
+    periodo = _periodo_reporte(request)
+    token = str(request.session["jwt"])
+    anio = int(periodo["anio"])
+    mes = int(periodo["mes_num"])
+    vista = str(periodo["vista"])
+    try:
+        if vista == "anio":
+            principal = api_get("/api/atenciones/stats", token, _params_anio(anio, mes))
+            previo = None
+            stats_evolucion = principal
+        else:
+            principal = api_get("/api/atenciones/stats", token, _params_mes(anio, mes))
+            prev_mes, prev_anio = _mes_vecino(mes, anio, -1)
+            previo = api_get(
+                "/api/atenciones/stats", token, _params_mes(prev_anio, prev_mes)
+            )
+            stats_evolucion = api_get(
+                "/api/atenciones/stats", token, _params_anio(anio, mes)
+            )
+    except ApiError as e:
+        if e.status in (401, 403):
+            raise
+        _log.error("REP-003 stats fallo: %s", e.detail)
+        return render(
+            request,
+            "atenciones/reportes.html",
+            {"error": True, "payload": None},
+            status=502,
+        )
+    principal = principal if isinstance(principal, dict) else {}
+    stats_evolucion = stats_evolucion if isinstance(stats_evolucion, dict) else {}
+    previo = previo if isinstance(previo, dict) else None
+    total = int(principal.get("total") or 0)
+    if total == 0:
+        _log.info("REP-005 sin atenciones en el periodo")
+    if previo is not None and int(previo.get("total") or 0) == 0 and total > 0:
+        _log.info("REP-006 mes previo sin registros, delta s/d")
+    dias = (
+        (_dt.date(anio, mes, _dias_del_mes(anio, mes)) - _dt.date(anio, 1, 1)).days + 1
+        if vista == "anio"
+        else _dias_del_mes(anio, mes)
+    )
+    categorias = _orden_desc(list(principal.get("por_categoria") or []), "categoria")
+    destacados: list[dict[str, object]] = []
+    destacados_error = False
+    if vista == "mes":
+        try:
+            lista = api_get("/api/atenciones", token, {"limit": "2000"})
+        except ApiError as e:
+            _log.warning("REP-004 lista fallo: %s", e.detail)
+            destacados_error = True
+        else:
+            destacados = _destacados(
+                list(lista) if isinstance(lista, list) else [],
+                str(periodo["mes"]),
+                [str(c["categoria"]) for c in categorias[:3]],
+            )
+    charts = {
+        "evolucion": _evolucion(stats_evolucion, anio, mes),
+        "categoria": _serie(categorias, "categoria"),
+        "sectores": _serie(
+            _orden_desc(list(principal.get("por_padre") or []), "nombre"), "nombre"
+        ),
+        "medio": _serie(
+            _orden_desc(list(principal.get("por_medio") or []), "medio"), "medio"
+        ),
+        "tipo_solicitante": _serie(
+            _orden_desc(list(principal.get("por_tipo_solicitante") or []), "tipo"),
+            "tipo",
+        ),
+        "top_areas": _top_areas(principal, total),
+    }
+    payload = {
+        "periodo": {
+            "vista": periodo["vista"],
+            "mes": periodo["mes"],
+            "etiqueta": periodo["etiqueta"],
+            "es_mes_en_curso": periodo["es_mes_en_curso"],
+        },
+        "kpis": _kpis_reporte(principal, previo, stats_evolucion, dias),
+        "charts": charts,
+        "destacados": destacados,
+        "metodologia": _metodologia(periodo),
+    }
+    return render(
+        request,
+        "atenciones/reportes.html",
+        {"payload": payload, "error": False, "destacados_error": destacados_error},
+    )
+
+
 @con_login
 def panel_estados_vista(request: HttpRequest) -> JsonResponse:
     if not _puede_dashboard(request):
@@ -901,16 +1211,19 @@ def jerarquia_vista(request: HttpRequest) -> HttpResponse:
             "detalle": detalle,
             "abrir_grupo": abrir_grupo,
             "nodo_sel": sel,
-            "sectores": [r["sector"] for r in ramas],
-            "dependencias": [
+            "destinos_sector": [
+                {"valor": f"s:{r['sector']['id']}", "texto": r["sector"]["nombre"]}
+                for r in ramas
+            ],
+            "destinos_grupo": [
                 {
-                    "id": g["id"],
-                    "nombre": g["nombre"],
-                    "sector_nombre": nombre_sector.get(g["grupo_padre_id"], "?"),
+                    "valor": f"g:{g['id']}:{r['sector']['id']}",
+                    "texto": f"{r['sector']['nombre']} › {g['nombre']}",
                 }
                 for r in ramas
                 for g in r["grupos"]
             ],
+            "destino_actual": _destino_actual(detalle),
             "sueltas": [
                 dict(a, sector_nombre=nombre_sector.get(a["grupo_padre_id"], "?"))
                 for r in ramas
@@ -922,12 +1235,36 @@ def jerarquia_vista(request: HttpRequest) -> HttpResponse:
     )
 
 
+def _destino_actual(detalle: dict | None) -> str:
+    if not detalle:
+        return ""
+    if detalle["dependencia"]:
+        return f"g:{detalle['dependencia']['id']}:{detalle['sector']['id']}"
+    return f"s:{detalle['sector']['id']}"
+
+
+def _destino_elegido(request: HttpRequest) -> tuple[int, int | None]:
+    """El select manda un solo valor: 's:<sector>' o 'g:<dependencia>:<sector>'."""
+    partes = (request.POST.get("destino") or "").split(":")
+    if len(partes) == 2 and partes[0] == "s" and partes[1].isdigit():
+        return int(partes[1]), None
+    if (
+        len(partes) == 3
+        and partes[0] == "g"
+        and partes[1].isdigit()
+        and partes[2].isdigit()
+    ):
+        return int(partes[2]), int(partes[1])
+    return 0, None
+
+
 def _crear_jerarquia(request: HttpRequest, token: str, tipo: str) -> None:
     cuerpo: dict[str, object] = {"nombre": request.POST.get("nombre", "")}
     if tipo in ("dependencia", "area"):
-        cuerpo["grupo_padre_id"] = _int_o_none(request.POST.get("sector_id")) or 0
-    if tipo == "area":
-        cuerpo["grupo_id"] = _int_o_none(request.POST.get("grupo_id"))
+        sector_id, grupo_id = _destino_elegido(request)
+        cuerpo["grupo_padre_id"] = sector_id
+        if tipo == "area":
+            cuerpo["grupo_id"] = grupo_id
     api_post(f"/api/jerarquia/{PASOS_JERARQUIA[tipo]}", token, cuerpo)
 
 
@@ -943,18 +1280,15 @@ def _renombrar_jerarquia(
 def _mover_jerarquia(
     request: HttpRequest, token: str, tipo: str, ruta: str, ident: int | None
 ) -> None:
-    destino = _int_o_none(request.POST.get("sector_id")) or 0
+    sector_id, grupo_id = _destino_elegido(request)
     if tipo == "area":
         api_put(
             f"{ruta}/{ident}",
             token,
-            {
-                "grupo_padre_id": destino,
-                "grupo_id": _int_o_none(request.POST.get("grupo_id")),
-            },
+            {"grupo_padre_id": sector_id, "grupo_id": grupo_id},
         )
     else:
-        api_put(f"{ruta}/{ident}", token, {"grupo_padre_id": destino})
+        api_put(f"{ruta}/{ident}", token, {"grupo_padre_id": sector_id})
 
 
 @con_login
@@ -1003,6 +1337,63 @@ def jerarquia_accion_vista(request: HttpRequest) -> HttpResponse:
 
 
 @con_login
+def usuarios_vista(request: HttpRequest) -> HttpResponse:
+    if not _puede_dashboard(request):
+        return redirect("atenciones_lista")
+    usuarios = api_get(
+        "/api/usuarios", str(request.session["jwt"]), {"incluir_inactivos": "true"}
+    )
+    lista = usuarios if isinstance(usuarios, list) else []
+    return render(
+        request,
+        "atenciones/usuarios.html",
+        {
+            "activos": [u for u in lista if u.get("activo")],
+            "inactivos": [u for u in lista if not u.get("activo")],
+            "roles": ["Tecnico", "Jefe", "Auxiliar"],
+            "flash": request.session.pop("flash", None),
+            "detalle": request.GET.get("detalle", ""),
+        },
+    )
+
+
+@con_login
+@require_POST
+def usuarios_accion_vista(request: HttpRequest) -> HttpResponse:
+    if not _puede_dashboard(request):
+        return redirect("atenciones_lista")
+    token = str(request.session["jwt"])
+    accion = request.POST.get("accion", "")
+    ident = _int_o_none(request.POST.get("id"))
+    try:
+        if accion == "crear":
+            cuerpo: dict[str, object] = {
+                "email": request.POST.get("email", ""),
+                "display_name": request.POST.get("nombre", ""),
+                "role": request.POST.get("role", "Tecnico"),
+            }
+            password = request.POST.get("password", "")
+            if password:
+                cuerpo["password"] = password
+            api_post("/api/usuarios", token, cuerpo)
+            texto = "Usuario creado."
+        elif accion in ("activar", "desactivar"):
+            api_patch(
+                f"/api/usuarios/{ident}/activo",
+                token,
+                {"activo": accion == "activar"},
+            )
+            texto = "Activado." if accion == "activar" else "Desactivado."
+        else:
+            texto = "Acción desconocida."
+    except ApiError as e:
+        request.session["flash"] = {"tipo": "error", "texto": _detalle_error(e)}
+    else:
+        request.session["flash"] = {"tipo": "ok", "texto": texto}
+    return redirect(reverse("usuarios"))
+
+
+@con_login
 def perfil_vista(request: HttpRequest) -> HttpResponse:
     token = str(request.session["jwt"])
     usuario = api_get("/api/usuarios/me", token)
@@ -1042,12 +1433,16 @@ def perfil_guardar_vista(request: HttpRequest) -> HttpResponse:
         if nueva != request.POST.get("repetir", ""):
             error = "Las dos contraseñas nuevas no coinciden."
         else:
+            email = str((request.session.get("usuario") or {}).get("email") or "")
             try:
                 api_post(
                     "/api/auth/password",
                     token,
                     {"actual": request.POST.get("actual", ""), "nueva": nueva},
                 )
+                datos = login_api(email, nueva)
+                request.session["jwt"] = datos["token"]
+                request.session["usuario"] = datos["user"]
                 texto = "Contraseña cambiada."
             except ApiError as e:
                 error = _detalle_error(e)
@@ -1337,3 +1732,153 @@ def horarios_copiar_vista(request: HttpRequest) -> HttpResponse:
     except ApiError as e:
         request.session["flash"] = {"tipo": "error", "texto": _detalle_error(e)}
     return redirect(f"{reverse('horarios')}?mes={mes}&anio={anio}")
+
+
+@con_login
+@require_POST
+def wilmercito_vista(request: HttpRequest) -> JsonResponse:
+    try:
+        pregunta = _json.loads(request.body).get("pregunta", "").strip()
+    except ValueError:
+        return JsonResponse({"ok": False, "error": "Pregunta inválida."}, status=400)
+    if len(pregunta) < 3:
+        return JsonResponse({"ok": False, "error": "Pregunta muy corta."}, status=400)
+    historial = request.session.get("wil_hist", [])
+    try:
+        r = api_post(
+            "/api/ia/preguntar",
+            str(request.session["jwt"]),
+            {"pregunta": pregunta[:500], "historial": historial[-4:]},
+        )
+    except ApiError as e:
+        if e.status == 503:
+            return JsonResponse(
+                {"ok": False, "error": "Wilmercito no disponible ahora mismo."},
+                status=503,
+            )
+        return JsonResponse({"ok": False, "error": _detalle_error(e)}, status=e.status)
+    if isinstance(r, dict) and r.get("respuesta"):
+        historial = [*historial, {"q": pregunta[:300], "a": str(r["respuesta"])[:300]}][-4:]
+        request.session["wil_hist"] = historial
+    return JsonResponse({"ok": True, **r})
+
+
+@con_login
+@require_POST
+def wilmercito_calificar_vista(request: HttpRequest) -> JsonResponse:
+    try:
+        body = _json.loads(request.body)
+    except ValueError:
+        return JsonResponse({"ok": False}, status=400)
+    try:
+        api_post(
+            "/api/ia/calificar",
+            str(request.session["jwt"]),
+            {
+                "pregunta": str(body.get("pregunta", ""))[:500],
+                "respuesta": str(body.get("respuesta", ""))[:2000],
+                "fuente": body.get("fuente"),
+                "puntaje": int(body.get("puntaje", 0)),
+            },
+        )
+    except (ApiError, ValueError, TypeError):
+        return JsonResponse({"ok": False}, status=400)
+    return JsonResponse({"ok": True})
+
+
+@con_login
+@require_POST
+def sugerir_solucion_vista(request: HttpRequest) -> JsonResponse:
+    try:
+        texto = _json.loads(request.body).get("texto", "").strip()
+    except ValueError:
+        return JsonResponse({"ok": False}, status=400)
+    if len(texto) < 10:
+        return JsonResponse({"ok": True, "resultados": []})
+    try:
+        r = api_post(
+            "/api/ia/buscar", str(request.session["jwt"]), {"texto": texto[:500], "top_k": 3}
+        )
+    except Exception:
+        return JsonResponse({"ok": False}, status=502)
+    if isinstance(r, dict):
+        for x in r.get("resultados", []):
+            sol = str(x.get("solucion", ""))
+            for linea in sol.split("\n"):
+                if linea.strip().lower().startswith("solución:"):
+                    x["solucion"] = linea.split(":", 1)[1].strip()
+                    break
+    return JsonResponse({"ok": True, **r} if isinstance(r, dict) else {"ok": True})
+
+
+@con_login
+def conocimiento_vista(request: HttpRequest) -> HttpResponse:
+    if not _puede_dashboard(request):
+        return redirect("atenciones_lista")
+    pendientes = api_get("/api/ia/feedback", str(request.session["jwt"]))
+    return render(
+        request, "atenciones/conocimiento.html", {"pendientes": pendientes or []}
+    )
+
+@con_login
+@require_POST
+def conocimiento_promover_vista(request: HttpRequest) -> HttpResponse:
+    if not _puede_dashboard(request):
+        return redirect("atenciones_lista")
+    fid = request.POST.get("id", "")
+    try:
+        api_post(f"/api/ia/feedback/{int(fid)}/promover", str(request.session["jwt"]), {})
+    except (ApiError, ValueError):
+        pass
+    return redirect("conocimiento")
+
+
+@con_login
+def asistente_vista(request: HttpRequest) -> HttpResponse:
+    if not _puede_dashboard(request):
+        return redirect("atenciones_lista")
+    token = str(request.session["jwt"])
+    resumen = api_get("/api/ia/resumen", token)
+    propuestas = api_get("/api/ia/propuestas", token)
+    return render(
+        request,
+        "atenciones/asistente.html",
+        {
+            "resumen": resumen if isinstance(resumen, dict) else {},
+            "propuestas": propuestas if isinstance(propuestas, list) else [],
+            "n_pendientes": 0,
+            "flash": request.session.pop("flash", None),
+        },
+    )
+
+
+@con_login
+@require_POST
+def asistente_reindexar_vista(request: HttpRequest) -> HttpResponse:
+    if not _puede_dashboard(request):
+        return redirect("atenciones_lista")
+    try:
+        api_post("/api/ia/reindexar", str(request.session["jwt"]), {})
+        request.session["flash"] = {"tipo": "ok", "texto": "Índice de Wilmercito actualizado."}
+    except ApiError as e:
+        request.session["flash"] = {"tipo": "error", "texto": _detalle_error(e)}
+    return redirect("asistente")
+
+
+@con_login
+@require_POST
+def propuesta_resolver_vista(request: HttpRequest) -> HttpResponse:
+    if not _puede_dashboard(request):
+        return redirect("atenciones_lista")
+    pid = request.POST.get("id", "")
+    aprobar = request.POST.get("accion", "") == "aprobar"
+    try:
+        api_post(
+            f"/api/ia/propuestas/{int(pid)}/resolver?aprobar={str(aprobar).lower()}",
+            str(request.session["jwt"]),
+            {},
+        )
+        request.session["flash"] = {"tipo": "ok", "texto": "Propuesta resuelta."}
+    except (ApiError, ValueError):
+        request.session["flash"] = {"tipo": "error", "texto": "No se pudo resolver."}
+    return redirect("asistente")

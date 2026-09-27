@@ -54,12 +54,20 @@
     };
   }
 
-  function barrasH(labels, values, color) {
+  function anchoLabel(id) {
+    var el = document.getElementById(id);
+    var w = el ? el.clientWidth : 480;
+    return Math.max(88, Math.min(200, Math.round(w * 0.38)));
+  }
+
+  function barrasH(labels, values, color, id) {
     var o = base();
     o.grid.right = 66;
-    o.xAxis = { type: "value", axisLabel: { color: GRIS, fontSize: 10 } };
+    o.xAxis = { type: "value",
+                axisLabel: { color: GRIS, fontSize: 10, hideOverlap: true } };
     o.yAxis = { type: "category", data: labels.slice().reverse(),
-                axisLabel: { color: TEXTO, fontSize: 11, width: 170, overflow: "truncate" } };
+                axisLabel: { color: TEXTO, fontSize: 11, width: anchoLabel(id),
+                             overflow: "break" } };
     o.series = [{ type: "bar", data: values.slice().reverse(),
                   itemStyle: { color: color, borderRadius: [0, 3, 3, 0] },
                   label: { show: true, position: "right", color: TEXTO, fontSize: 11 } }];
@@ -102,9 +110,11 @@
     o.grid.right = 70;
     o.tooltip = { trigger: "axis", axisPointer: { type: "shadow" },
                   formatter: function (p) { return p[0].name + ": <b>" + p[0].value.toLocaleString("es") + "</b> casos"; } };
-    o.xAxis = { type: "value", axisLabel: { color: GRIS, fontSize: 10 } };
+    o.xAxis = { type: "value",
+                axisLabel: { color: GRIS, fontSize: 10, hideOverlap: true } };
     o.yAxis = { type: "category", data: filas.map(function (f) { return f.n; }).reverse(),
-                axisLabel: { color: TEXTO, fontSize: 12, width: 190, overflow: "truncate" } };
+                axisLabel: { color: TEXTO, fontSize: 12, width: anchoLabel("chart-drill"),
+                             overflow: "break" } };
     o.series = [{
       type: "bar", data: filas.map(function (f) { return f.v; }).reverse(),
       itemStyle: { color: function (p) { return filas[filas.length - 1 - p.dataIndex].color; }, borderRadius: [0, 3, 3, 0] },
@@ -275,13 +285,13 @@
   /* ---------------- resto ---------------- */
   function pintarResto(c) {
     c.categoria.labels.length
-      ? montar("chart-categoria", barrasH(c.categoria.labels, c.categoria.values, VERDE))
+      ? montar("chart-categoria", barrasH(c.categoria.labels, c.categoria.values, VERDE, "chart-categoria"))
       : vacio("chart-categoria");
     c.rendimiento.labels.length
-      ? montar("chart-rendimiento", barrasH(c.rendimiento.labels, c.rendimiento.values, VERDE2))
+      ? montar("chart-rendimiento", barrasH(c.rendimiento.labels, c.rendimiento.values, VERDE2, "chart-rendimiento"))
       : vacio("chart-rendimiento");
     c.colaboraciones.labels.length
-      ? montar("chart-colaboraciones", barrasH(c.colaboraciones.labels, c.colaboraciones.values, DORADO))
+      ? montar("chart-colaboraciones", barrasH(c.colaboraciones.labels, c.colaboraciones.values, DORADO, "chart-colaboraciones"))
       : vacio("chart-colaboraciones");
 
     if (c.evolucion.labels.length) {
