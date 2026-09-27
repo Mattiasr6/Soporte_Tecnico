@@ -24,6 +24,7 @@ CHROMA_DIR = os.path.join(
 def main() -> None:
     from sqlalchemy import create_engine, select
     from sqlalchemy.orm import Session
+    from datetime import date
 
     from app.models.atencion import Atencion
     from app.models.usuario import Usuario
@@ -37,7 +38,7 @@ def main() -> None:
         usuarios = {u.id: u.display_name for u in db.execute(select(Usuario)).scalars().all()}
         q = (
             select(Atencion)
-            .where(Atencion.fecha_registro < "2026-09-01")
+            .where(Atencion.fecha_registro < date(2026, 9, 1))
             .order_by(Atencion.id)
         )
         for a in db.execute(q).scalars().all():
