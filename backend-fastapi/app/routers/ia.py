@@ -51,6 +51,8 @@ def fuente_label(fuente: str | None) -> str | None:
         return None
     if fuente.startswith("atencion_"):
         return f"Atención #{fuente[len('atencion_'):]}"
+    if fuente.startswith("hist_"):
+        return f"Historial #{fuente[len('hist_'):]}"
     if fuente.startswith("feedback_"):
         return "Conocimiento del equipo"
     if fuente.startswith("usuario_"):
