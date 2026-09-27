@@ -22,6 +22,7 @@ el trabajo previo a esta sesión viene de handoffs y memoria (resumido, no verba
 | 12 | `slice-12-humanidad.md` | Nombre, hora, memoria, empatía, tarjetas, turnos, informes |
 | 13 | `slice-13-finetuning.md` | 3 noches, 5/30, diagnóstico + plan (resultado negativo honesto) |
 | 14 | `slice-14-produccion.md` | P0, backups, systemd, tests, credenciales, merge, deploy |
+| 15 | `slice-15-revision.md` | Revisión formal nativa: intento terminal honesto |
 
 ## Cómo leer cada slice
 
