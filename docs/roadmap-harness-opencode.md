@@ -24,4 +24,4 @@ Cómo se usó el asistente de código en este proyecto. Cada trabajo sigue el ci
 - **Fase 1** (hecha): clasificador de riesgo por contenido (`backend-fastapi/app/services/review_risk.py`, 6 tests). Spec: `docs/specs/revision-local-fase1.md`.
 - **Fase 2**: revisión por slices con presupuesto fijo.
 - **Fase 3**: lens local con el propio modelo (titular de tesis).
-- **Fase 4**: la revisión aprende de sus falsos positivos (cierra el loop).
+- **Fase 4** (hecha): loop de falsos positivos (`review_feedback.py`, 6 tests). Spec: `docs/specs/revision-local-fase4.md`.
