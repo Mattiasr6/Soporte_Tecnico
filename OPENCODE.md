@@ -28,6 +28,9 @@ APIs de nube.
 | Fine-tuning | Env QLoRA, dataset 2229 pares, 3 noches, diagnóstico honesto del 5/30 | `slice-13` |
 | Producción | P0, backups, systemd, merge sin conflictos, deploy con evaluar 9/10 | `slice-14` |
 | Revisión | Intento terminal honesto + evidencia sustituta; specs Fase 1 y 2 | `slice-15`, `docs/specs/` |
+| Revisión local | Fases 1–4: clasificador de riesgo, slices con presupuesto, lens propio, loop de falsos positivos (24 tests) | `docs/specs/revision-local-fase*.md` |
+| Entregables | README, DOCUMENTACION, OPENCODE, informe.md + PDFs generados con mdpdf | commits `97da986`, `a794993` |
+| Pruebas | 13 unitarios IA + suites RISK/SLICE/FEEDBACK/LENS (24 tests), evaluar 10/10 y 9/10 | `backend-fastapi/tests/` |
 
 ## Dónde está la transcripción completa
 
