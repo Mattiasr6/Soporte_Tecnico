@@ -1,7 +1,23 @@
-# Informe final — Sistema de Soporte Técnico con IA local (Wilmercito)
+# Sistema de Soporte Técnico con IA local (Wilmercito)
 
-**Estudiante:** Mattias Ribera Rojas · **Asignatura:** Programación IV
-**Fecha:** 2026-09-29
+**Mattias Ribera Rojas**
+
+Universidad Privada Domingo Savio (UPDS) — Carrera de Ingeniería de Sistemas
+
+Asignatura: Programación IV — Docente: Ing. Jared Lopez Leaño
+
+29 de septiembre de 2026
+
+## Resumen
+
+Se desarrolló un sistema de información para la gestión de atenciones de
+soporte técnico con operaciones CRUD, reportes e informes deterministas, y un
+asistente de inteligencia artificial local (Wilmercito) que responde consultas
+en lenguaje natural restringidas a los datos reales. El motor de inferencia es
+llama.cpp directo en GPU, sin servicios en la nube. El desarrollo fue asistido
+por OpenCode con evidencia prompt→respuesta→verificación.
+
+**Palabras clave:** IA local, RAG, Django, llama.cpp, OpenCode.
 
 Entidad gestionada: **atenciones de soporte técnico** (tickets reales del equipo).
 Asistente IA: **Wilmercito**, motor propio llama.cpp en GPU (Qwen2.5-3B Q4_K_M),
@@ -49,7 +65,9 @@ Sistemas académicos, Software`); unicidad real: `Usuarios.Email` único.
 ```
 
 El panel de control del asistente vive en la pestaña **Asistente** (`/asistente/`,
-solo jefes): KPIs, Reindexar, Curar conocimiento. Evidencia OpenCode: prompt
+solo jefes): KPIs, Reindexar, Curar conocimiento. El panel administrativo se
+personalizó según la documentación oficial (Django Software Foundation, s. f.).
+Evidencia OpenCode: prompt
 verbatim en `docs/bitacora-ia/slice-09` ("si mis compañeros... ven `Fuente:
 kb_identidad`...") → respuesta `fuente_label()` + pestaña con gateo `can_dashboard`.
 
@@ -76,7 +94,7 @@ del técnico ...") calculados por SQL, no por el modelo.
 ### 2.1 Instalación del motor (llama.cpp directo en vez de Ollama)
 
 La consigna pedía Ollama; se optó por **llama.cpp directo como bonus track**:
-Ollama embebe llama.cpp, así que el servidor directo da control total (system
+Ollama embebe llama.cpp (Ggerganov, s. f.), así que el servidor directo da control total (system
 por request, api-key, `-ngl 99`, temperatura 0.1) con el mismo hardware. El
 servicio `ollama` quedó detenido y deshabilitado; no hay código Ollama.
 De no lograrse con llama.cpp, el fallback previsto era volver a Ollama.
@@ -172,8 +190,9 @@ DATABASE_URL='postgresql+psycopg://x:x@localhost:5433/soporte_test' \
 # tests/conftest.py (exige base terminada en _test); la suite no abre conexión.
 ```
 
-Suites RISK (6, `test_review_risk.py`) y SLICE (5, `test_review_slices.py`) para
-el clasificador de riesgo y el rebanado con presupuesto. Batería viva
+Suites RISK (6, `test_review_risk.py`), SLICE (5, `test_review_slices.py`),
+FEEDBACK (6, `test_review_feedback.py`) y LENS (7, `test_review_lens.py`):
+24 pruebas para el pipeline de revisión local. Batería viva
 `POST /api/ia/evaluar` (10 casos): **10/10** en desarrollo, **9/10** en deploy
 (décimo caso con expectativa sobre-ajustada y respuesta válida). Los tests
 encontraron 2 bugs reales (`olvidá` con tilde pasando el filtro, capacidad sin nombre).
@@ -188,12 +207,16 @@ arquitectura), `requirements.txt` de cada proyecto (`pip freeze`; Django
 
 ### 3.5 Uso de OpenCode (resumen; detalle en OPENCODE.md)
 
-Método prompt→respuesta→evidencia verificada; 15 slices en `docs/bitacora-ia/`
+Método prompt→respuesta→evidencia verificada (OpenCode, s. f.); 15 slices en `docs/bitacora-ia/`
 con prompts verbatim, commits y salidas. Impacto mayor: recalibración del
 umbral (0.5), guardrails tras el jailbreak medido, diagnóstico del dump
 PG16→PG15, y el gate que frenó 3 despliegues rotos (FT + reranker + revisión).
 
 ## Reflexión técnica
+
+Tabla 1
+
+*Dificultades encontradas, causas y soluciones aplicadas.*
 
 | # | Dificultad | Causa | Fix y aprendizaje |
 |---|---|---|---|
@@ -203,9 +226,13 @@ PG16→PG15, y el gate que frenó 3 despliegues rotos (FT + reranker + revisión
 | 4 | Reranker "mejor" ordenaba peor | KB exacta 6ta/12 | OFF por defecto y documentado |
 | 5 | Fine-tuning 5/30 tres noches | 2200 tickets "serviciales" ahogan 15 ejemplos | gate frenó el despliegue; plan Noche 4 (subsample + curado ×100). Un negativo medido vale más que un deploy roto |
 
-## Citas
+## Referencias
 
-- Django: https://docs.djangoproject.com/ · Modelos, vistas, formularios, admin
-- llama.cpp: https://github.com/ggerganov/llama.cpp · servidor OpenAI-compatible
-- OpenCode: https://opencode.ai/docs · agente de codificación en terminal
-- Transcripción completa del trabajo con OpenCode: `docs/bitacora-ia/` (15 slices)
+Django Software Foundation. (s. f.). *Django documentation*. https://docs.djangoproject.com/
+
+Ggerganov, G. (s. f.). *llama.cpp* [Software]. GitHub. https://github.com/ggerganov/llama.cpp
+
+OpenCode. (s. f.). *OpenCode docs*. https://opencode.ai/docs
+
+*Nota:* la transcripción completa del trabajo con OpenCode (15 slices
+prompt→respuesta→evidencia) se encuentra en `docs/bitacora-ia/` del proyecto.
