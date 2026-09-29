@@ -74,3 +74,18 @@ systemd con `Restart=always` (resurrección verificada con kill -9), migraciones
 alembic hasta `0009_ia_observabilidad`.
 
 Referencia técnica completa: `docs/integracion-llamacpp.md`.
+
+## Mapa de scripts (qué es cada archivo y si producción lo usa)
+
+| Archivo | Para qué existe | Estado |
+|---|---|---|
+| `scripts/arrancar_produccion.sh` | Levanta API :5002 + web :8001 en desarrollo | Uso activo (dev) |
+| `scripts/indexar_historico.py` | Indexado único de 2494 tickets históricos a Chroma | One-shot ya ejecutado; se conserva por trazabilidad |
+| `scripts/ft/build_dataset.py` | Genera pares Q&A de entrenamiento desde tickets | Experimental (FT) |
+| `scripts/ft/validate_dataset.py` | Valida el dataset antes de entrenar | Experimental (FT) |
+| `scripts/ft/train_qlora.py` | Entrena adaptador QLoRA en GPU (3 noches, 5/30) | Experimental; el adapter **no** está en prod (gate) |
+| `scripts/ft/test_adapter.py` | Evalúa el adapter (ft_eval 30 casos) | Experimental (FT) |
+| `scripts/ft/nightly.sh` | Orquesta dataset→train→test en una noche | Experimental (FT) |
+
+Nada en `scripts/ft/` corre en producción: el modelo servido es el base
+Qwen2.5-3B Q4 sin adapter. Detalle del experimento: `docs/bitacora-ia/slice-13-finetuning.md`.
