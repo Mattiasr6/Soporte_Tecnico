@@ -4,11 +4,11 @@
 
 Verificar que `dev` estuviera commiteada y crear `dev_llama.cpp` para el trabajo de IA.
 
-## Prompts
+## Prompts (transcripción editada para legibilidad; contenido y decisiones intactos)
 
-> `necesito que verifiques que la rama dev tenga todo commiteado, ahora trabajaremos en una nueva rama llamada 'dev_llama.cpp'`
+> `Necesito que verifiques que la rama dev tenga todo commiteado. Ahora trabajaremos en una nueva rama llamada 'dev_llama.cpp'.`
 
-> `ya hiciste el recovery con meta_learner?`
+> `¿Ya hiciste el recovery con meta_learner?`
 
 ## Respuesta / acciones del agente
 

@@ -4,12 +4,12 @@
 
 Motor LLM propio en el host GPU, sin Ollama (decisión del usuario: más puntos).
 
-## Prompts
+## Prompts (transcripción editada para legibilidad; contenido y decisiones intactos)
 
 > `1. ¿El docente acepta solo llama.cpp, o quiere Ollama funcionando + llama.cpp como plus? (...)`
-> `R- Ollama deberia de no existir si usas llama.cpp, en caso de no lograrlo con llama.cpp volvemos a intentar con ollama, pero no usemos nada de ollama.`
+> `R- Ollama debería no existir si usas llama.cpp. En caso de no lograrlo con llama.cpp, volvemos a intentar con ollama, pero no usemos nada de ollama.`
 > `2. ¿La demo final corre en la VM (...) o el Soporte se queda aquí y la VM solo da el RAG viejo?`
-> `R- La demo final corre en la VM, en esta pc solo hardware y llama.cpp (...)`
+> `R- La demo final corre en la VM. En esta pc solo hardware y llama.cpp (...)`
 
 ## Respuesta / acciones del agente
 

@@ -4,10 +4,10 @@
 
 Que Wilmercito aprenda de calificaciones, con curaduría humana (patrón del motor Adlux).
 
-## Prompts
+## Prompts (transcripción editada para legibilidad; contenido y decisiones intactos)
 
-> (propuesta del agente tras "quiero que este asistente sea sorprendente")
-> Diseño: burbuja con 👍/👎 → `FeedbackIA` → jefe promueve → Chroma.
+> (Propuesta del agente tras "quiero que este asistente sea sorprendente".)
+> `Diseño: burbuja con 👍/👎 → FeedbackIA → el jefe promueve → Chroma.`
 
 ## Respuesta / acciones del agente
 

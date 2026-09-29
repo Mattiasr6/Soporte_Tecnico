@@ -4,9 +4,10 @@
 
 Que los técnicos no vean IDs internos (`kb_identidad`) y los jefes tengan control sin Django-admin.
 
-## Prompts
+## Prompts (transcripción editada para legibilidad; contenido y decisiones intactos)
 
-> `si mis compañeros de trabajo (los otros técnicos, utilizan a wilmercito) y ven esto: Fuente: kb_identidad (...) como podriamos mejorar el comportamiento del chat si no eres jefe, talves el admin de django deberiamos simularlo en una nueva pestaña del sidebar unicamente para controlar el asistente`
+> `Si mis compañeros de trabajo (los otros técnicos) utilizan a Wilmercito y ven esto: Fuente: kb_identidad (...), ¿cómo podríamos mejorar el comportamiento del chat si no eres jefe?`
+> `Tal vez deberíamos simular el admin de Django en una nueva pestaña del sidebar, únicamente para controlar el asistente.`
 
 ## Respuesta / acciones del agente
 

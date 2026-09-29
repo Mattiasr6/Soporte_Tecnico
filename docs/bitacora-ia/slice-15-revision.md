@@ -4,10 +4,10 @@
 
 Pasar la revisión nativa (receipt-driven) a la rama, en slices si hacía falta.
 
-## Prompts
+## Prompts (transcripción editada para legibilidad; contenido y decisiones intactos)
 
-> (hook del sistema: candidato sin revisar `sha256:c4d99...`)
-> `slices revisables` (×2, del usuario)
+> (Hook del sistema: candidato sin revisar `sha256:c4d99...`)
+> `Slices revisables` (×2, del usuario)
 
 ## Respuesta / acciones del agente
 

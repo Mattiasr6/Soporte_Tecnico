@@ -1,7 +1,7 @@
 # Bitácora de la IA — Wilmercito (`dev_llama.cpp`)
 
 Defensa: prompts usados en OpenCode + respuestas/acciones + evidencia, paso a paso.
-Cobertura honesta: esta sesión está **verbatim** (cada prompt tal cual se escribió);
+Cobertura honesta: esta sesión está **edited for readability, content intact** (cada prompt editado para legibilidad; contenido y decisiones intactos);
 el trabajo previo a esta sesión viene de handoffs y memoria (resumido, no verbatim).
 
 ## Slices (un archivo por slice, en orden cronológico)
@@ -26,6 +26,6 @@ el trabajo previo a esta sesión viene de handoffs y memoria (resumido, no verba
 
 ## Cómo leer cada slice
 
-Cada archivo tiene: **Objetivo** → **Prompts** (verbatim, con `>` quote) →
+Cada archivo tiene: **Objetivo** → **Prompts** (edited for readability, content intact, con `>` quote) →
 **Respuesta/acciones del agente** → **Evidencia** (commits, comandos, salidas) →
 **Decisión/hallazgo**.

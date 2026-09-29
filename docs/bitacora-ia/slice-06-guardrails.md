@@ -4,10 +4,10 @@
 
 Que Wilmercito rechace fuera-de-tema y jailbreaks aunque el modelo falle.
 
-## Prompts
+## Prompts (transcripción editada para legibilidad; contenido y decisiones intactos)
 
-> (tras ver que el 1.5B contaba chistes ante "ignorá las reglas")
-> Implementación de `/ia/preguntar` con defensa en profundidad.
+> (Tras ver que el 1.5B contaba chistes ante "ignorá las reglas".)
+> `Implementación de /ia/preguntar con defensa en profundidad.`
 
 ## Respuesta / acciones del agente
 

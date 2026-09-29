@@ -4,11 +4,11 @@
 
 Que Wilmercito se sienta asistente, no grabadora.
 
-## Prompts
+## Prompts (transcripción editada para legibilidad; contenido y decisiones intactos)
 
-> `como podriamos mejorar la humanidad de wilmercito, que mejoras nos faltan`
+> `¿Cómo podríamos mejorar la humanidad de Wilmercito? ¿Qué mejoras nos faltan?`
 > `VAMO A ELLO` (×2: tarjetas+saludo; turnos+comparativa)
-> `otro tipo de mejoras?, ya no se me ocurren demasiadas cosas`
+> `¿Otro tipo de mejoras? Ya no se me ocurren demasiadas cosas.`
 > `2` (sugerencia de solución al crear)
 
 ## Respuesta / acciones del agente

@@ -4,13 +4,13 @@
 
 Chat de Wilmercito como burbuja en `frontend-django`, solo con sesión.
 
-## Prompts
+## Prompts (transcripción editada para legibilidad; contenido y decisiones intactos)
 
-> `no veo ninguna burbuja la verda`
+> `No veo ninguna burbuja, la verdad.`
 
-> `mmm nop, entre desde una pestaña de incognito y tampooco veo nada abajo a la derecha ni nada`
+> `Mmm, nop. Entré desde una pestaña de incógnito y tampoco veo nada abajo a la derecha, ni nada.`
 
-> `estoy entrando y reiniciando la pagina todo, no veo nada azul con la W abajo estoy en http://100.90.209.98:8011/`
+> `Estoy entrando y reiniciando la página, todo. No veo nada azul con la W abajo. Estoy en http://100.90.209.98:8011/.`
 
 ## Respuesta / acciones del agente
 

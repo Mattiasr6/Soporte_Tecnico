@@ -4,11 +4,11 @@
 
 Enseñarle el dominio al 3B con QLoRA nocturno (Unsloth, RTX 2060 6 GB).
 
-## Prompts
+## Prompts (transcripción editada para legibilidad; contenido y decisiones intactos)
 
-> `me interesa lo del modelo para fine-tuning tenemos tiempo para realizarlo serias capaz de documentarlo al mismo tiempo correctamente en .md?`
-> `comenzemos, ¡VAMO A ELLO!, (guarda esa frase tal cual siempre que querramos comenzar a implementar)`
-> `no podemos lanzarlos mas temprano?, despues de todo estamos en una rama de desarrollo`
+> `Me interesa lo del modelo para fine-tuning. Tenemos tiempo para realizarlo. ¿Serías capaz de documentarlo al mismo tiempo correctamente en .md?`
+> `Comencemos, ¡VAMO A ELLO! (guarda esa frase tal cual siempre que queramos comenzar a implementar)`
+> `¿No podemos lanzarlos más temprano? Después de todo estamos en una rama de desarrollo.`
 
 ## Respuesta / acciones del agente
 

@@ -4,15 +4,15 @@
 
 Dejar `upds` (100.90.209.98) operativa: SSH sin password, PostgreSQL 15, datos restaurados.
 
-## Prompts
+## Prompts (transcripción editada para legibilidad; contenido y decisiones intactos)
 
-> `lo que pasa como te habras dado cuenta el habla de un repo en especifico tu puedes acceder por ssh a esa maquina VM con el usuario mattias y contraseña mattias, en esa VM vive el repo del RAG pero tu tienes el proyecto de soporte (...)`
+> `Lo que pasa, como te habrás dado cuenta, es que él habla de un repo en específico. Tú puedes acceder por ssh a esa máquina VM con el usuario mattias y contraseña mattias. En esa VM vive el repo del RAG, pero tú tienes el proyecto de soporte (...)`
 
 > `⚠️ Advertencia: git rm es irreversible en esta rama (recuperable desde dev). ¿Confirmas el git rm de los 3 seguros + que revise los dudosos?`
-> `como permaneceran en dev, si hazlo, en esa vm tendras que instalar postgresql, haz un backup de los datos que tenemos actualmente, y luego llevas la copia allá por scp, no por git,`
+> `Como permanecerán en dev, sí, hazlo. En esa VM tendrás que instalar postgresql. Haz un backup de los datos que tenemos actualmente, y luego llevas la copia allá por scp, no por git.`
 > `3) ¿permiso SSH a upds con tu credencial? usuario: mattias contraseña: mattias (...)`
-> `4) ¿datos reales o solo FAQ 25 pares? como tu conoces Soporte Tecnico, quiero que orientes el proyecto a la realidad (...)`
-> `5) ¿chat como burbuja en frontend-django? yo creo que es lo mas sensato, tambien quiero que el asistente tenga el nombre de 'Wilmercito'`
+> `4) ¿Datos reales o solo FAQ 25 pares? Como tú conoces Soporte Tecnico, quiero que orientes el proyecto a la realidad (...)`
+> `5) ¿Chat como burbuja en frontend-django? Yo creo que es lo más sensato. También quiero que el asistente tenga el nombre de 'Wilmercito'.`
 
 ## Respuesta / acciones del agente
 

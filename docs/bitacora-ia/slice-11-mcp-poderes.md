@@ -4,13 +4,13 @@
 
 18 tools MCP + primeros poderes de escritura, siempre con confirmación humana.
 
-## Prompts
+## Prompts (transcripción editada para legibilidad; contenido y decisiones intactos)
 
-> `creo que aun tenemos que pulir que se tiene que guardar y que realmente tiene que escribir, podriamos crearle un MCP con python para que pueda usar los endpoints?`
-> `quiero que trabajes con specs no las estas haciendo con gitnexus ver que tan bien lo estamos haciendo`
-> `implementemos` (Fase A)
-> `vamos con la fase B`
-> `necesito darle mas poderes y que siempre busque la confirmacion del usuario`
+> `Creo que aún tenemos que pulir qué se tiene que guardar y qué realmente tiene que escribir. ¿Podríamos crearle un MCP con Python para que pueda usar los endpoints?`
+> `Quiero que trabajes con specs. No las estás haciendo con GitNexus. Ver qué tan bien lo estamos haciendo.`
+> `Implementemos` (Fase A)
+> `Vamos con la fase B.`
+> `Necesito darle más poderes y que siempre busque la confirmación del usuario.`
 
 ## Respuesta / acciones del agente
 

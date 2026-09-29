@@ -4,9 +4,9 @@
 
 Evaluar si un 3B obedece restricciones mejor que el 1.5B.
 
-## Prompts
+## Prompts (transcripción editada para legibilidad; contenido y decisiones intactos)
 
-> `talves podriamos correr un modelo mejorcito de 3B`
+> `Tal vez podríamos correr un modelo mejor, de 3B.`
 
 ## Respuesta / acciones del agente
 

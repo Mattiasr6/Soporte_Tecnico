@@ -4,10 +4,10 @@
 
 Búsqueda semántica sobre atenciones con alucinación = 0 (mostrar tickets reales, sin generar texto).
 
-## Prompts
+## Prompts (transcripción editada para legibilidad; contenido y decisiones intactos)
 
-> (decisiones previas: datos reales, burbuja en Django, nombre Wilmercito)
-> Flujo de trabajo del agente: explorar `backend-fastapi/app` (routers, `Atencion`), crear `app/services/ia_retrieval.py` + `app/routers/ia.py`, registrar router en `main.py`.
+> `(Decisiones previas: datos reales, burbuja en Django, nombre Wilmercito).`
+> `Flujo de trabajo del agente: explorar backend-fastapi/app (routers, Atencion). Crear app/services/ia_retrieval.py + app/routers/ia.py. Registrar router en main.py.`
 
 ## Respuesta / acciones del agente
 

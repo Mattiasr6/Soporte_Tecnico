@@ -4,12 +4,12 @@
 
 Dejar el sistema presentable y operable: backups, servicios, credenciales, tests, merge, deploy.
 
-## Prompts
+## Prompts (transcripción editada para legibilidad; contenido y decisiones intactos)
 
-> `dime que continua para que este sistema realmente sea considerado 'funcional' (...) que valga la pena que este en producción`
-> `(hoy nadie se entera) haz primero P0 y luego (...)`
-> `ahora que procede para continuar con el deploy y merge paso a paso` → `si hazlo`
-> `me aseguras que lo que tenemos en dev no se perdera?, o necesitas que abra opencode desde la carpeta Soporte_Tecnico-python (...)`
+> `Dime qué continúa para que este sistema realmente sea considerado 'funcional' (...) que valga la pena que esté en producción.`
+> `(Hoy nadie se entera) Haz primero P0 y luego (...)`
+> `¿Ahora qué procede para continuar con el deploy y merge paso a paso?` → `Sí, hazlo.`
+> `¿Me aseguras que lo que tenemos en dev no se perderá? ¿O necesitas que abra OpenCode desde la carpeta Soporte_Tecnico-python (...)?`
 
 ## Respuesta / acciones del agente
 

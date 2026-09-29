@@ -4,9 +4,9 @@
 
 Responder con usuarios, áreas y estadísticas exactas, no solo tickets.
 
-## Prompts
+## Prompts (transcripción editada para legibilidad; contenido y decisiones intactos)
 
-> `y hay manera de que todos los datos que ya tiene el sistema, el LLM pueda usarlos para mejorar sus habilidades?`
+> `¿Hay manera de que el LLM pueda usar todos los datos que ya tiene el sistema para mejorar sus habilidades?`
 
 ## Respuesta / acciones del agente
 
