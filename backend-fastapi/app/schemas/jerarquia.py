@@ -32,6 +32,11 @@ class AreaOut(BaseModel):
     activo: bool
 
 
+class AreaConversionOut(BaseModel):
+    grupo_id: int
+    atenciones_movidas: int
+
+
 class ArbolOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

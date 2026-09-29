@@ -10,6 +10,7 @@ from app.models.grupo import Grupo
 from app.models.grupo_padre import GrupoPadre
 from app.schemas.jerarquia import (
     ArbolOut,
+    AreaConversionOut,
     AreaIn,
     AreaOut,
     AreaUpd,
@@ -420,3 +421,46 @@ def borrar_area(area_id: int, db: DbSession, user: CurrentUser) -> None:
         )
     db.delete(area)
     db.commit()
+
+
+@router.post(
+    "/areas/{area_id}/convertir-dependencia", response_model=AreaConversionOut
+)
+def convertir_area_en_dependencia(
+    area_id: int, db: DbSession, user: CurrentUser
+) -> dict[str, int]:
+    """Convierte un área en una dependencia nueva del mismo sector.
+
+    Las atenciones pasan a colgar de la dependencia y el área vieja se desactiva.
+    """
+    _exigir_jefe(user)
+    area = db.get(Area, area_id)
+    if area is None:
+        raise not_found("Área no encontrada")
+    if not area.activo:
+        raise bad_request("El área está inactiva")
+    repetida = db.scalars(
+        select(Grupo).where(
+            Grupo.nombre == area.nombre, Grupo.grupo_padre_id == area.grupo_padre_id
+        )
+    ).first()
+    if repetida:
+        raise bad_request(f"Ya existe una dependencia '{area.nombre}' en ese sector")
+    grupo = Grupo(
+        nombre=area.nombre,
+        codigo=_codigo_libre(db, Grupo, area.codigo),
+        grupo_padre_id=area.grupo_padre_id,
+        activo=True,
+    )
+    db.add(grupo)
+    db.flush()
+    atenciones = db.scalars(
+        select(Atencion).where(Atencion.area_id == area.id)
+    ).all()
+    for atencion in atenciones:
+        atencion.area_id = None
+        atencion.grupo_id = grupo.id
+    area.activo = False
+    db.commit()
+    db.refresh(grupo)
+    return {"grupo_id": grupo.id, "atenciones_movidas": len(atenciones)}
