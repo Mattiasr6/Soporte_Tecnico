@@ -1307,6 +1307,12 @@ def jerarquia_accion_vista(request: HttpRequest) -> HttpResponse:
     if tipo not in PASOS_JERARQUIA:
         request.session["flash"] = {"tipo": "error", "texto": "Tipo inválido."}
         return redirect(destino)
+    if accion == "convertir" and tipo != "area":
+        request.session["flash"] = {
+            "tipo": "error",
+            "texto": "Solo un área se convierte en dependencia.",
+        }
+        return redirect(destino)
 
     ruta = f"/api/jerarquia/{PASOS_JERARQUIA[tipo]}"
     try:
@@ -1322,6 +1328,14 @@ def jerarquia_accion_vista(request: HttpRequest) -> HttpResponse:
         elif accion in ("activar", "desactivar"):
             api_put(f"{ruta}/{ident}", token, {"activo": accion == "activar"})
             texto = "Activado." if accion == "activar" else "Desactivado."
+        elif accion == "convertir":
+            datos = api_post(f"{ruta}/{ident}/convertir-dependencia", token, {})
+            movidas = 0
+            if isinstance(datos, dict):
+                movidas = datos.get("atenciones_movidas", 0)
+            texto = (
+                f"Dependencia creada con {movidas} atenciones. El área quedó inactiva."
+            )
         elif accion == "borrar":
             api_delete(f"{ruta}/{ident}", token)
             texto = "Eliminado."
