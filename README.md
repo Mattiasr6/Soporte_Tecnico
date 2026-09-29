@@ -1,5 +1,8 @@
 # Sistema de Soporte Técnico + Wilmercito (IA local)
 
+Repositorio original: https://github.com/Mattiasr6/Soporte_Tecnico
+(rama de este trabajo: `dev_llama.cpp`).
+
 Gestión de atenciones de soporte (CRUD + reportes) con asistente de IA local
 **Wilmercito**: llama.cpp directo en GPU, sin nube y sin Ollama.
 
@@ -23,6 +26,9 @@ Requisitos: Python 3.11+ (3.12 para fine-tuning), PostgreSQL 15, Tailscale entre
 ```bash
 # 1. Base de datos (en la VM)
 createdb soporte && psql soporte < backup-plano.sql   # SQL plano: el dump -Fc de PG16 no lo lee PG15
+# O demo desde cero (3 usuarios + 15 atenciones, password: demo1234):
+#   createdb demo && .venv/bin/alembic upgrade head && psql demo < scripts/seed_demo.sql
+#   Login demo: jefe.demo@upds.edu.bo / tecnico.demo@upds.edu.bo
 # 2. API
 cd backend-fastapi && python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 cp .env.example .env   # completar DATABASE_URL, JWT_SECRET, SEED_PASSWORD
