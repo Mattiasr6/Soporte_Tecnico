@@ -295,6 +295,56 @@ def test_renombrar_actualiza_el_texto_legado(catalogo):
     assert _atencion_por_id(atencion_id)["area_solicitante"] == nuevo
 
 
+def test_convertir_area_en_dependencia_mueve_sus_atenciones(catalogo):
+    a1 = _crear(catalogo["area"], "convertir-1")
+    a2 = _crear(catalogo["area"], "convertir-2")
+
+    r = client.post(
+        f"/api/jerarquia/areas/{catalogo['area']}/convertir-dependencia",
+        headers=h(UID_MATTIAS),
+    )
+    assert r.status_code == 200, r.text
+    nueva = r.json()
+    assert nueva["atenciones_movidas"] == 2
+
+    arbol = client.get(
+        "/api/jerarquia/arbol",
+        params={"incluir_inactivas": True},
+        headers=h(UID_JEFE),
+    ).json()
+    grupo = next(g for g in arbol["grupos"] if g["id"] == nueva["grupo_id"])
+    assert grupo["grupo_padre_id"] == catalogo["sector"]
+    assert grupo["activo"] is True
+    assert nueva["area_eliminada"] is True
+    assert all(a["id"] != catalogo["area"] for a in arbol["areas"])
+    for atencion_id in (a1, a2):
+        tras = _atencion_por_id(atencion_id)
+        assert tras["grupo_id"] == nueva["grupo_id"]
+        assert tras["area_id"] is None
+
+    for atencion_id in (a1, a2):
+        client.delete(f"/api/atenciones/{atencion_id}", headers=h(UID_MATTIAS))
+    client.delete(
+        f"/api/jerarquia/grupos/{nueva['grupo_id']}", headers=h(UID_MATTIAS)
+    )
+
+
+def test_convertir_area_inactiva_da_400(catalogo):
+    r = client.put(
+        f"/api/jerarquia/areas/{catalogo['area']}",
+        json={"activo": False},
+        headers=h(UID_MATTIAS),
+    )
+    assert r.status_code == 200
+
+    r = client.post(
+        f"/api/jerarquia/areas/{catalogo['area']}/convertir-dependencia",
+        headers=h(UID_MATTIAS),
+    )
+    assert r.status_code == 400
+    assert "inactiva" in r.json()["detail"]
+
+
 def test_patch_jerarquia_solo_jefes(catalogo):
     atencion_id = _crear(catalogo["area"], "patch")
 

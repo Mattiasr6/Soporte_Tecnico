@@ -1,0 +1,98 @@
+# DOCUMENTACION.md — Decisiones técnicas y arquitectura
+
+## 1. Arquitectura
+
+```
+┌─ HOST server-mattias (GPU) ─────────────────┐
+│ llama.cpp GGML_CUDA (sm_75, RTX 2060 6 GB)  │
+│ qwen2.5-3b-instruct-q4_k_m.gguf (2.0 GB)    │
+│ llama-server :8081 (OpenAI-compatible, api-key; ufw solo VM) │
+└──────────────────┬──────────────────────────┘
+                   │ Tailscale
+┌─ VM upds (Debian 12, VirtualBox sobre host Windows del aula) ─┐
+│ PostgreSQL 15 :5432 (soporte / soporte_dev) │
+│ backend-fastapi :5012 (endpoints /api/ia/*) │
+│ frontend-django :8011 (burbuja Wilmercito)  │
+│ Chroma ./chroma_db (CPU) + reglas en código │
+└─────────────────────────────────────────────┘
+```
+
+Flujo de pregunta: burbuja → `POST /wilmercito/` (Django, con JWT de sesión; el
+JWT nunca sale al navegador) → `POST /api/ia/preguntar` → intent exacto o
+embedding + top-3 Chroma → `POST :8081/v1/chat/completions` → respuesta con `fuente`.
+
+Índice: 2886 documentos (319 prod + 2494 histórico + KB estática `kb_*` +
+usuarios/áreas/feedback promovido). Embeddings `paraphrase-multilingual-MiniLM-L12-v2`
+**normalizados** (distancia coseno 0–2); umbral 0.5 calibrado con datos propios,
+sugerencia marcada "no verificado" hasta 0.9.
+
+Topología de despliegue: la VM corre en **VirtualBox sobre un host Windows**
+(PC del aula); la GPU vive en otro host Linux. Ambos se unen por **Tailscale**,
+por eso `LLAMA_URL` apunta a una IP 100.x aunque las máquinas no compartan red
+física. Sin internet en el aula, el fallback es IP LAN o video de respaldo.
+
+## 2. Decisiones
+
+| Decisión | Por qué |
+|---|---|
+| **llama.cpp directo, sin Ollama** | Ollama embebe llama.cpp; el servidor directo da control total (system por request, api-key, `-ngl 99`, temperatura 0.1) y es bonus track documentado |
+| Modelo Qwen2.5-3B sobre 1.5B | Medido: el 1.5B parafraseaba el rechazo y contaba chistes ante jailbreak; el 3B devuelve el rechazo exacto (2168 MiB VRAM, ~140 tok/s) |
+| Restricción en código, no en prompt | El modelo solo redacta; qué responder/permitir/guardar lo decide código determinista testeado |
+| Intents exactos antes que modelo | Saludos, identidad, estadísticas, turnos, informes van por regex+SQL: rápido y 100 % fiable |
+| Reranker cross-encoder OFF | Medido: ordenaba la KB exacta 6ta/12; el bi-encoder calibrado gana en este dominio |
+| FT no desplegado | Eval 5/30 tres noches → el gate frenó el despliegue; base intacta en producción |
+| Sin `rebase` pre-defensa | La revisión nativa pedía rebasar 49 commits sobre `main`; constancia en vez de forzarla |
+
+## 3. Patrones aplicados
+
+- **Service layer**: `app/services/` (`ia_retrieval`, `ia_tools`, `categorias`, `horarios`,
+  `estados`) separa dominio de transporte; los routers solo validan y delegan.
+- **Guardrails en capas** (defensa en profundidad): prefiltro regex jailbreak →
+  system + `Context/Question/Answer` → postfiltro de marcadores + umbral.
+- **Strategy por intención**: `_preguntar_impl` despacha a estrategias
+  (`_estadisticas`, `_informe` por técnico/área/medio/categoría, `_turno_ahora`,
+  `_comparativa_mes`, poderes con chip de confirmación); el registro
+  `ia_tools.REGISTRO` + `ejecutar()` despacha tools por nombre con schemas JSON.
+- **RBAC + auditoría**: escritura solo con confirmación explícita y rol
+  (`is_privileged`, `_puede_dashboard`); cada pregunta se registra en `LogIA`
+  (fuente, rechazo, ms); etiquetas legibles por rol (`fuente_label`).
+- **Loop de aprendizaje supervisado**: 👍/👎 → `FeedbackIA` → el jefe promueve →
+  `feedback_<id>` entra a Chroma. Nada aprende solo.
+
+## 4. Contratos y errores
+
+`POST /api/ia/buscar {texto, top_k}` → `{resultados[], sin_evidencia}` (umbral 0.5).
+`POST /api/ia/preguntar {pregunta, historial[≤4]}` → `{respuesta, fuente, rechazado}`.
+`POST /api/ia/reindexar` → `{nuevas, total}` (idempotente). `GET /api/ia/estado`,
+`POST /api/ia/evaluar` (batería de 10, solo jefes), `GET /api/ia/resumen` (panel).
+
+Errores: `503 motor-ia-no-disponible` (motor caído) · `200 rechazado:true` + mensaje
+exacto (jailbreak/fuera-de-tema) · `200 "No tengo ese dato disponible."` (sin evidencia).
+
+## 5. Calidad y operación
+
+Tests: 13 unitarios IA (intents, guardrails, labels; sin GPU/DB) + suites RISK
+(6, `review_risk.py`), SLICE (5, `review_slices.py`), FEEDBACK (6,
+`review_feedback.py`) y LENS (7, `review_lens.py`): 24 pruebas del pipeline de
+revisión local; `/ia/evaluar` 10/10 en
+desarrollo y 9/10 en deploy (décimo caso: expectativa sobre-ajustada, respuesta válida).
+Operación: backups diarios 02:00 + réplica al host, restore probado (2771),
+systemd con `Restart=always` (resurrección verificada con kill -9), migraciones
+alembic hasta `0009_ia_observabilidad`.
+
+Referencia técnica completa: `docs/integracion-llamacpp.md`.
+
+## Mapa de scripts (qué es cada archivo y si producción lo usa)
+
+| Archivo | Para qué existe | Estado |
+|---|---|---|
+| `scripts/arrancar_produccion.sh` | Levanta API :5002 + web :8001 en desarrollo | Uso activo (dev) |
+| `scripts/indexar_historico.py` | Indexado único de 2494 tickets históricos a Chroma | One-shot ya ejecutado; se conserva por trazabilidad |
+| `scripts/ft/build_dataset.py` | Genera pares Q&A de entrenamiento desde tickets | Experimental (FT) |
+| `scripts/ft/validate_dataset.py` | Valida el dataset antes de entrenar | Experimental (FT) |
+| `scripts/ft/train_qlora.py` | Entrena adaptador QLoRA en GPU (3 noches, 5/30) | Experimental; el adapter **no** está en prod (gate) |
+| `scripts/ft/test_adapter.py` | Evalúa el adapter (ft_eval 30 casos) | Experimental (FT) |
+| `scripts/ft/nightly.sh` | Orquesta dataset→train→test en una noche | Experimental (FT) |
+
+Nada en `scripts/ft/` corre en producción: el modelo servido es el base
+Qwen2.5-3B Q4 sin adapter. Detalle del experimento: `docs/bitacora-ia/slice-13-finetuning.md`.

@@ -136,6 +136,16 @@
       {% endif %}
 
       <div class="jerq-acciones">
+        {% if detalle.tipo == "area" and detalle.nodo.activo %}
+        <form method="post" action="{% url 'jerarquia_accion' %}" onsubmit="return confirm('Se creará la dependencia «{{ detalle.nodo.nombre }}» en el mismo sector, se moverán sus {{ detalle.nodo.total }} atenciones a ella y el área quedará vacía e inactiva. No se puede deshacer.');">
+          {% csrf_token %}
+          <input type="hidden" name="accion" value="convertir">
+          <input type="hidden" name="tipo" value="area">
+          <input type="hidden" name="id" value="{{ detalle.nodo.id }}">
+          <input type="hidden" name="volver" value="{{ nodo_sel.clave }}">
+          <button class="btn" type="submit">Convertir en dependencia</button>
+        </form>
+        {% endif %}
         <form method="post" action="{% url 'jerarquia_accion' %}">
           {% csrf_token %}
           <input type="hidden" name="accion" value="{% if detalle.nodo.activo %}desactivar{% else %}activar{% endif %}">
