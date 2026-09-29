@@ -10,9 +10,9 @@ Burbuja (Django) → FastAPI `/api/ia/*` → Chroma (CPU) + reglas → llama-ser
 | Servicio | Dónde | Puerto |
 |---|---|---|
 | `llama-server` (Qwen2.5-3B Q4_K_M) | host `server-mattias` (GPU RTX 2060) | `8081` |
-| `backend-fastapi` (uvicorn, `soporte-api-ia`) | VM `upds` | `5012` |
-| `frontend-django` (runserver, `soporte-web-ia`) | VM `upds` | `8011` |
-| PostgreSQL 15 (`soporte`, `soporte_dev`) | VM `upds` | `5432` |
+| `backend-fastapi` (uvicorn, `soporte-api-ia`) | VM `upds` (VirtualBox en host Windows) | `5012` |
+| `frontend-django` (runserver, `soporte-web-ia`) | VM `upds` (VirtualBox en host Windows) | `8011` |
+| PostgreSQL 15 (`soporte`, `soporte_dev`) | VM `upds` (VirtualBox en host Windows) | `5432` |
 
 Detalle completo: `DOCUMENTACION.md`. Bitácora del trabajo con IA: `docs/bitacora-ia/`.
 

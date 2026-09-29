@@ -9,7 +9,7 @@
 │ llama-server :8081 (OpenAI-compatible, api-key; ufw solo VM) │
 └──────────────────┬──────────────────────────┘
                    │ Tailscale
-┌─ VM upds (Debian 12) ───────────────────────┐
+┌─ VM upds (Debian 12, VirtualBox sobre host Windows del aula) ─┐
 │ PostgreSQL 15 :5432 (soporte / soporte_dev) │
 │ backend-fastapi :5012 (endpoints /api/ia/*) │
 │ frontend-django :8011 (burbuja Wilmercito)  │
@@ -25,6 +25,11 @@ embedding + top-3 Chroma → `POST :8081/v1/chat/completions` → respuesta con 
 usuarios/áreas/feedback promovido). Embeddings `paraphrase-multilingual-MiniLM-L12-v2`
 **normalizados** (distancia coseno 0–2); umbral 0.5 calibrado con datos propios,
 sugerencia marcada "no verificado" hasta 0.9.
+
+Topología de despliegue: la VM corre en **VirtualBox sobre un host Windows**
+(PC del aula); la GPU vive en otro host Linux. Ambos se unen por **Tailscale**,
+por eso `LLAMA_URL` apunta a una IP 100.x aunque las máquinas no compartan red
+física. Sin internet en el aula, el fallback es IP LAN o video de respaldo.
 
 ## 2. Decisiones
 

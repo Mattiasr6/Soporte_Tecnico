@@ -98,6 +98,8 @@ Ollama embebe llama.cpp (Ggerganov, s. f.), así que el servidor directo da cont
 por request, api-key, `-ngl 99`, temperatura 0.1) con el mismo hardware. El
 servicio `ollama` quedó detenido y deshabilitado; no hay código Ollama.
 De no lograrse con llama.cpp, el fallback previsto era volver a Ollama.
+Despliegue: la VM (Debian 12) corre en VirtualBox sobre host Windows del
+aula y alcanza la GPU del host Linux por Tailscale.
 
 ```bash
 git clone https://github.com/ggerganov/llama.cpp ~/llama.cpp
