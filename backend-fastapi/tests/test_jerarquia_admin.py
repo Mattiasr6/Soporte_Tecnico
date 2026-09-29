@@ -315,8 +315,8 @@ def test_convertir_area_en_dependencia_mueve_sus_atenciones(catalogo):
     grupo = next(g for g in arbol["grupos"] if g["id"] == nueva["grupo_id"])
     assert grupo["grupo_padre_id"] == catalogo["sector"]
     assert grupo["activo"] is True
-    area = next(a for a in arbol["areas"] if a["id"] == catalogo["area"])
-    assert area["activo"] is False
+    assert nueva["area_eliminada"] is True
+    assert all(a["id"] != catalogo["area"] for a in arbol["areas"])
     for atencion_id in (a1, a2):
         tras = _atencion_por_id(atencion_id)
         assert tras["grupo_id"] == nueva["grupo_id"]

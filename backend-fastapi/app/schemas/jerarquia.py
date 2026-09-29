@@ -35,6 +35,7 @@ class AreaOut(BaseModel):
 class AreaConversionOut(BaseModel):
     grupo_id: int
     atenciones_movidas: int
+    area_eliminada: bool
 
 
 class ArbolOut(BaseModel):

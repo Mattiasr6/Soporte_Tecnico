@@ -428,10 +428,11 @@ def borrar_area(area_id: int, db: DbSession, user: CurrentUser) -> None:
 )
 def convertir_area_en_dependencia(
     area_id: int, db: DbSession, user: CurrentUser
-) -> dict[str, int]:
+) -> dict[str, int | bool]:
     """Convierte un área en una dependencia nueva del mismo sector.
 
-    Las atenciones pasan a colgar de la dependencia y el área vieja se desactiva.
+    Las atenciones pasan a colgar de la dependencia y el área vieja se elimina si
+    queda sin atenciones; si no, se desactiva (el área no tiene jerarquía propia).
     """
     _exigir_jefe(user)
     area = db.get(Area, area_id)
@@ -460,7 +461,17 @@ def convertir_area_en_dependencia(
     for atencion in atenciones:
         atencion.area_id = None
         atencion.grupo_id = grupo.id
-    area.activo = False
+    db.flush()
+    if _atenciones_area(db, area.id):
+        area.activo = False
+        eliminada = False
+    else:
+        db.delete(area)
+        eliminada = True
     db.commit()
     db.refresh(grupo)
-    return {"grupo_id": grupo.id, "atenciones_movidas": len(atenciones)}
+    return {
+        "grupo_id": grupo.id,
+        "atenciones_movidas": len(atenciones),
+        "area_eliminada": eliminada,
+    }
