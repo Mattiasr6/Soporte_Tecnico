@@ -72,7 +72,9 @@ exacto (jailbreak/fuera-de-tema) · `200 "No tengo ese dato disponible."` (sin e
 ## 5. Calidad y operación
 
 Tests: 13 unitarios IA (intents, guardrails, labels; sin GPU/DB) + suites RISK
-(6, `review_risk.py`) y SLICE (5, `review_slices.py`); `/ia/evaluar` 10/10 en
+(6, `review_risk.py`), SLICE (5, `review_slices.py`), FEEDBACK (6,
+`review_feedback.py`) y LENS (7, `review_lens.py`): 24 pruebas del pipeline de
+revisión local; `/ia/evaluar` 10/10 en
 desarrollo y 9/10 en deploy (décimo caso: expectativa sobre-ajustada, respuesta válida).
 Operación: backups diarios 02:00 + réplica al host, restore probado (2771),
 systemd con `Restart=always` (resurrección verificada con kill -9), migraciones
