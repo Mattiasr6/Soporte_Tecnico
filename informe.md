@@ -1,4 +1,4 @@
-# Sistema de Soporte Técnico con IA local (Wilmercito)
+# Sistema de Soporte Técnico con IA local
 
 **Mattias Ribera Rojas**
 
@@ -7,6 +7,9 @@ Universidad Privada Domingo Savio (UPDS) — Carrera de Ingeniería de Sistemas
 Asignatura: Programación IV — Docente: Ing. Jared Lopez Leaño
 
 29 de septiembre de 2026
+
+*Nota: el asistente se presenta en la interfaz con el alias «Wilmercito»;
+en este documento se lo nombra como «el asistente» o «la IA local».*
 
 ## Resumen
 

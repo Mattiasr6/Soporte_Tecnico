@@ -1,10 +1,10 @@
-# Sistema de Soporte Técnico + Wilmercito (IA local)
+# Sistema de Soporte Técnico + IA local
 
 Repositorio original: https://github.com/Mattiasr6/Soporte_Tecnico
 (rama de este trabajo: `dev_llama.cpp`).
 
 Gestión de atenciones de soporte (CRUD + reportes) con asistente de IA local
-**Wilmercito**: llama.cpp directo en GPU, sin nube y sin Ollama.
+(alias en interfaz: «Wilmercito»): llama.cpp directo en GPU, sin nube y sin Ollama.
 
 ## Arquitectura (resumen)
 
