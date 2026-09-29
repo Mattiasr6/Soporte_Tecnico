@@ -1,64 +1,59 @@
-# =========================
-# Backend (.NET / C#)
-# =========================
-[Bb]in/
-[Oo]bj/
-*.user
-*.userosscache
-*.sln.docstates
-appsettings.Development.json
 
+# =========================
+.agents/
+appsettings.Development.json
+.atl/
+backend-fastapi/chroma_db/
+backend-fastapi/.env
+backend-fastapi/.venv
+backend-fastapi/.venv/
+# Backend (.NET / C#)
+backups/*.dump
+backups/*.sql
 # Base de datos SQLite (¡Importante no subirla!)
+[Bb]in/
+build/
+**/chroma_db/
+.claude/
+*.csv
+/*.csv
+database/scripts/
+# Datos: snapshots de prod. No se versionan (ver docs/runbook-operacion.md)
 *.db
 *.db-shm
 *.db-wal
-
-# =========================
-# Frontend (Next.js / Node)
-# =========================
-node_modules/
-.next/
-out/
-build/
-.env*.local
-.vercel/
-
-# SO / Entorno
-.DS_Store
-Thumbs.db
-.gitnexus
-
-*.csv
-.agents/
-handoff/
+deploy/systemd/
 docs/diagramas/
 docs/wireframes/
-backend-fastapi/.env
-backend-fastapi/.venv/
-backend-fastapi/.venv
+.DS_Store
+.env*.local
 frontend-django/.env
-frontend-django/.venv/
-frontend-django/.venv
 frontend-django/static/demo/
-__pycache__/
-.playwright-mcp/
-
-
-
-
+frontend-django/.venv
+frontend-django/.venv/
+# Frontend (Next.js / Node)
+.gitnexus
+handoff/
 # Herramientas / Cache
-*.tsbuildinfo
-.omo/
-.opencode/
-backups/*.dump
-backups/*.sql
-backend-fastapi/chroma_db/
-**/chroma_db/
-# Datos: snapshots de prod. No se versionan (ver docs/runbook-operacion.md)
-/*.csv
+logs/
+# Logs de los procesos en produccion
 # Los mapeos de areas no son datos: son la fuente del seed y del importador
 !mapeo-areas.csv
 !mapeo-areas-dedup.csv
-
-# Logs de los procesos en produccion
-logs/
+.next/
+node_modules/
+.omo/
+[Oo]bj/
+.opencode/
+out/
+.playwright-mcp/
+__pycache__/
+skills-lock.json
+*.sln.docstates
+# SO / Entorno
+Thumbs.db
+*.tsbuildinfo
+unsloth_compiled_cache/
+*.user
+*.userosscache
+.vercel/
