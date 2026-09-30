@@ -1110,7 +1110,12 @@ def _preguntar_impl(body: PreguntarIn, db: DbSession, user: CurrentUser):
             "fuente_label": fuente_label(f"atencion_{aid}"),
             "rechazado": False,
         }
-    intent, _ = ia_retrieval.clasificar(body.pregunta)
+    try:
+        intent, _ = ia_retrieval.clasificar(body.pregunta)
+    except ImportError:
+        intent = None  # modo liviano: sin embeddings, solo flujos deterministas
+    if intent is None and re.search(r"\bhola\b|buenos d[ií]as|buenas tardes|buenas noches", body.pregunta, re.IGNORECASE):
+        return {"respuesta": f"¡{_saludo_hora()}, {_nombre(user)}! Soy Wilmercito, el asistente del Sistema de Soporte Técnico. Pregúntame sobre atenciones, categorías, áreas, técnicos o reportes.", "fuente": "kb_saludo", "fuente_label": fuente_label("kb_saludo"), "rechazado": False}
     if intent == "saludo":
         return {"respuesta": f"¡{_saludo_hora()}, {_nombre(user)}! Soy Wilmercito, el asistente del Sistema de Soporte Técnico. Pregúntame sobre atenciones, categorías, áreas, técnicos o reportes.", "fuente": "kb_saludo", "fuente_label": fuente_label("kb_saludo"), "rechazado": False}
     if intent == "identidad":
