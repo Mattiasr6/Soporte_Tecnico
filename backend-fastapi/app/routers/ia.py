@@ -158,10 +158,52 @@ def _comparativa_mes(db: DbSession) -> dict[str, object]:
         "rechazado": False,
     }
 _DIM_CATEGORIA = re.compile(r"por categor[íi]a|categor[íi]as", re.IGNORECASE)
-_DIM_AREA = re.compile(r"por [áa]reas?|por zona", re.IGNORECASE)
+_DIM_AREA = re.compile(r"por [áa]reas?|por zona|\btop\b.{0,25}[áa]reas?|\b[áa]reas?\b", re.IGNORECASE)
 _DIM_TECNICO = re.compile(r"por t[ée]cnicos?|ranking de t[ée]cnicos?|qui[ée]n atiende m[áa]s", re.IGNORECASE)
 _DIM_MEDIO = re.compile(r"por medios?|por canal", re.IGNORECASE)
 _FILTRO_MES = re.compile(r"este mes|del mes|mensual", re.IGNORECASE)
+_MESES = {
+    "enero": 1, "febrero": 2, "marzo": 3, "abril": 4, "mayo": 5, "junio": 6,
+    "julio": 7, "agosto": 8, "septiembre": 9, "setiembre": 9, "octubre": 10,
+    "noviembre": 11, "diciembre": 12,
+}
+_MES_NOMBRE = re.compile(
+    r"\b(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|setiembre|octubre|noviembre|diciembre)\b",
+    re.IGNORECASE,
+)
+_CAT_SINONIMOS = [
+    ("impresoras?", "Impresión"), ("redes|conectividad|internet|wifi", "Redes/Conectividad"),
+    ("hardware|computadora|pc|teclado|mouse|pantalla", "Hardware"),
+    ("software|programa|sistema operativo", "Software"),
+    ("cuentas|accesos|contrase[ñn]a|usuario bloqueado", "Cuentas/Accesos"),
+    ("audio|video|proyector|parlante", "Audio/Video"),
+    ("acad[ée]micos?|sistema acad", "Sistemas académicos"),
+]
+
+
+def _rango_mes(texto: str) -> tuple[object, object, str] | None:
+    """Devuelve (inicio, fin, etiqueta) para 'este mes' o un mes nombrado."""
+    from datetime import date
+
+    hoy = date.today()
+    if _FILTRO_MES.search(texto):
+        return hoy.replace(day=1), None, "este mes"
+    m = _MES_NOMBRE.search(texto)
+    if not m:
+        return None
+    mes = _MESES[_normalizar(m.group(1))]
+    anio = hoy.year if mes <= hoy.month else hoy.year - 1
+    inicio = date(anio, mes, 1)
+    fin = date(anio + (mes == 12), mes % 12 + 1, 1)
+    return inicio, fin, m.group(1).lower()
+
+
+def _categoria_en(texto: str) -> str | None:
+    norm = _normalizar(texto)
+    for patron, categoria in _CAT_SINONIMOS:
+        if re.search(patron, norm):
+            return categoria
+    return None
 
 
 def _normalizar(nombre: str) -> str:
@@ -765,11 +807,18 @@ def _informe(db: DbSession, texto: str) -> dict[str, object] | None:
     else:
         return None
     q = select(dim, func.count().label("n")).group_by(dim).order_by(func.count().desc()).limit(8)
-    if _FILTRO_MES.search(texto):
-        q = q.where(Atencion.fecha_registro >= date.today().replace(day=1))
-        alcance = "este mes"
+    rango = _rango_mes(texto)
+    if rango:
+        inicio, fin, alcance = rango
+        q = q.where(Atencion.fecha_registro >= inicio)
+        if fin is not None:
+            q = q.where(Atencion.fecha_registro < fin)
     else:
         alcance = "en total"
+    cat = _categoria_en(texto)
+    if cat:
+        q = q.where(Atencion.categoria == cat)
+        titulo = f"{titulo} en {cat}"
     filas = db.execute(q).all()
     if not filas:
         return {"respuesta": "Sin datos para ese informe.", "fuente": None, "rechazado": False}
@@ -982,7 +1031,7 @@ def _preguntar_impl(body: PreguntarIn, db: DbSession, user: CurrentUser):
         return _comparativa_mes(db)
     if _TURNO.search(body.pregunta):
         return _turno_ahora(db)
-    if _INFORME.search(body.pregunta):
+    if _INFORME.search(body.pregunta) or _DIM_TECNICO.search(body.pregunta):
         r = _informe(db, body.pregunta)
         if r:
             return r
