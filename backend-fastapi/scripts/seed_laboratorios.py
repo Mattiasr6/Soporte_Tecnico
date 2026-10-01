@@ -1,4 +1,4 @@
-"""Idempotent seed for laboratorios service: 10 labs + 9 real categories.
+"""Idempotent seed for laboratorios service: 11 labs + 9 real categories.
 
 Usage from backend-fastapi/:  python scripts/seed_laboratorios.py
 Requires .env with DATABASE_URL. Requires migration 0012 applied.
@@ -18,7 +18,9 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from app.db.base import SessionLocal
 from app.models.laboratorio import LabCategoria, Laboratorio
 
-LABORATORIOS = [(f"LAB-{i:02d}", f"TBD-{i:02d}") for i in range(1, 11)]
+LABORATORIOS = [(f"LAB-{i:02d}", f"TBD-{i:02d}") for i in range(1, 11)] + [
+    ("SOPORTE", "Soporte Técnico"),
+]
 # Exact names + guide cases from the staff catalog; guia is comma-joined cases.
 CATEGORIAS: dict[str, tuple[str, ...]] = {
     "HARDWARE": (
