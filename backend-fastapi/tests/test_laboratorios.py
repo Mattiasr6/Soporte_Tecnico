@@ -443,3 +443,65 @@ def test_export_csv(api_limpia):
     )
     assert r2.status_code == 200
     assert any(f"{AMARK}csv1" in linea for linea in r2.text.strip().splitlines()[1:])
+
+
+def test_stats_shape_parity_con_atenciones(api_limpia):
+    """LabStatsOut comparte total/por_categoria/por_mes con StatsOut (Fase 4)."""
+    from app.schemas.atencion import PorCategoria as AtPorCategoria
+    from app.schemas.atencion import PorMes as AtPorMes
+    from app.schemas.atencion import StatsOut
+    from app.schemas.laboratorio import LabStatsOut
+    from app.schemas.laboratorio import PorCategoria as LabPorCategoria
+    from app.schemas.laboratorio import PorMes as LabPorMes
+
+    assert LabPorCategoria is AtPorCategoria
+    assert LabPorMes is AtPorMes
+    assert {"total", "por_categoria", "por_mes"} <= set(StatsOut.model_fields)
+    assert {"total", "por_categoria", "por_mes"} <= set(LabStatsOut.model_fields)
+    lab = _crear_lab(f"{AMARK}09")
+    cat = _crear_cat(f"{CMARK}Parity")
+    _crear_atencion(lab["id"], cat["nombre"], f"{AMARK}parity1", UID_TEC)
+    s_lab = client.get("/api/laboratorios/stats", headers=h(UID_JEFE)).json()
+    for clave in ("total", "por_categoria", "por_mes"):
+        assert clave in s_lab
+    assert set(s_lab["por_categoria"][0]) == {"categoria", "total"}
+    assert set(s_lab["por_mes"][0]) == {"anio", "mes", "total"}
+
+
+def test_export_csv_vacio_y_filtros_estrictos(api_limpia):
+    lab_a = _crear_lab(f"{AMARK}10")
+    lab_b = _crear_lab(f"{AMARK}11")
+    cat = _crear_cat(f"{CMARK}Csv2")
+    _crear_atencion(lab_a["id"], cat["nombre"], f"{AMARK}csvA", UID_TEC)
+    _crear_atencion(lab_b["id"], cat["nombre"], f"{AMARK}csvB", UID_TEC)
+    vacio = _crear_lab(f"{AMARK}12")
+    r0 = client.get(
+        "/api/laboratorios/export.csv",
+        params={"laboratorio_id": vacio["id"]},
+        headers=h(UID_JEFE),
+    )
+    assert r0.status_code == 200, r0.text
+    lineas0 = r0.text.strip().splitlines()
+    assert lineas0 == [
+        "id,laboratorio,categoria,auxiliar,descripcion,fecha_registro,fuera_de_turno"
+    ]
+    r1 = client.get(
+        "/api/laboratorios/export.csv",
+        params={"laboratorio_id": lab_a["id"]},
+        headers=h(UID_JEFE),
+    )
+    assert r1.status_code == 200, r1.text
+    lineas1 = r1.text.strip().splitlines()
+    assert lineas1[0] == (
+        "id,laboratorio,categoria,auxiliar,descripcion,fecha_registro,fuera_de_turno"
+    )
+    assert any(f"{AMARK}csvA" in linea for linea in lineas1[1:])
+    assert not any(f"{AMARK}csvB" in linea for linea in lineas1)
+
+
+def test_submit_guard_descripciones_distintas_ok(api_limpia):
+    lab = _crear_lab(f"{AMARK}13")
+    cat = _crear_cat(f"{CMARK}Guard")
+    a1 = _crear_atencion(lab["id"], cat["nombre"], f"{AMARK}guard-uno", UID_TEC)
+    a2 = _crear_atencion(lab["id"], cat["nombre"], f"{AMARK}guard-dos", UID_TEC)
+    assert a1["id"] != a2["id"]
