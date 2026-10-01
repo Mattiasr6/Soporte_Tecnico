@@ -1,0 +1,70 @@
+{% extends "atenciones/base.html" %}
+{% block titulo %}Nueva atención de laboratorio — Soporte Técnico{% endblock %}
+{% block contenido %}
+<div class="page-wide">
+  <h1>Nueva atención de laboratorio</h1>
+  <p class="sub">Laboratorio → Categoría → Descripción</p>
+  {% if error %}<p class="error">{{ error }}</p>{% endif %}
+  {% if edit_idx is not None %}<p class="sub">Editando el item #{{ edit_idx|add:1 }} de la lista. <button type="submit" form="form-cancel" class="link-btn">Cancelar edición</button></p>{% endif %}
+  <form method="post" id="form-lab">
+    {% csrf_token %}
+    {% include "atenciones/_lab_card_picker.html" %}
+    <label>Categoría</label>
+    <div class="pills">
+      {% for c in categorias %}
+      <label class="pill"><input type="radio" name="categoria" value="{{ c.nombre }}" required{% if edit_item.categoria == c.nombre %} checked{% endif %}> {{ c.nombre }}</label>
+      {% endfor %}
+    </div>
+    {% if not categorias %}<p class="sub">Sin categorías activas.</p>{% endif %}
+    <label for="id_aux">Auxiliar (opcional)</label>
+    <input type="text" id="id_aux" name="auxiliar_nombre" value="{{ edit_item.auxiliar_nombre|default:"" }}" placeholder="Nombre del auxiliar">
+    <label for="id_desc">Descripción</label>
+    <textarea id="id_desc" name="descripcion" rows="3" required>{{ edit_item.descripcion|default:"" }}</textarea>
+    <label for="id_sol">Solución</label>
+    <textarea id="id_sol" name="solucion" rows="3" required>{{ edit_item.solucion|default:"" }}</textarea>
+    <label for="id_obs">Observaciones (opcional)</label>
+    <input type="text" id="id_obs" name="observaciones" value="{{ edit_item.observaciones|default:"" }}">
+    <label for="id_fec">Fecha (editable)</label>
+    <input type="date" id="id_fec" name="fecha_registro" value="{{ edit_item.fecha_registro|default:hoy }}">
+    <button type="submit" name="action" value="agregar" class="btn">{% if edit_idx is not None %}Guardar cambios{% else %}Agregar a la lista{% endif %}</button>
+  </form>
+  {% if edit_idx is not None %}
+  <form method="post" id="form-cancel">
+    {% csrf_token %}
+    <button type="submit" name="action" value="cancelar_edicion" hidden></button>
+  </form>
+  {% endif %}
+  <h2>Lista ({{ batch|length }})</h2>
+  {% for item in batch %}
+  <form method="post" class="batch-item">
+    {% csrf_token %}
+    <span>{{ item.fecha_registro }} · {{ item.descripcion|truncatechars:60 }}</span>
+    <span class="batch-actions">
+      <button type="submit" name="action" value="editar" title="Editar">Editar</button>
+      <button type="submit" name="action" value="quitar" title="Quitar">×</button>
+    </span>
+    <input type="hidden" name="idx" value="{{ forloop.counter0 }}">
+  </form>
+  {% empty %}
+  <p class="sub">Todavía no agregaste ninguna atención.</p>
+  {% endfor %}
+  {% if batch %}
+  <form method="post" id="form-enviar">
+    {% csrf_token %}
+    <button type="submit" name="action" value="enviar" class="btn" data-submit-guard>{% if batch|length == 1 %}Registrar la atención{% else %}Registrar las {{ batch|length }} atenciones{% endif %}</button>
+  </form>
+  {% endif %}
+</div>
+<script>
+(function () {
+  var form = document.getElementById("form-enviar");
+  if (!form) return;
+  var btn = form.querySelector("[data-submit-guard]");
+  form.addEventListener("submit", function () {
+    if (form.dataset.sent) return false;
+    form.dataset.sent = "1";
+    if (btn) btn.disabled = true;
+  });
+})();
+</script>
+{% endblock %}

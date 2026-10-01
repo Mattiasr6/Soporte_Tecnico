@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import views
+from . import views, views_lab
 
 urlpatterns = [
     path("", views.inicio_vista, name="inicio"),
@@ -75,5 +75,23 @@ urlpatterns = [
         "asistente/propuesta/",
         views.propuesta_resolver_vista,
         name="propuesta_resolver",
+    ),
+    path("laboratorios/", views_lab.lab_lista_vista, name="lab_lista"),
+    path("laboratorios/nueva/", views_lab.lab_nueva_vista, name="lab_nueva"),
+    path(
+        "laboratorios/<int:atencion_id>/editar/",
+        views_lab.lab_editar_vista,
+        name="lab_editar",
+    ),
+    path(
+        "laboratorios/<int:atencion_id>/eliminar/",
+        views_lab.lab_eliminar_vista,
+        name="lab_eliminar",
+    ),
+    path("laboratorios/reportes/", views_lab.lab_reportes_vista, name="lab_reportes"),
+    path(
+        "laboratorios/export.csv",
+        views_lab.lab_export_csv_vista,
+        name="lab_export_csv",
     ),
 ]

@@ -1,0 +1,71 @@
+{% extends "atenciones/base.html" %}
+{% block titulo %}Laboratorios — Soporte Técnico{% endblock %}
+{% block contenido %}
+<div class="page-wide">
+  <div class="page-head">
+    <div>
+      <h1>Laboratorios</h1>
+      <p class="sub">{{ total }} registros · {{ activas|length }} laboratorio(s) activo(s)</p>
+    </div>
+    <div>
+      <a class="btn" href="{% url 'lab_nueva' %}">Nueva atención</a>
+      <a class="btn ghost" href="{% url 'lab_reportes' %}">Reportes</a>
+    </div>
+  </div>
+  {% if flash %}<p class="flash {{ flash.tipo }}">{{ flash.texto }}</p>{% endif %}
+  <h2>Laboratorios activos</h2>
+  <div class="pills">
+    {% for lab in activas %}
+    <span class="pill">{{ lab.codigo }} · {{ lab.nombre }}</span>
+    {% empty %}
+    <p class="sub">Sin laboratorios activos.</p>
+    {% endfor %}
+  </div>
+  {% if inactivas %}
+  <h2>Inactivos</h2>
+  <div class="pills">
+    {% for lab in inactivas %}
+    <span class="pill" aria-disabled="true">{{ lab.codigo }} · {{ lab.nombre }}</span>
+    {% endfor %}
+  </div>
+  {% endif %}
+  <h2>Atenciones</h2>
+  <div class="tabla-scroll atencion-tabla">
+  <table class="tabla">
+    <thead>
+      <tr><th>Fecha</th><th>Laboratorio</th><th>Categoría</th><th>Auxiliar</th><th>Descripción</th><th></th></tr>
+    </thead>
+    <tbody>
+      {% for a in atenciones %}
+      <tr>
+        <td>{{ a.fecha_registro }}</td>
+        <td>{{ a.laboratorio }}</td>
+        <td>{{ a.categoria }}</td>
+        <td>{{ a.auxiliar_nombre }}</td>
+        <td>{{ a.descripcion|truncatechars:60 }}</td>
+        <td>
+          <form method="post" action="{% url 'lab_eliminar' a.id %}" style="display:inline">
+            {% csrf_token %}
+            <button type="submit" title="Eliminar" aria-label="Eliminar la atención {{ a.id }}" onclick="return confirm('¿Eliminar la atención #{{ a.id }}?')">×</button>
+          </form>
+        </td>
+      </tr>
+      <tr>
+        <td colspan="6">
+          <form method="post" action="{% url 'lab_editar' a.id %}" class="batch-item">
+            {% csrf_token %}
+            <input type="text" name="descripcion" value="{{ a.descripcion }}" aria-label="Descripción" required>
+            <input type="text" name="solucion" value="{{ a.solucion }}" aria-label="Solución" required>
+            <button type="submit">Guardar</button>
+          </form>
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="6">Sin registros.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  <p class="foot">Mostrando {{ atenciones|length }} de {{ total }} registros</p>
+</div>
+{% endblock %}

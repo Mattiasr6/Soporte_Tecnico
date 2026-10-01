@@ -37,6 +37,10 @@
         <iconify-icon icon="mdi:format-list-bulleted" aria-hidden="true"></iconify-icon>
         <span class="side-link-label">Atenciones</span>
       </a>
+      <a class="side-link{% if nav_page == 'laboratorios' %} active{% endif %}" href="{% url 'lab_lista' %}" {% if nav_page == 'laboratorios' %}aria-current="page"{% endif %} data-nav-page="laboratorios">
+        <iconify-icon icon="mdi:flask-outline" aria-hidden="true"></iconify-icon>
+        <span class="side-link-label">Laboratorios</span>
+      </a>
       {% if can_dashboard %}
       <a class="side-link{% if nav_page == 'jerarquia' %} active{% endif %}" href="{% url 'jerarquia' %}" {% if nav_page == 'jerarquia' %}aria-current="page"{% endif %} data-nav-page="jerarquia">
         <iconify-icon icon="mdi:sitemap-outline" aria-hidden="true"></iconify-icon>
