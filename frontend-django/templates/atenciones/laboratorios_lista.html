@@ -16,7 +16,7 @@
   <h2>Laboratorios activos</h2>
   <div class="pills">
     {% for lab in activas %}
-    <span class="pill">{{ lab.codigo }} · {{ lab.nombre }}</span>
+    <span class="pill">{{ lab.codigo }}</span>
     {% empty %}
     <p class="sub">Sin laboratorios activos.</p>
     {% endfor %}
@@ -25,7 +25,7 @@
   <h2>Inactivos</h2>
   <div class="pills">
     {% for lab in inactivas %}
-    <span class="pill" aria-disabled="true">{{ lab.codigo }} · {{ lab.nombre }}</span>
+    <span class="pill" aria-disabled="true">{{ lab.codigo }}</span>
     {% endfor %}
   </div>
   {% endif %}

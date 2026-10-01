@@ -10,11 +10,11 @@
     {% for lab in activas %}
     <label class="pill" aria-pressed="false">
       <input type="radio" name="laboratorio_id" value="{{ lab.id }}" required{% if edit_item.laboratorio_id == lab.id %} checked{% endif %}>
-      {{ lab.codigo }} · {{ lab.nombre }}
+      {{ lab.codigo }}
     </label>
     {% endfor %}
     {% for lab in inactivas %}
-    <button type="button" class="pill" disabled aria-disabled="true" title="{{ lab.codigo }} · {{ lab.nombre }} (inactivo)">{{ lab.codigo }} · {{ lab.nombre }} (inactivo)</button>
+    <button type="button" class="pill" disabled aria-disabled="true" title="{{ lab.codigo }} (inactivo)">{{ lab.codigo }} (inactivo)</button>
     {% endfor %}
   </div>
   {% if not activas %}<p class="sub">Sin laboratorios activos.</p>{% endif %}

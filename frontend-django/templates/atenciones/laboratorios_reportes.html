@@ -30,7 +30,7 @@
         <label for="lab-id">Laboratorio</label>
         <select id="lab-id" name="laboratorio_id">
           <option value="">Todos</option>
-          {% for lab in activas %}<option value="{{ lab.id }}"{% if filtros.laboratorio_id == lab.id|stringformat:"s" %} selected{% endif %}>{{ lab.codigo }} · {{ lab.nombre }}</option>{% endfor %}
+          {% for lab in activas %}<option value="{{ lab.id }}"{% if filtros.laboratorio_id == lab.id|stringformat:"s" %} selected{% endif %}>{{ lab.codigo }}</option>{% endfor %}
         </select>
       </div>
       <div>
