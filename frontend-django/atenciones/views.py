@@ -234,11 +234,12 @@ def nueva_vista(request: HttpRequest) -> HttpResponse:
         action = request.POST.get("action")
         if action == "agregar":
             area_id = request.POST.get("area_id") or None
+            grupo_id = _int_o_none(request.POST.get("grupo_id"))
             descripcion = request.POST.get("descripcion", "").strip()
             solucion = request.POST.get("solucion", "").strip()
             categoria = request.POST.get("categoria", "").strip()
-            if not area_id:
-                error = "Elige un área."
+            if not area_id and not grupo_id:
+                error = "Elige un área o dependencia."
             elif not descripcion or not solucion or not categoria:
                 error = "Faltan descripción, solución o categoría."
             else:
@@ -246,8 +247,8 @@ def nueva_vista(request: HttpRequest) -> HttpResponse:
                 item = {
                     "area_solicitante": "",
                     "grupo_padre_id": _int_o_none(request.POST.get("grupo_padre_id")),
-                    "grupo_id": _int_o_none(request.POST.get("grupo_id")),
-                    "area_id": int(area_id),
+                    "grupo_id": grupo_id,
+                    "area_id": int(area_id) if area_id else None,
                     "medio_solicitud": request.POST.get("medio_solicitud", "Interno"),
                     "usuario_solicitante": request.POST.get(
                         "usuario_solicitante", "ADM"

@@ -93,11 +93,13 @@ function initRuta(root) {
     );
   }
 
-  function filaConteo(clase, nombre, total) {
+  function filaConteo(clase, nombre, total, extras) {
     return (
       '<div class="arbol-fila ' +
       clase +
-      '"><button type="button" class="arbol-toggle" data-toggle aria-expanded="true">▾</button>' +
+      '"' +
+      (extras || "") +
+      '><button type="button" class="arbol-toggle" data-toggle aria-expanded="true">▾</button>' +
       "<span>" +
       esc(nombre) +
       "</span>" +
@@ -116,8 +118,20 @@ function initRuta(root) {
     html += filaConteo("arbol-sector-fila", padre.nombre, cuenta("padres", padre.id));
     html += '<div class="arbol-hijos">';
     grupos.forEach(function (grupo) {
+      var rutaGrupo = padre.nombre + " › " + grupo.nombre;
       html += '<div class="arbol-grupo" data-grupo="' + grupo.id + '">';
-      html += filaConteo("arbol-grupo-fila", grupo.nombre, cuenta("grupos", grupo.id));
+      html += filaConteo(
+        "arbol-grupo-fila",
+        grupo.nombre,
+        cuenta("grupos", grupo.id),
+        ' data-padre="' +
+          padre.id +
+          '" data-grupo="' +
+          grupo.id +
+          '" data-ruta="' +
+          esc(rutaGrupo) +
+          '"'
+      );
       html += '<div class="arbol-hijos">';
       (areasPorGrupo[grupo.id] || []).forEach(function (a) {
         html += botonArea(a, padre, grupo);
@@ -186,6 +200,11 @@ function initRuta(root) {
       toggle.setAttribute("aria-expanded", hijos.hidden ? "false" : "true");
       return;
     }
+    var grupoFila = ev.target.closest(".arbol-grupo-fila");
+    if (grupoFila) {
+      elegir(grupoFila);
+      return;
+    }
     var area = ev.target.closest(".arbol-area");
     if (area) elegir(area);
   });
@@ -204,12 +223,17 @@ function initRuta(root) {
       rutaEl.hidden = false;
       cajaEl.hidden = true;
     }
+  } else if (root.dataset.grupo) {
+    var previoGrupo = arbolEl.querySelector(
+      '.arbol-grupo-fila[data-grupo="' + root.dataset.grupo + '"]'
+    );
+    if (previoGrupo) elegir(previoGrupo);
   }
 
   var form = root.closest("form");
   if (form) {
     form.addEventListener("submit", function (ev) {
-      if (!inpA.value) {
+      if (!inpA.value && !inpG.value) {
         ev.preventDefault();
         if (errorEl) {
           errorEl.hidden = false;

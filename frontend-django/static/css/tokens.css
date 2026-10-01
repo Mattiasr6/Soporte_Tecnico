@@ -222,6 +222,11 @@ body {
 .arbol-grupo-fila {
   font-weight: 600;
   color: var(--color-accent-deep);
+  cursor: pointer;
+  border-radius: 4px;
+}
+.arbol-grupo-fila:hover {
+  background: var(--color-page-bg);
 }
 .arbol-toggle {
   border: 0;

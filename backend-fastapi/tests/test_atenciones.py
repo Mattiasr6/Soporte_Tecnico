@@ -167,6 +167,38 @@ def test_batch_legacy_y_fk(filas_prueba):
                 client.delete(f"/api/atenciones/{a['id']}", headers=h(UID_MATTIAS))
 
 
+def test_batch_grupo_sin_area():
+    arbol = client.get("/api/jerarquia/arbol", headers=h(UID_MATTIAS)).json()
+    grupo = arbol["grupos"][0]
+    r = client.post(
+        "/api/atenciones/batch",
+        json={
+            "atenciones": [
+                {
+                    **_base_item(f"{MARK}grupo"),
+                    "area_solicitante": "",
+                    "grupo_padre_id": grupo["grupo_padre_id"],
+                    "grupo_id": grupo["id"],
+                }
+            ]
+        },
+        headers=h(UID_MATTIAS),
+    )
+    assert r.status_code == 200, r.text
+    try:
+        todas = client.get("/api/atenciones", headers=h(UID_JEFE)).json()
+        creada = next(a for a in todas if a["descripcion"] == f"{MARK}grupo")
+        assert creada["area_id"] is None
+        assert creada["grupo_id"] == grupo["id"]
+        assert creada["grupo_padre_id"] == grupo["grupo_padre_id"]
+        assert creada["area_solicitante"] == grupo["nombre"]
+    finally:
+        todas = client.get("/api/atenciones", headers=h(UID_JEFE)).json()
+        for a in todas:
+            if a["descripcion"] == f"{MARK}grupo":
+                client.delete(f"/api/atenciones/{a['id']}", headers=h(UID_MATTIAS))
+
+
 def test_fecha_default_hoy(filas_prueba):
     todas = client.get("/api/atenciones", headers=h(UID_JEFE)).json()
     hoy = datetime.now(UTC).date().isoformat()
