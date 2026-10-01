@@ -213,7 +213,12 @@ def create_categoria(dto: LabCategoriaCreate, db: DbSession, user: CurrentUser):
         raise bad_request("Nombre es obligatorio")
     if buscar_categoria(db, nombre) is not None:
         raise bad_request(f"Categoria '{nombre}' ya existe")
-    cat = LabCategoria(nombre=nombre, activa=True, created_at=datetime.now(UTC))
+    cat = LabCategoria(
+        nombre=nombre,
+        descripcion=(dto.descripcion or "").strip() or None,
+        activa=True,
+        created_at=datetime.now(UTC),
+    )
     db.add(cat)
     db.commit()
     db.refresh(cat)
@@ -236,6 +241,8 @@ def update_categoria(
         if otra is not None and otra.id != cat.id:
             raise bad_request(f"Categoria '{nombre}' ya existe")
         cat.nombre = nombre
+    if dto.descripcion is not None:
+        cat.descripcion = dto.descripcion.strip() or None
     if dto.activa is not None:
         cat.activa = dto.activa
     db.commit()

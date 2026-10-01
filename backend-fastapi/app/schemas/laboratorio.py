@@ -46,15 +46,18 @@ class LabCategoriaOut(BaseModel):
 
     id: int
     nombre: str
+    descripcion: str | None = None
     activa: bool
 
 
 class LabCategoriaCreate(BaseModel):
     nombre: str
+    descripcion: str | None = None
 
 
 class LabCategoriaUpdate(BaseModel):
     nombre: str | None = None
+    descripcion: str | None = None
     activa: bool | None = None
 
 

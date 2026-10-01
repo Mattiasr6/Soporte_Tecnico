@@ -505,3 +505,51 @@ def test_submit_guard_descripciones_distintas_ok(api_limpia):
     a1 = _crear_atencion(lab["id"], cat["nombre"], f"{AMARK}guard-uno", UID_TEC)
     a2 = _crear_atencion(lab["id"], cat["nombre"], f"{AMARK}guard-dos", UID_TEC)
     assert a1["id"] != a2["id"]
+
+
+REALES = (
+    "HARDWARE",
+    "RED E INTERNET",
+    "INFRAESTRUCTURA",
+    "SOFTWARE",
+    "SOPORTE ACADÉMICO",
+    "SEGURIDAD",
+    "INVENTARIO",
+    "SOPORTE EN LABORATORIOS",
+    "REPORTE Y GESTIÓN",
+)
+GENERICS = (
+    "Mantenimiento preventivo",
+    "Mantenimiento correctivo",
+    "Calibración",
+    "Otros",
+)
+
+
+def test_seeds_reales_con_guia_y_sin_genericas(api_limpia):
+    r = client.get("/api/laboratorios/categorias", headers=h(UID_TEC))
+    assert r.status_code == 200, r.text
+    por_nombre = {c["nombre"]: c for c in r.json()}
+    for nombre in REALES:
+        assert nombre in por_nombre, nombre
+        guia = por_nombre[nombre].get("descripcion") or ""
+        assert len(guia) > 20, nombre
+        assert "," in guia, nombre
+    for nombre in GENERICS:
+        assert nombre not in por_nombre, nombre
+
+
+def test_guia_visible_en_payload_todas(api_limpia):
+    r = client.get(
+        "/api/laboratorios/categorias",
+        params={"todas": True},
+        headers=h(UID_JEFE),
+    )
+    assert r.status_code == 200, r.text
+    por_nombre = {c["nombre"]: c for c in r.json()}
+    assert set(REALES) <= set(por_nombre)
+    assert "Equipo no enciende" in (por_nombre["HARDWARE"].get("descripcion") or "")
+    assert "FortiGate" in (por_nombre["RED E INTERNET"].get("descripcion") or "")
+    assert "robótica" in (
+        por_nombre["SOPORTE EN LABORATORIOS"].get("descripcion") or ""
+    )

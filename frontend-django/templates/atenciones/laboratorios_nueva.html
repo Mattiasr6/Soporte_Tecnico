@@ -12,7 +12,7 @@
     <label>Categoría</label>
     <div class="pills">
       {% for c in categorias %}
-      <label class="pill"><input type="radio" name="categoria" value="{{ c.nombre }}" required{% if edit_item.categoria == c.nombre %} checked{% endif %}> {{ c.nombre }}</label>
+      <label class="pill" title="{{ c.descripcion|default:c.nombre }}"><input type="radio" name="categoria" value="{{ c.nombre }}" required{% if edit_item.categoria == c.nombre %} checked{% endif %}> {{ c.nombre }}{% if c.descripcion %}<small class="sub">{{ c.descripcion }}</small>{% endif %}</label>
       {% endfor %}
     </div>
     {% if not categorias %}<p class="sub">Sin categorías activas.</p>{% endif %}

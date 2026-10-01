@@ -28,6 +28,9 @@ class LabCategoria(Base):
     nombre: Mapped[str] = mapped_column(
         "Nombre", String(200), unique=True, nullable=False
     )
+    descripcion: Mapped[str | None] = mapped_column(
+        "Descripcion", String(2000), nullable=True
+    )
     activa: Mapped[bool] = mapped_column(
         "Activa", Boolean, nullable=False, default=True
     )
