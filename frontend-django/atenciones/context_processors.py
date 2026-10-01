@@ -57,7 +57,7 @@ def sesion(request):
     rol = (usuario or {}).get("role", "")
     can_dashboard = rol == "Jefe" or bool((usuario or {}).get("can_view_dashboard"))
     es_auxiliar = rol == "Auxiliar"
-    sistema = "AUXILIARES" if (es_auxiliar or pagina == "auxiliares") else "SOPORTE"
+    sistema = "AUXILIARES" if (es_auxiliar or pagina in ("auxiliares", "laboratorios")) else "SOPORTE"
     return {
         "usuario": usuario,
         "nav_page": pagina,
