@@ -15,12 +15,13 @@ from app.routers import (
     horarios,
     ia,
     jerarquia,
+    sugerencias,
     usuarios,
 )
-
 app = FastAPI(title="Soporte Tecnico API (Python)")
 app.include_router(ws_router)
 app.include_router(jerarquia.router)
+app.include_router(sugerencias.router)
 app.include_router(areas.router)
 app.include_router(auth.router)
 app.include_router(horarios.router)

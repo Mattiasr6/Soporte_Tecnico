@@ -66,6 +66,10 @@
         <iconify-icon icon="mdi:home-outline" aria-hidden="true"></iconify-icon>
         <span class="side-link-label">Inicio</span>
       </a>
+      <a class="side-link{% if nav_page == 'sugerencias' %} active{% endif %}" href="{% url 'sugerencias' %}" {% if nav_page == 'sugerencias' %}aria-current="page"{% endif %} data-nav-page="sugerencias">
+        <iconify-icon icon="mdi:comment-quote-outline" aria-hidden="true"></iconify-icon>
+        <span class="side-link-label">Sugerencias</span>
+      </a>
       <a class="side-link{% if nav_page == 'perfil' %} active{% endif %}" href="{% url 'perfil' %}" {% if nav_page == 'perfil' %}aria-current="page"{% endif %} data-nav-page="perfil">
         <iconify-icon icon="mdi:account-circle-outline" aria-hidden="true"></iconify-icon>
         <span class="side-link-label">Perfil</span>
@@ -80,6 +84,10 @@
         <a class="side-link{% if nav_page == 'auxiliares' %} active{% endif %}" href="{% url 'auxiliares' %}" {% if nav_page == 'auxiliares' %}aria-current="page"{% endif %} data-nav-page="auxiliares">
           <iconify-icon icon="mdi:account-supervisor-outline" aria-hidden="true"></iconify-icon>
           <span class="side-link-label">Auxiliares</span>
+        </a>
+        <a class="side-link{% if nav_page == 'sugerencias' %} active{% endif %}" href="{% url 'sugerencias' %}" {% if nav_page == 'sugerencias' %}aria-current="page"{% endif %} data-nav-page="sugerencias">
+          <iconify-icon icon="mdi:comment-quote-outline" aria-hidden="true"></iconify-icon>
+          <span class="side-link-label">Sugerencias</span>
         </a>
         <p class="soon-panel">Próximamente sidebar completo para auxiliares</p>
       </div>

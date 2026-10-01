@@ -1880,6 +1880,32 @@ def asistente_reindexar_vista(request: HttpRequest) -> HttpResponse:
 
 
 @con_login
+def sugerencias_vista(request: HttpRequest) -> HttpResponse:
+    token = str(request.session["jwt"])
+    error = ""
+    if request.method == "POST":
+        try:
+            api_post(
+                "/api/sugerencias", token, {"texto": request.POST.get("texto", "")}
+            )
+        except ApiError as e:
+            error = _detalle_error(e)
+        else:
+            _flash(request, "ok", "Sugerencia enviada.")
+            return redirect("sugerencias")
+    sugerencias = api_get("/api/sugerencias", token)
+    return render(
+        request,
+        "atenciones/sugerencias.html",
+        {
+            "sugerencias": sugerencias if isinstance(sugerencias, list) else [],
+            "error": error,
+            "flash": request.session.pop("flash", None),
+        },
+    )
+
+
+@con_login
 @require_POST
 def propuesta_resolver_vista(request: HttpRequest) -> HttpResponse:
     if not _puede_dashboard(request):

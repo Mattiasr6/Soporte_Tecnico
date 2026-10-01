@@ -42,6 +42,7 @@ def sesion(request):
         "jerarquia": "jerarquia",
         "perfil": "perfil",
         "notas": "notas",
+        "sugerencias": "sugerencias",
         "horarios": "horarios",
         "usuarios": "usuarios",
         "asistente": "asistente",

@@ -1040,6 +1040,15 @@ html.a11y-contraste-alto textarea {
 .estado-ausente {
   background: var(--color-muted);
 }
+.estado-pendiente {
+  background: var(--color-muted);
+}
+.estado-revisada {
+  background: #00754a;
+}
+.estado-descartada {
+  background: #d6311f;
+}
 .chart {
   width: 100%;
   height: 280px;

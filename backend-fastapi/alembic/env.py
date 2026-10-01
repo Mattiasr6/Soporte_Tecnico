@@ -13,6 +13,7 @@ import app.models.feedback_ia
 import app.models.grupo
 import app.models.log_ia
 import app.models.propuesta_ia
+import app.models.sugerencia
 import app.models.grupo_padre
 import app.models.horario
 import app.models.usuario  # noqa: F401
