@@ -15,9 +15,11 @@ from app.routers import (
     horarios,
     ia,
     jerarquia,
+    laboratorios,
     sugerencias,
     usuarios,
 )
+
 app = FastAPI(title="Soporte Tecnico API (Python)")
 app.include_router(ws_router)
 app.include_router(jerarquia.router)
@@ -29,6 +31,7 @@ app.include_router(ia.router)
 app.include_router(usuarios.router)
 app.include_router(announcements.router)
 app.include_router(atenciones.router)
+app.include_router(laboratorios.router)
 
 
 @app.get("/health")
