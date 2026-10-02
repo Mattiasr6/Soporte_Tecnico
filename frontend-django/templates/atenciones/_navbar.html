@@ -89,6 +89,10 @@
           <iconify-icon icon="mdi:account-supervisor-outline" aria-hidden="true"></iconify-icon>
           <span class="side-link-label">Auxiliares</span>
         </a>
+        <a class="side-link{% if nav_page == 'auxiliares_horarios' %} active{% endif %}" href="{% url 'auxiliares_horarios' %}" {% if nav_page == 'auxiliares_horarios' %}aria-current="page"{% endif %} data-nav-page="auxiliares_horarios">
+          <iconify-icon icon="mdi:calendar-clock-outline" aria-hidden="true"></iconify-icon>
+          <span class="side-link-label">Horarios</span>
+        </a>
         <a class="side-link{% if nav_page == 'sugerencias' %} active{% endif %}" href="{% url 'sugerencias' %}" {% if nav_page == 'sugerencias' %}aria-current="page"{% endif %} data-nav-page="sugerencias">
           <iconify-icon icon="mdi:comment-quote-outline" aria-hidden="true"></iconify-icon>
           <span class="side-link-label">Sugerencias</span>
