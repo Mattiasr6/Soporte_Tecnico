@@ -198,6 +198,8 @@ def lab_nueva_vista(request: HttpRequest) -> HttpResponse:
                     request.session.pop("lab_edit_idx", None)
                     _flash(request, "ok", f"{len(batch)} atención(es) de laboratorio registrada(s)")
                     return redirect("lab_lista")
+        else:
+            error = error or "No se recibió la acción. Recargá y reintentá."
     cards = _cards(token)
     return render(
         request,

@@ -65,6 +65,7 @@
   {% if batch %}
   <form method="post" id="form-enviar">
     {% csrf_token %}
+    <input type="hidden" name="action" value="enviar">
     <button type="submit" name="action" value="enviar" class="btn" data-submit-guard>{% if batch|length == 1 %}Registrar la atención{% else %}Registrar las {{ batch|length }} atenciones{% endif %}</button>
   </form>
   {% endif %}
