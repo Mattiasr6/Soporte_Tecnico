@@ -17,7 +17,7 @@ down_revision: str | None = "0010_sugerencias"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
-LABORATORIOS = [(f"LAB-{i:02d}", f"TBD-{i:02d}") for i in range(1, 11)]
+LABORATORIOS = [(f"LAB-{i:02d}", f"LAB-{i:02d}") for i in range(1, 11)]
 CATEGORIAS = (
     "Mantenimiento preventivo",
     "Mantenimiento correctivo",

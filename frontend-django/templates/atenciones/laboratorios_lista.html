@@ -42,9 +42,8 @@
         <td>{{ a.laboratorio }}</td>
         <td>{{ a.categoria }}</td>
         <td>{{ a.auxiliar_nombre }}</td>
-        <td>{{ a.turno|default:"—" }}</td>
         <td>{{ a.descripcion|truncatechars:60 }}</td>
-        <td>
+        <td><button type="button" class="link-btn" data-ver="{{ a.id }}">Ver</button>
           <form method="post" action="{% url 'lab_eliminar' a.id %}" style="display:inline">
             {% csrf_token %}
             <button type="submit" title="Eliminar" aria-label="Eliminar la atención {{ a.id }}" onclick="return confirm('¿Eliminar la atención #{{ a.id }}?')">×</button>
@@ -69,4 +68,44 @@
   </div>
   <p class="foot">Mostrando {{ atenciones|length }} de {{ total }} registros</p>
 </div>
+<dialog id="modal-ticket" class="modal">
+  <div class="modal-body"></div>
+  <button type="button" class="modal-close" aria-label="Cerrar">
+    <iconify-icon icon="mdi:close" aria-hidden="true"></iconify-icon>
+  </button>
+</dialog>
+<script>
+(function () {
+  const dlg = document.getElementById("modal-ticket");
+  const cuerpo = dlg.querySelector(".modal-body");
+  async function abrir(id) {
+    cuerpo.innerHTML = '<p class="sub">Cargando…</p>';
+    dlg.showModal();
+    try {
+      const res = await fetch("/laboratorios/" + id + "/ticket/");
+      cuerpo.innerHTML = res.ok
+        ? await res.text()
+        : '<p class="error">No se pudo cargar el detalle.</p>';
+    } catch (e) {
+      cuerpo.innerHTML = '<p class="error">No se pudo cargar el detalle.</p>';
+    }
+    const ver = cuerpo.querySelector("#ticket-view");
+    const edit = cuerpo.querySelector("#ticket-edit");
+    if (!ver || !edit) return;
+    const editar = ver.querySelector("[data-editar]");
+    if (editar) {
+      editar.addEventListener("click", () => { ver.hidden = true; edit.hidden = false; });
+    }
+    const cancelar = edit.querySelector("[data-cancelar]");
+    if (cancelar) {
+      cancelar.addEventListener("click", () => { edit.hidden = true; ver.hidden = false; });
+    }
+  }
+  document.querySelectorAll("[data-ver]").forEach((b) => {
+    b.addEventListener("click", () => abrir(b.dataset.ver));
+  });
+  dlg.querySelector(".modal-close").addEventListener("click", () => dlg.close());
+  dlg.addEventListener("click", (e) => { if (e.target === dlg) dlg.close(); });
+})();
+</script>
 {% endblock %}

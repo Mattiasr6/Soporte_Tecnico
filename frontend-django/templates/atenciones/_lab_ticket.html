@@ -1,0 +1,63 @@
+{% if a %}
+<div class="ticket" id="ticket-view">
+  <header class="ticket-head">
+    <span class="ticket-folio">#{{ a.id }}</span>
+    <span class="ticket-fecha">{{ a.fecha_registro }}</span>
+    {% if a.fuera_de_turno %}<span class="badge-turno">fuera turno</span>{% endif %}
+  </header>
+  <p class="ticket-ruta">{{ a.laboratorio }}{% if a.turno %} · {{ a.turno|capfirst }}{% endif %}</p>
+  <dl class="ticket-grid">
+    <div><dt>Categoría</dt><dd>{{ a.categoria }}</dd></div>
+    <div><dt>Auxiliar</dt><dd>{{ a.auxiliar_nombre|default:"—" }}</dd></div>
+    <div><dt>Registrada por</dt><dd>{{ a.usuario_nombre|default:"—" }}</dd></div>
+  </dl>
+  <section class="ticket-block">
+    <h3>Descripción</h3>
+    <p>{{ a.descripcion }}</p>
+  </section>
+  <section class="ticket-block">
+    <h3>Solución</h3>
+    <p>{{ a.solucion }}</p>
+  </section>
+  {% if a.observaciones %}
+  <section class="ticket-block">
+    <h3>Observaciones</h3>
+    <p>{{ a.observaciones }}</p>
+  </section>
+  {% endif %}
+  <footer class="ticket-actions">
+    {% if puede_editar %}<button type="button" class="btn" data-editar>Editar</button>{% endif %}
+    {% if puede_eliminar %}
+    <form method="post" action="{% url 'lab_eliminar' a.id %}" onsubmit="return confirm('¿Eliminar la atención #{{ a.id }}? No se puede deshacer.');">
+      {% csrf_token %}
+      <button type="submit" class="btn danger">Eliminar</button>
+    </form>
+    {% endif %}
+  </footer>
+</div>
+{% if puede_editar %}
+<form method="post" action="{% url 'lab_editar' a.id %}" class="ticket-edit" id="ticket-edit" hidden>
+  {% csrf_token %}
+  <label for="ed_desc">Descripción</label>
+  <textarea id="ed_desc" name="descripcion" rows="3" required>{{ a.descripcion }}</textarea>
+  <label for="ed_sol">Solución</label>
+  <textarea id="ed_sol" name="solucion" rows="3" required>{{ a.solucion }}</textarea>
+  <label for="ed_turno">Turno</label>
+  <select id="ed_turno" name="turno">
+    <option value="">— Sin turno —</option>
+    <option value="mañana"{% if a.turno == "mañana" %} selected{% endif %}>Mañana</option>
+    <option value="mediodia"{% if a.turno == "mediodia" %} selected{% endif %}>Mediodía</option>
+    <option value="tarde"{% if a.turno == "tarde" %} selected{% endif %}>Tarde</option>
+    <option value="noche"{% if a.turno == "noche" %} selected{% endif %}>Noche</option>
+  </select>
+  <label for="ed_obs">Observaciones</label>
+  <input type="text" id="ed_obs" name="observaciones" value="{{ a.observaciones|default:'' }}">
+  <footer class="ticket-actions">
+    <button type="submit" class="btn">Guardar cambios</button>
+    <button type="button" class="btn ghost" data-cancelar>Cancelar</button>
+  </footer>
+</form>
+{% endif %}
+{% else %}
+<p class="error">No se pudo cargar el detalle.</p>
+{% endif %}

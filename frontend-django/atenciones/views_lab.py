@@ -256,6 +256,28 @@ def lab_editar_vista(request: HttpRequest, atencion_id: int) -> HttpResponse:
 
 
 @con_login
+def lab_ticket_vista(request: HttpRequest, atencion_id: int) -> HttpResponse:
+    token = str(request.session["jwt"])
+    usuario = request.session["usuario"]
+    try:
+        a = api_get(f"/api/laboratorios/atenciones/{atencion_id}", token)
+    except ApiError:
+        return render(request, "atenciones/_lab_ticket.html", {"a": None})
+    if not isinstance(a, dict):
+        return render(request, "atenciones/_lab_ticket.html", {"a": None})
+    es_dueno = a.get("usuario_id") == usuario.get("id")
+    return render(
+        request,
+        "atenciones/_lab_ticket.html",
+        {
+            "a": a,
+            "puede_editar": es_dueno,
+            "puede_eliminar": es_dueno,
+        },
+    )
+
+
+@con_login
 def lab_eliminar_vista(request: HttpRequest, atencion_id: int) -> HttpResponse:
     if request.method != "POST":
         return redirect("lab_lista")

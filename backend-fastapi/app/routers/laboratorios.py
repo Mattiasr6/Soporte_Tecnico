@@ -491,6 +491,15 @@ def _dueño_o_jefe(row: LabAtencion, user: Usuario) -> None:
         raise forbidden("Solo el dueño o un jefe puede modificar la atencion")
 
 
+@router.get("/atenciones/{atencion_id}", response_model=LabAtencionOut)
+def get_lab_atencion(atencion_id: int, db: DbSession, user: CurrentUser):
+    row = db.get(LabAtencion, atencion_id)
+    if row is None:
+        raise not_found("Atencion no encontrada")
+    _dueño_o_jefe(row, user)
+    return _serializar(db, [row])[0]
+
+
 @router.put("/atenciones/{atencion_id}", status_code=204)
 def update_lab_atencion(
     atencion_id: int, dto: LabAtencionUpdate, db: DbSession, user: CurrentUser

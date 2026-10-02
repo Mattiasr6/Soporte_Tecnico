@@ -18,7 +18,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from app.db.base import SessionLocal
 from app.models.laboratorio import LabCategoria, Laboratorio
 
-LABORATORIOS = [(f"LAB-{i:02d}", f"TBD-{i:02d}") for i in range(1, 11)] + [
+LABORATORIOS = [(f"LAB-{i:02d}", f"LAB-{i:02d}") for i in range(1, 11)] + [
     ("SOPORTE", "Soporte Técnico"),
 ]
 # Exact names + guide cases from the staff catalog; guia is comma-joined cases.
