@@ -58,6 +58,13 @@ def _categorias(token: str) -> list[dict[str, object]]:
     return [c for c in data if isinstance(c, dict)] if isinstance(data, list) else []
 
 
+def _norm_nombre(nombre: object) -> str:
+    import unicodedata
+
+    texto = unicodedata.normalize("NFD", str(nombre or "").strip().casefold())
+    return "".join(c for c in texto if unicodedata.category(c) != "Mn")
+
+
 def _sugerencias_por_turno(token: str) -> dict[str, list[str]]:
     """Auxiliar names per turno for the datalist filter. Empty on API failure."""
     try:
@@ -69,7 +76,7 @@ def _sugerencias_por_turno(token: str) -> dict[str, list[str]]:
         return {}
     miembros = equipo.get("auxiliares")
     nombres = (
-        {str(m.get("nombre", "")).strip() for m in miembros if isinstance(m, dict)}
+        {_norm_nombre(m.get("nombre", "")) for m in miembros if isinstance(m, dict)}
         if isinstance(miembros, list)
         else set()
     )
@@ -79,7 +86,7 @@ def _sugerencias_por_turno(token: str) -> dict[str, list[str]]:
         if not isinstance(bloque, dict):
             continue
         aux = bloque.get("auxiliares")
-        lista = [str(n) for n in aux if isinstance(n, str) and str(n) in nombres] if isinstance(aux, list) else []
+        lista = [str(n) for n in aux if isinstance(n, str) and _norm_nombre(n) in nombres] if isinstance(aux, list) else []
         salida[turno] = sorted(lista)
     return salida
 

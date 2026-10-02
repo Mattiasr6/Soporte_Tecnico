@@ -291,7 +291,13 @@ def put_horarios(
     del db
     if set(payload) != set(TURNOS):
         raise bad_request(f"Se esperan los turnos: {', '.join(TURNOS)}")
-    nomina = {m["nombre"].lower() for m in _equipo()}
+    import unicodedata
+
+    def _norm(s: str) -> str:
+        t = unicodedata.normalize("NFD", s.strip().casefold())
+        return "".join(c for c in t if unicodedata.category(c) != "Mn")
+
+    nomina = {_norm(m["nombre"]) for m in _equipo()}
     nuevo = {}
     for turno in TURNOS:
         bloque = payload[turno]
@@ -300,12 +306,12 @@ def put_horarios(
         nombres = [n.strip() for n in bloque.auxiliares]
         if any(not n for n in nombres):
             raise bad_request(f"Turno '{turno}': nombre vacio")
-        desconocidos = [n for n in nombres if n.lower() not in nomina]
+        desconocidos = [n for n in nombres if _norm(n) not in nomina]
         if desconocidos:
             raise bad_request(
                 f"Turno '{turno}': no estan en la nomina: {', '.join(desconocidos)}"
             )
-        if len({n.lower() for n in nombres}) != len(nombres):
+        if len({_norm(n) for n in nombres}) != len(nombres):
             raise bad_request(f"Turno '{turno}': nombre duplicado")
         nuevo[turno] = {
             "inicio": bloque.inicio,
