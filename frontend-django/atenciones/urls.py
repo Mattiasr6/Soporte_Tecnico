@@ -53,6 +53,7 @@ urlpatterns = [
     path("notas/", views.notas_vista, name="notas"),
     path("notas/guardar/", views.notas_guardar_vista, name="notas_guardar"),
     path("auxiliares/", views.auxiliares_vista, name="auxiliares"),
+    path("auxiliares/horarios/", views.auxiliares_horarios_vista, name="auxiliares_horarios"),
     path("wilmercito/", views.wilmercito_vista, name="wilmercito"),
     path(
         "wilmercito/calificar/",

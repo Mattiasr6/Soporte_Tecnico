@@ -1,0 +1,33 @@
+{% extends "atenciones/base.html" %}
+{% block titulo %}Horarios de auxiliares — Soporte Técnico{% endblock %}
+{% block contenido %}
+<div class="page-wide">
+  <h1>Horarios por turno</h1>
+  <p class="sub"><a href="{% url 'auxiliares' %}">← Volver a nómina</a></p>
+  {% if error %}<p class="error">{{ error }}</p>{% endif %}
+  {% if es_jefe %}
+  <form method="post">
+    {% csrf_token %}
+    {% for b in bloques %}
+    <fieldset>
+      <legend>{{ b.turno|capfirst }} — {{ b.total }} auxiliar(es)</legend>
+      <label>Inicio <input type="time" name="ini_{{ b.turno }}" value="{{ b.inicio }}"></label>
+      <label>Fin <input type="time" name="fin_{{ b.turno }}" value="{{ b.fin }}"></label>
+      <label>Auxiliares (uno por línea)<textarea name="aux_{{ b.turno }}" rows="3">{% for n in b.auxiliares %}{{ n }}
+{% endfor %}</textarea></label>
+    </fieldset>
+    {% endfor %}
+    <button type="submit" class="btn">Guardar horarios</button>
+  </form>
+  {% else %}
+  <table class="tabla">
+    <thead><tr><th>Turno</th><th>Horario</th><th>Auxiliares</th></tr></thead>
+    <tbody>
+      {% for b in bloques %}
+      <tr><td>{{ b.turno|capfirst }} ({{ b.total }})</td><td>{{ b.inicio }}–{{ b.fin }}</td><td>{{ b.auxiliares|join:", " }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+</div>
+{% endblock %}

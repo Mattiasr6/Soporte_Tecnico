@@ -381,19 +381,6 @@ def auxiliares_vista(request: HttpRequest) -> HttpResponse:
                     if str(m.get("nombre", "")).strip().lower() != nombre
                 ]
                 api_put("/api/laboratorios/equipo", token, {"auxiliares": resto})
-            elif action == "horarios_guardar":
-                carga: dict[str, object] = {}
-                for turno in ("mañana", "mediodia", "tarde", "noche"):
-                    lineas = request.POST.get(f"aux_{turno}", "")
-                    nombres = [
-                        ln.strip() for ln in str(lineas).splitlines() if ln.strip()
-                    ]
-                    carga[turno] = {
-                        "inicio": request.POST.get(f"ini_{turno}", "").strip(),
-                        "fin": request.POST.get(f"fin_{turno}", "").strip(),
-                        "auxiliares": nombres,
-                    }
-                api_put("/api/laboratorios/horarios", token, carga)
             else:
                 error = "Acción desconocida."
         except ApiError as e:
@@ -445,6 +432,65 @@ def auxiliares_vista(request: HttpRequest) -> HttpResponse:
             "usuario": request.session["usuario"],
             "es_jefe": es_jefe,
             "equipo": equipo,
+            "error": error,
+        },
+    )
+
+
+def auxiliares_horarios_vista(request: HttpRequest) -> HttpResponse:
+    if not (_es_auxiliar(request) or _puede_dashboard(request)):
+        return redirect("atenciones_lista")
+    token = str(request.session["jwt"])
+    es_jefe = _puede_dashboard(request)
+    error = ""
+    if request.method == "POST" and es_jefe:
+        try:
+            carga: dict[str, object] = {}
+            for turno in ("mañana", "mediodia", "tarde", "noche"):
+                lineas = request.POST.get(f"aux_{turno}", "")
+                nombres = [
+                    ln.strip() for ln in str(lineas).splitlines() if ln.strip()
+                ]
+                carga[turno] = {
+                    "inicio": request.POST.get(f"ini_{turno}", "").strip(),
+                    "fin": request.POST.get(f"fin_{turno}", "").strip(),
+                    "auxiliares": nombres,
+                }
+            api_put("/api/laboratorios/horarios", token, carga)
+        except ApiError as e:
+            error = str(e.detail) if e.detail else "No se pudo guardar"
+        else:
+            return redirect("auxiliares_horarios")
+    horarios: dict[str, object] = {}
+    try:
+        datos_horarios = api_get("/api/laboratorios/horarios", token)
+    except ApiError as e:
+        error = str(e.detail) if e.detail else "No se pudo cargar horarios"
+    else:
+        if isinstance(datos_horarios, dict):
+            horarios = datos_horarios
+    bloques = []
+    for t in ("mañana", "mediodia", "tarde", "noche"):
+        bloque = horarios.get(t)
+        if not isinstance(bloque, dict):
+            bloque = {}
+        aux = bloque.get("auxiliares")
+        aux_list = [str(n) for n in aux] if isinstance(aux, list) else []
+        bloques.append(
+            {
+                "turno": t,
+                "inicio": str(bloque.get("inicio", "")),
+                "fin": str(bloque.get("fin", "")),
+                "auxiliares": aux_list,
+                "total": len(aux_list),
+            }
+        )
+    return render(
+        request,
+        "atenciones/auxiliares_horarios.html",
+        {
+            "usuario": request.session["usuario"],
+            "es_jefe": es_jefe,
             "bloques": bloques,
             "error": error,
         },
