@@ -85,6 +85,10 @@
           <iconify-icon icon="mdi:flask-outline" aria-hidden="true"></iconify-icon>
           <span class="side-link-label">Laboratorios</span>
         </a>
+        <a class="side-link" href="{% url 'lab_dashboard' %}" data-nav-page="laboratorios">
+          <iconify-icon icon="mdi:view-dashboard-outline" aria-hidden="true"></iconify-icon>
+          <span class="side-link-label">Dashboard labs</span>
+        </a>
         <a class="side-link{% if nav_page == 'auxiliares' %} active{% endif %}" href="{% url 'auxiliares' %}" {% if nav_page == 'auxiliares' %}aria-current="page"{% endif %} data-nav-page="auxiliares">
           <iconify-icon icon="mdi:account-supervisor-outline" aria-hidden="true"></iconify-icon>
           <span class="side-link-label">Auxiliares</span>

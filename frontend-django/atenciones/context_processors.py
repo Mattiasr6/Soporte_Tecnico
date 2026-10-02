@@ -41,6 +41,7 @@ def sesion(request):
         "lab_editar": "laboratorios",
         "lab_eliminar": "laboratorios",
         "lab_reportes": "laboratorios",
+        "lab_dashboard": "laboratorios",
         "lab_export_csv": "laboratorios",
         "auxiliares": "auxiliares",
         "auxiliares_horarios": "auxiliares_horarios",

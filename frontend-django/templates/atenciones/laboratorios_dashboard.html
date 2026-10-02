@@ -1,0 +1,77 @@
+{% extends "atenciones/base.html" %}
+{% block titulo %}Dashboard de laboratorios — Soporte Técnico{% endblock %}
+{% block contenido %}
+<div class="page-wide rep">
+  {% if error %}
+  <div class="page-head">
+    <div>
+      <h1>Dashboard — Laboratorios</h1>
+      <p class="sub">El período no se pudo calcular.</p>
+    </div>
+  </div>
+  <section class="bloque">
+    <p class="rep-error">No se pudo cargar el dashboard. Reintentá.</p>
+    <a class="btn" href="{{ request.get_full_path }}">Reintentar</a>
+  </section>
+  {% else %}
+  <div class="page-head">
+    <div>
+      <h1>Dashboard — Laboratorios</h1>
+      <p class="sub">Auxiliares · {{ mes }}</p>
+    </div>
+    <div>
+      <a class="btn ghost no-print" href="{% url 'lab_reportes' %}?desde={{ mes }}&hasta={{ mes }}">Ver reporte completo</a>
+    </div>
+  </div>
+  <form method="get" class="filtros no-print rep-selector">
+    <div class="filtros-fila">
+      <div>
+        <label for="dash-mes">Mes</label>
+        <input type="month" id="dash-mes" name="mes" value="{{ mes }}">
+      </div>
+      <button type="submit" class="btn">Ver</button>
+    </div>
+  </form>
+  <div class="kpis rep-kpis">
+    <div class="kpi">
+      <span>Atenciones del mes</span>
+      <b>{{ kpis.total_mes }}</b>
+    </div>
+    <div class="kpi">
+      <span>Laboratorio top</span>
+      <b>{{ kpis.lab_top }} ({{ kpis.lab_top_total }})</b>
+    </div>
+    <div class="kpi">
+      <span>Turno top</span>
+      <b>{{ kpis.turno_top|capfirst }}</b>
+    </div>
+    <div class="kpi">
+      <span>Auxiliares activos</span>
+      <b>{{ kpis.auxiliares_activos }}</b>
+    </div>
+  </div>
+  <h2>Por laboratorio</h2>
+  <table class="tabla">
+    <thead><tr><th>Laboratorio</th><th>Total</th><th>Categoría top</th><th>Turno top</th></tr></thead>
+    <tbody>
+      {% for r in por_lab_tabla %}
+      <tr><td>{{ r.laboratorio }}</td><td>{{ r.total }}</td><td>{{ r.top_categoria }}</td><td>{{ r.top_turno|capfirst }}</td></tr>
+      {% empty %}
+      <tr><td colspan="4">Sin registros en el mes.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <h2>Recientes</h2>
+  <table class="tabla">
+    <thead><tr><th>Fecha</th><th>Laboratorio</th><th>Categoría</th><th>Auxiliar</th><th>Turno</th></tr></thead>
+    <tbody>
+      {% for a in recientes %}
+      <tr><td>{{ a.fecha_registro }}</td><td>{{ a.laboratorio }}</td><td>{{ a.categoria }}</td><td>{{ a.auxiliar_nombre }}</td><td>{{ a.turno|default:"—" }}</td></tr>
+      {% empty %}
+      <tr><td colspan="5">Sin registros en el mes.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+</div>
+{% endblock %}

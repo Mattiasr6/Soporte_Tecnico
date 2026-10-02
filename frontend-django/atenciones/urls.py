@@ -89,6 +89,7 @@ urlpatterns = [
         views_lab.lab_eliminar_vista,
         name="lab_eliminar",
     ),
+    path("laboratorios/dashboard/", views_lab.lab_dashboard_vista, name="lab_dashboard"),
     path("laboratorios/reportes/", views_lab.lab_reportes_vista, name="lab_reportes"),
     path(
         "laboratorios/export.csv",

@@ -325,6 +325,89 @@ def lab_reportes_vista(request: HttpRequest) -> HttpResponse:
 
 
 @con_login
+def lab_dashboard_vista(request: HttpRequest) -> HttpResponse:
+    if not _puede_reportes(request):
+        return redirect("lab_lista")
+    token = str(request.session["jwt"])
+    mes = request.GET.get("mes", "").strip()
+    if len(mes) != 7 or mes[4] != "-":
+        mes = _dt.datetime.now(_dt.UTC).strftime("%Y-%m")
+    params = {"desde_ym": mes, "hasta_ym": mes}
+    try:
+        stats = api_get("/api/laboratorios/stats", token, params)
+        atenciones = api_get("/api/laboratorios/atenciones", token)
+    except ApiError as e:
+        if e.status in (401, 403):
+            raise
+        _log.error("LAB-DASH fallo: %s", e.detail)
+        return render(
+            request,
+            "atenciones/laboratorios_dashboard.html",
+            {"error": True, "mes": mes},
+            status=502,
+        )
+    stats = stats if isinstance(stats, dict) else {}
+    filas = (
+        [a for a in atenciones if isinstance(a, dict)]
+        if isinstance(atenciones, list)
+        else []
+    )
+    # /atenciones has no date filter — narrow to the month client-side.
+    mes_filas = [a for a in filas if str(a.get("fecha_registro", ""))[:7] == mes]
+    por_lab = stats.get("por_lab") or []
+    por_turno = stats.get("por_turno") or []
+    lab_top = por_lab[0] if isinstance(por_lab, list) and por_lab else None
+    turno_top = por_turno[0] if isinstance(por_turno, list) and por_turno else None
+    auxiliares = {str(a.get("auxiliar_nombre", "")).strip() for a in mes_filas}
+    auxiliares.discard("")
+    # Per-lab breakdown (top categoria / top turno) derived from rows:
+    # backend stats has no per-lab x categoria split — do NOT extend backend.
+    detalle: dict[str, list[dict[str, object]]] = {}
+    for a in mes_filas:
+        detalle.setdefault(str(a.get("laboratorio", "") or "—"), []).append(a)
+    por_lab_tabla = []
+    for lab, rows in sorted(detalle.items(), key=lambda kv: len(kv[1]), reverse=True):
+        cats: dict[str, int] = {}
+        turnos: dict[str, int] = {}
+        for a in rows:
+            cat = str(a.get("categoria", "") or "—")
+            tur = str(a.get("turno", "") or "—")
+            cats[cat] = cats.get(cat, 0) + 1
+            turnos[tur] = turnos.get(tur, 0) + 1
+        por_lab_tabla.append(
+            {
+                "laboratorio": lab,
+                "total": len(rows),
+                "top_categoria": max(cats, key=cats.get) if cats else "—",
+                "top_turno": max(turnos, key=turnos.get) if turnos else "—",
+            }
+        )
+    return render(
+        request,
+        "atenciones/laboratorios_dashboard.html",
+        {
+            "error": False,
+            "mes": mes,
+            "kpis": {
+                "total_mes": stats.get("total", 0),
+                "lab_top": (lab_top or {}).get("laboratorio", "—")
+                if isinstance(lab_top, dict)
+                else "—",
+                "lab_top_total": (lab_top or {}).get("total", 0)
+                if isinstance(lab_top, dict)
+                else 0,
+                "turno_top": (turno_top or {}).get("turno", "—")
+                if isinstance(turno_top, dict)
+                else "—",
+                "auxiliares_activos": len(auxiliares),
+            },
+            "por_lab_tabla": por_lab_tabla,
+            "recientes": mes_filas[:10],
+        },
+    )
+
+
+@con_login
 def lab_export_csv_vista(request: HttpRequest) -> HttpResponse:
     if not _puede_reportes(request):
         return redirect("lab_lista")
