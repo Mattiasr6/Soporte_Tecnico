@@ -485,6 +485,13 @@ def auxiliares_horarios_vista(request: HttpRequest) -> HttpResponse:
                 "total": len(aux_list),
             }
         )
+    equipo: list[dict[str, object]] = []
+    try:
+        datos_equipo = api_get("/api/laboratorios/equipo", token)
+    except ApiError:
+        datos_equipo = None
+    if isinstance(datos_equipo, dict) and isinstance(datos_equipo.get("auxiliares"), list):
+        equipo = [m for m in datos_equipo["auxiliares"] if isinstance(m, dict)]
     return render(
         request,
         "atenciones/auxiliares_horarios.html",
@@ -492,6 +499,7 @@ def auxiliares_horarios_vista(request: HttpRequest) -> HttpResponse:
             "usuario": request.session["usuario"],
             "es_jefe": es_jefe,
             "bloques": bloques,
+            "equipo": equipo,
             "error": error,
         },
     )

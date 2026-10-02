@@ -6,19 +6,58 @@
   <p class="sub"><a href="{% url 'auxiliares' %}">← Volver a nómina</a></p>
   {% if error %}<p class="error">{{ error }}</p>{% endif %}
   {% if es_jefe %}
-  <form method="post">
+  <form method="post" id="form-horarios">
     {% csrf_token %}
+    <h2>Sin asignar (<span id="pool-count"></span>)</h2>
+    <div id="pool" class="pills" style="min-height:44px" aria-label="Auxiliares sin asignar"></div>
     {% for b in bloques %}
-    <fieldset>
-      <legend>{{ b.turno|capfirst }} — {{ b.total }} auxiliar(es)</legend>
+    <fieldset class="dropzone" data-turno="{{ b.turno }}">
+      <legend>{{ b.turno|capfirst }} — <span class="drop-count">{{ b.total }}</span> auxiliar(es)</legend>
       <label>Inicio <input type="time" name="ini_{{ b.turno }}" value="{{ b.inicio }}"></label>
       <label>Fin <input type="time" name="fin_{{ b.turno }}" value="{{ b.fin }}"></label>
-      <label>Auxiliares (uno por línea)<textarea name="aux_{{ b.turno }}" rows="3">{% for n in b.auxiliares %}{{ n }}
-{% endfor %}</textarea></label>
+      <div class="pills drop-list" style="min-height:44px" aria-label="Auxiliares en {{ b.turno }}"></div>
+      <textarea name="aux_{{ b.turno }}" rows="2" hidden>{% for n in b.auxiliares %}{{ n }}
+{% endfor %}</textarea>
     </fieldset>
     {% endfor %}
     <button type="submit" class="btn">Guardar horarios</button>
   </form>
+  <script>window.NOMINA=[{% for m in equipo %}"{{ m.nombre|escapejs }}"{% if not forloop.last %},{% endif %}{% endfor %}];</script>
+  <script>(function(){
+    var pool=document.getElementById('pool');
+    function names(ta){return ta.value.split('\n').map(function(s){return s.trim();}).filter(Boolean);}
+    function refresh(ta){
+      var zone=ta.closest('fieldset');var list=zone.querySelector('.drop-list');
+      list.innerHTML='';names(ta).forEach(function(n){list.appendChild(chip(n));});
+      zone.querySelector('.drop-count').textContent=names(ta).length;
+    }
+    function chip(n){
+      var s=document.createElement('span');s.className='pill';s.draggable=true;s.textContent=n;
+      s.addEventListener('dragstart',function(e){e.dataTransfer.setData('text/plain',n);e.dataTransfer.effectAllowed='move';});
+      return s;
+    }
+    function quitarDeTurnos(n){
+      document.querySelectorAll('fieldset.dropzone textarea').forEach(function(ta){
+        var cur=names(ta).filter(function(x){return x!==n;});
+        ta.value=cur.length?cur.join('\n')+'\n':'';refresh(ta);});
+    }
+    function syncPool(){
+      var enTurno={};document.querySelectorAll('fieldset.dropzone textarea').forEach(function(ta){names(ta).forEach(function(n){enTurno[n]=1;});});
+      pool.innerHTML='';(window.NOMINA||[]).forEach(function(n){if(!enTurno[n])pool.appendChild(chip(n));});
+      document.getElementById('pool-count').textContent=pool.querySelectorAll('.pill').length;
+    }
+    document.querySelectorAll('.dropzone').forEach(function(z){
+      z.addEventListener('dragover',function(e){e.preventDefault();});
+      z.addEventListener('drop',function(e){e.preventDefault();var n=e.dataTransfer.getData('text/plain');if(!n)return;
+        quitarDeTurnos(n);
+        var ta=z.querySelector('textarea');var cur=names(ta);cur.push(n);ta.value=cur.join('\n')+'\n';refresh(ta);syncPool();});
+    });
+    pool.addEventListener('dragover',function(e){e.preventDefault();});
+    pool.addEventListener('drop',function(e){e.preventDefault();var n=e.dataTransfer.getData('text/plain');if(!n)return;
+      quitarDeTurnos(n);syncPool();});
+    document.querySelectorAll('fieldset.dropzone textarea').forEach(refresh);
+    syncPool();
+  })();</script>
   {% else %}
   <table class="tabla">
     <thead><tr><th>Turno</th><th>Horario</th><th>Auxiliares</th></tr></thead>
