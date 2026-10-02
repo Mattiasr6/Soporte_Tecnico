@@ -41,6 +41,13 @@
         <label for="lab-hasta">Hasta</label>
         <input type="month" id="lab-hasta" name="hasta" value="{{ filtros.hasta }}">
       </div>
+      <div>
+        <label for="lab-turno">Turno</label>
+        <select id="lab-turno" name="turno">
+          <option value="">Todos</option>
+          {% for t in turnos %}<option value="{{ t }}"{% if filtros.turno == t %} selected{% endif %}>{{ t|capfirst }}</option>{% endfor %}
+        </select>
+      </div>
       <button type="submit" class="btn">Ver</button>
     </div>
   </form>
@@ -69,6 +76,17 @@
       <tr><td>{{ r.categoria }}</td><td>{{ r.total }}</td></tr>
       {% empty %}
       <tr><td colspan="2">Sin registros.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <h2>Por turno</h2>
+  <table class="tabla">
+    <thead><tr><th>Turno</th><th>Total</th></tr></thead>
+    <tbody>
+      {% for r in stats.por_turno %}
+      <tr><td>{{ r.turno|capfirst }}</td><td>{{ r.total }}</td></tr>
+      {% empty %}
+      <tr><td colspan="2">Sin registros con turno.</td></tr>
       {% endfor %}
     </tbody>
   </table>

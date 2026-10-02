@@ -44,6 +44,7 @@ class LabAtencion(Base):
         Index("IX_LabAtenciones_CategoriaId", "CategoriaId"),
         Index("IX_LabAtenciones_UsuarioId", "UsuarioId"),
         Index("IX_LabAtenciones_FechaRegistro", "FechaRegistro"),
+        Index("IX_LabAtenciones_Turno", "Turno"),
     )
 
     id: Mapped[int] = mapped_column("Id", Integer, primary_key=True)
@@ -69,5 +70,6 @@ class LabAtencion(Base):
     fuera_de_turno: Mapped[bool] = mapped_column(
         "FueraDeTurno", Boolean, nullable=False, default=False
     )
+    turno: Mapped[str | None] = mapped_column("Turno", String(20), nullable=True)
     fecha_registro: Mapped[date] = mapped_column("FechaRegistro", Date, nullable=False)
     created_at: Mapped[datetime] = mapped_column("CreatedAt", DateTime(timezone=True))

@@ -355,8 +355,99 @@ def _hoy_iso() -> str:
 def auxiliares_vista(request: HttpRequest) -> HttpResponse:
     if not (_es_auxiliar(request) or _puede_dashboard(request)):
         return redirect("atenciones_lista")
+    token = str(request.session["jwt"])
+    es_jefe = _puede_dashboard(request)
+    error = ""
+    if request.method == "POST" and es_jefe:
+        action = request.POST.get("action", "")
+        try:
+            if action == "aux_agregar":
+                nombre = request.POST.get("nombre", "").strip()
+                if not nombre:
+                    error = "Escribí un nombre."
+                else:
+                    api_post("/api/laboratorios/equipo", token, {"nombre": nombre})
+            elif action == "aux_quitar":
+                nombre = request.POST.get("nombre", "").strip().lower()
+                equipo = api_get("/api/laboratorios/equipo", token)
+                miembros = (
+                    [m for m in equipo.get("auxiliares", []) if isinstance(m, dict)]
+                    if isinstance(equipo, dict)
+                    else []
+                )
+                resto = [
+                    {"nombre": m.get("nombre", ""), "activo": m.get("activo", True)}
+                    for m in miembros
+                    if str(m.get("nombre", "")).strip().lower() != nombre
+                ]
+                api_put("/api/laboratorios/equipo", token, {"auxiliares": resto})
+            elif action == "horarios_guardar":
+                carga: dict[str, object] = {}
+                for turno in ("mañana", "mediodia", "tarde", "noche"):
+                    lineas = request.POST.get(f"aux_{turno}", "")
+                    nombres = [
+                        ln.strip() for ln in str(lineas).splitlines() if ln.strip()
+                    ]
+                    carga[turno] = {
+                        "inicio": request.POST.get(f"ini_{turno}", "").strip(),
+                        "fin": request.POST.get(f"fin_{turno}", "").strip(),
+                        "auxiliares": nombres,
+                    }
+                api_put("/api/laboratorios/horarios", token, carga)
+            else:
+                error = "Acción desconocida."
+        except ApiError as e:
+            error = str(e.detail) if e.detail else "No se pudo guardar"
+        else:
+            if not error:
+                return redirect("auxiliares")
+    equipo: list[dict[str, object]] = []
+    horarios: dict[str, object] = {}
+    try:
+        datos_equipo = api_get("/api/laboratorios/equipo", token)
+        datos_horarios = api_get("/api/laboratorios/horarios", token)
+    except ApiError as e:
+        if not error:
+            error = str(e.detail) if e.detail else "No se pudo cargar el equipo"
+    else:
+        if isinstance(datos_equipo, dict) and isinstance(
+            datos_equipo.get("auxiliares"), list
+        ):
+            equipo = [m for m in datos_equipo["auxiliares"] if isinstance(m, dict)]
+        if isinstance(datos_horarios, dict):
+            horarios = datos_horarios
+    conteo = {
+        t: len(bloque.get("auxiliares", []))
+        if isinstance(bloque, dict) and isinstance(bloque.get("auxiliares"), list)
+        else 0
+        for t, bloque in horarios.items()
+    }
+    turnos = ("mañana", "mediodia", "tarde", "noche")
+    bloques = []
+    for t in turnos:
+        bloque = horarios.get(t)
+        if not isinstance(bloque, dict):
+            bloque = {}
+        aux = bloque.get("auxiliares")
+        bloques.append(
+            {
+                "turno": t,
+                "inicio": str(bloque.get("inicio", "")),
+                "fin": str(bloque.get("fin", "")),
+                "auxiliares": [str(n) for n in aux] if isinstance(aux, list) else [],
+                "total": conteo.get(t, 0),
+            }
+        )
     return render(
-        request, "atenciones/auxiliares.html", {"usuario": request.session["usuario"]}
+        request,
+        "atenciones/auxiliares.html",
+        {
+            "usuario": request.session["usuario"],
+            "es_jefe": es_jefe,
+            "equipo": equipo,
+            "bloques": bloques,
+            "error": error,
+        },
     )
 
 

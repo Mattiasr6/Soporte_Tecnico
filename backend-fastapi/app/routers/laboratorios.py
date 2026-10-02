@@ -3,7 +3,10 @@
 import calendar
 import csv
 import io
+import json
+import re
 from datetime import UTC, date, datetime, timedelta
+from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query, Response
@@ -17,6 +20,10 @@ from app.models.laboratorio import LabAtencion, LabCategoria, Laboratorio
 from app.models.usuario import Usuario
 from app.schemas.atencion import PorCategoria, PorMes
 from app.schemas.laboratorio import (
+    AuxiliarCreate,
+    AuxiliarEntry,
+    EquipoOut,
+    EquipoReplace,
     LabAtencionCreate,
     LabAtencionOut,
     LabAtencionUpdate,
@@ -28,6 +35,8 @@ from app.schemas.laboratorio import (
     LaboratorioUpdate,
     LabStatsOut,
     PorLab,
+    PorTurno,
+    TurnoHorario,
 )
 from app.services.horarios import esta_fuera_de_horario
 from app.services.lab_categorias import (
@@ -39,7 +48,7 @@ from app.services.lab_categorias import (
 router = APIRouter(prefix="/api/laboratorios", tags=["laboratorios"])
 
 CSV_HEADER = (
-    "id,laboratorio,categoria,auxiliar,descripcion,fecha_registro,fuera_de_turno"
+    "id,laboratorio,categoria,auxiliar,turno,descripcion,fecha_registro,fuera_de_turno"
 )
 
 
@@ -102,6 +111,7 @@ def _serializar(db: DbSession, rows: list[LabAtencion]) -> list[dict[str, object
             "categoria_id": r.categoria_id,
             "categoria": nombres_c.get(r.categoria_id, ""),
             "auxiliar_nombre": r.auxiliar_nombre,
+            "turno": r.turno,
             "descripcion": r.descripcion,
             "solucion": r.solucion,
             "observaciones": r.observaciones,
@@ -127,7 +137,10 @@ def _parse_ym(value: str | None, campo: str) -> tuple[int, int] | None:
 
 
 def _filtros(
-    laboratorio_id: int | None, desde_ym: str | None, hasta_ym: str | None
+    laboratorio_id: int | None,
+    desde_ym: str | None,
+    hasta_ym: str | None,
+    turno: str | None = None,
 ) -> list[Any]:
     filtros: list[Any] = []
     if laboratorio_id is not None:
@@ -139,7 +152,168 @@ def _filtros(
     if hasta is not None:
         ultimo = calendar.monthrange(hasta[0], hasta[1])[1]
         filtros.append(LabAtencion.fecha_registro <= date(hasta[0], hasta[1], ultimo))
+    if turno is not None:
+        if turno not in TURNOS:
+            raise bad_request(f"Turno debe ser uno de: {', '.join(TURNOS)}")
+        filtros.append(LabAtencion.turno == turno)
     return filtros
+
+
+TURNOS: tuple[str, ...] = ("mañana", "mediodia", "tarde", "noche")
+
+_HORA_RE = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
+
+_DATA_DIR = Path(__file__).resolve().parent.parent.parent / "data"
+_EQUIPO_FILE = _DATA_DIR / "equipo_auxiliares.json"
+_HORARIOS_FILE = _DATA_DIR / "horarios_auxiliares.json"
+
+
+def _read_json(path: Path, default: dict[str, Any]) -> dict[str, Any]:
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (FileNotFoundError, json.JSONDecodeError):
+        return default
+    return data if isinstance(data, dict) else default
+
+
+def _write_json(path: Path, payload: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+
+def _equipo() -> list[dict[str, Any]]:
+    data = _read_json(_EQUIPO_FILE, {"auxiliares": []})
+    raw = data.get("auxiliares")
+    if not isinstance(raw, list):
+        return []
+    out = []
+    for item in raw:
+        if isinstance(item, dict) and str(item.get("nombre", "")).strip():
+            out.append(
+                {
+                    "nombre": str(item["nombre"]).strip(),
+                    "activo": bool(item.get("activo", True)),
+                }
+            )
+    return out
+
+
+def _horarios() -> dict[str, dict[str, Any]]:
+    data = _read_json(_HORARIOS_FILE, {})
+    out = {}
+    for turno in TURNOS:
+        bloque = data.get(turno)
+        if not isinstance(bloque, dict):
+            continue
+        aux = bloque.get("auxiliares")
+        out[turno] = {
+            "inicio": str(bloque.get("inicio", "")),
+            "fin": str(bloque.get("fin", "")),
+            "auxiliares": [str(n).strip() for n in aux if str(n).strip()]
+            if isinstance(aux, list)
+            else [],
+        }
+    return out
+
+
+def _validar_turno(turno: str | None) -> str | None:
+    if turno is None:
+        return None
+    if turno not in TURNOS:
+        raise bad_request(f"Turno debe ser uno de: {', '.join(TURNOS)}")
+    return turno
+
+
+@router.get("/equipo", response_model=EquipoOut)
+def get_equipo(db: DbSession, user: CurrentUser, turno: str | None = None) -> EquipoOut:
+    del db, user
+    miembros = _equipo()
+    if turno is not None:
+        _validar_turno(turno)
+        en_turno = {n.lower() for n in _horarios().get(turno, {}).get("auxiliares", [])}
+        miembros = [m for m in miembros if m["nombre"].lower() in en_turno]
+    return EquipoOut(auxiliares=[AuxiliarEntry(**m) for m in miembros])
+
+
+@router.post("/equipo", response_model=AuxiliarEntry)
+def add_auxiliar(dto: AuxiliarCreate, db: DbSession, user: CurrentUser):
+    _solo_jefe(user)
+    del db
+    nombre = dto.nombre.strip()
+    if not nombre:
+        raise bad_request("Nombre es obligatorio")
+    miembros = _equipo()
+    if any(m["nombre"].lower() == nombre.lower() for m in miembros):
+        raise bad_request(f"Auxiliar '{nombre}' ya existe")
+    miembros.append({"nombre": nombre, "activo": True})
+    _write_json(_EQUIPO_FILE, {"auxiliares": miembros})
+    return AuxiliarEntry(nombre=nombre, activo=True)
+
+
+@router.put("/equipo", response_model=EquipoOut)
+def replace_equipo(dto: EquipoReplace, db: DbSession, user: CurrentUser):
+    _solo_jefe(user)
+    del db
+    vistos: set[str] = set()
+    miembros = []
+    for item in dto.auxiliares:
+        nombre = item.nombre.strip()
+        if not nombre:
+            raise bad_request("Nombre no puede estar vacio")
+        if nombre.lower() in vistos:
+            raise bad_request(f"Auxiliar '{nombre}' duplicado")
+        vistos.add(nombre.lower())
+        miembros.append({"nombre": nombre, "activo": item.activo})
+    _write_json(_EQUIPO_FILE, {"auxiliares": miembros})
+    return EquipoOut(auxiliares=[AuxiliarEntry(**m) for m in miembros])
+
+
+@router.get("/horarios")
+def get_horarios(db: DbSession, user: CurrentUser) -> dict[str, dict[str, Any]]:
+    del db, user
+    return _horarios()
+
+
+@router.get("/horarios/conteo")
+def get_horarios_conteo(db: DbSession, user: CurrentUser) -> dict[str, int]:
+    del db, user
+    return {t: len(_horarios().get(t, {}).get("auxiliares", [])) for t in TURNOS}
+
+
+@router.put("/horarios")
+def put_horarios(
+    payload: dict[str, TurnoHorario], db: DbSession, user: CurrentUser
+) -> dict[str, dict[str, Any]]:
+    _solo_jefe(user)
+    del db
+    if set(payload) != set(TURNOS):
+        raise bad_request(f"Se esperan los turnos: {', '.join(TURNOS)}")
+    nomina = {m["nombre"].lower() for m in _equipo()}
+    nuevo = {}
+    for turno in TURNOS:
+        bloque = payload[turno]
+        if not _HORA_RE.match(bloque.inicio) or not _HORA_RE.match(bloque.fin):
+            raise bad_request(f"Turno '{turno}': inicio/fin deben ser HH:MM")
+        nombres = [n.strip() for n in bloque.auxiliares]
+        if any(not n for n in nombres):
+            raise bad_request(f"Turno '{turno}': nombre vacio")
+        desconocidos = [n for n in nombres if n.lower() not in nomina]
+        if desconocidos:
+            raise bad_request(
+                f"Turno '{turno}': no estan en la nomina: {', '.join(desconocidos)}"
+            )
+        if len({n.lower() for n in nombres}) != len(nombres):
+            raise bad_request(f"Turno '{turno}': nombre duplicado")
+        nuevo[turno] = {
+            "inicio": bloque.inicio,
+            "fin": bloque.fin,
+            "auxiliares": nombres,
+        }
+    _write_json(_HORARIOS_FILE, nuevo)
+    return nuevo
 
 
 @router.get("/cards")
@@ -162,8 +336,9 @@ def create_lab(dto: LaboratorioCreate, db: DbSession, user: CurrentUser):
         raise bad_request("Codigo y nombre son obligatorios")
     if db.scalar(select(Laboratorio).where(Laboratorio.codigo == codigo)) is not None:
         raise bad_request(f"Laboratorio con codigo '{codigo}' ya existe")
-    lab = Laboratorio(codigo=codigo, nombre=nombre, activa=True,
-                      created_at=datetime.now(UTC))
+    lab = Laboratorio(
+        codigo=codigo, nombre=nombre, activa=True, created_at=datetime.now(UTC)
+    )
     db.add(lab)
     db.commit()
     db.refresh(lab)
@@ -277,6 +452,7 @@ def create_lab_atencion(dto: LabAtencionCreate, db: DbSession, user: CurrentUser
         laboratorio_id=lab.id,
         categoria_id=cat.id,
         auxiliar_nombre=dto.auxiliar_nombre.strip() or user.display_name,
+        turno=_validar_turno(dto.turno),
         descripcion=descripcion,
         solucion=solucion,
         observaciones=dto.observaciones,
@@ -328,6 +504,8 @@ def update_lab_atencion(
         row.categoria_id = validar_categoria(db, dto.categoria).id
     if dto.auxiliar_nombre is not None:
         row.auxiliar_nombre = dto.auxiliar_nombre.strip()
+    if dto.turno is not None:
+        row.turno = _validar_turno(dto.turno) if dto.turno else None
     if dto.descripcion is not None:
         if not dto.descripcion.strip():
             raise bad_request("Descripcion no puede estar vacia")
@@ -360,10 +538,11 @@ def get_lab_stats(
     laboratorio_id: int | None = None,
     desde_ym: str | None = None,
     hasta_ym: str | None = None,
+    turno: str | None = None,
 ):
     if not is_privileged(user):
         raise unauthorized("Sin permiso")
-    f = _filtros(laboratorio_id, desde_ym, hasta_ym)
+    f = _filtros(laboratorio_id, desde_ym, hasta_ym, turno)
     total = db.scalar(select(func.count()).select_from(LabAtencion).where(*f)) or 0
     por_lab = [
         PorLab(laboratorio_id=r[0], laboratorio=r[1], total=r[2])
@@ -408,8 +587,21 @@ def get_lab_stats(
             )
         ).all()
     ]
+    por_turno = [
+        PorTurno(turno=r[0], total=r[1])
+        for r in db.execute(
+            select(LabAtencion.turno, func.count())
+            .where(*f, LabAtencion.turno.is_not(None))
+            .group_by(LabAtencion.turno)
+            .order_by(func.count().desc())
+        ).all()
+    ]
     return LabStatsOut(
-        total=total, por_lab=por_lab, por_categoria=por_categoria, por_mes=por_mes
+        total=total,
+        por_lab=por_lab,
+        por_categoria=por_categoria,
+        por_mes=por_mes,
+        por_turno=por_turno,
     )
 
 
@@ -420,10 +612,11 @@ def export_lab_csv(
     laboratorio_id: int | None = None,
     desde_ym: str | None = None,
     hasta_ym: str | None = None,
+    turno: str | None = None,
 ):
     if not is_privileged(user):
         raise unauthorized("Sin permiso")
-    f = _filtros(laboratorio_id, desde_ym, hasta_ym)
+    f = _filtros(laboratorio_id, desde_ym, hasta_ym, turno)
     rows = db.scalars(
         select(LabAtencion)
         .where(*f)
@@ -440,6 +633,7 @@ def export_lab_csv(
                 r["laboratorio"],
                 r["categoria"],
                 r["auxiliar_nombre"],
+                r["turno"] or "",
                 r["descripcion"],
                 r["fecha_registro"],
                 str(bool(r["fuera_de_turno"])).lower(),

@@ -2,10 +2,64 @@
 {% block titulo %}Auxiliares — Soporte Técnico{% endblock %}
 {% block contenido %}
 <div class="page-wide">
-  <h1>Auxiliares</h1>
+  <h1>Auxiliares de laboratorio</h1>
   <p class="sub">{{ usuario.display_name|default:"Auxiliar" }} · {{ usuario.role|default:"" }}</p>
-  <div class="soon-block">
-    <p>Próximamente apartado completo para auxiliares.</p>
-  </div>
+  {% if error %}<p class="error">{{ error }}</p>{% endif %}
+  <p><a href="#horarios">Ir al armado de horarios ↓</a></p>
+  <h2>Nómina ({{ equipo|length }})</h2>
+  {% if es_jefe %}
+  <form method="post" class="filtros-fila">
+    {% csrf_token %}
+    <input type="text" name="nombre" placeholder="Nombre del auxiliar" required aria-label="Nombre del auxiliar">
+    <button type="submit" name="action" value="aux_agregar" class="btn">Agregar</button>
+  </form>
+  {% endif %}
+  <table class="tabla">
+    <thead><tr><th>Nombre</th><th>Estado</th>{% if es_jefe %}<th></th>{% endif %}</tr></thead>
+    <tbody>
+      {% for m in equipo %}
+      <tr>
+        <td>{{ m.nombre }}</td>
+        <td>{% if m.activo %}Activo{% else %}Inactivo{% endif %}</td>
+        {% if es_jefe %}
+        <td>
+          <form method="post" style="display:inline">
+            {% csrf_token %}
+            <input type="hidden" name="nombre" value="{{ m.nombre }}">
+            <button type="submit" name="action" value="aux_quitar" title="Quitar" onclick="return confirm('¿Quitar a {{ m.nombre }} de la nómina?')">×</button>
+          </form>
+        </td>
+        {% endif %}
+      </tr>
+      {% empty %}
+      <tr><td colspan="3">Nómina vacía. Agregá el primer auxiliar.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <h2 id="horarios">Armado de horarios</h2>
+  {% if es_jefe %}
+  <form method="post">
+    {% csrf_token %}
+    {% for b in bloques %}
+    <fieldset>
+      <legend>{{ b.turno|capfirst }} — {{ b.total }} auxiliar(es)</legend>
+      <label>Inicio <input type="time" name="ini_{{ b.turno }}" value="{{ b.inicio }}"></label>
+      <label>Fin <input type="time" name="fin_{{ b.turno }}" value="{{ b.fin }}"></label>
+      <label>Auxiliares (uno por línea)<textarea name="aux_{{ b.turno }}" rows="3">{% for n in b.auxiliares %}{{ n }}
+{% endfor %}</textarea></label>
+    </fieldset>
+    {% endfor %}
+    <button type="submit" name="action" value="horarios_guardar" class="btn">Guardar horarios</button>
+  </form>
+  {% else %}
+  <table class="tabla">
+    <thead><tr><th>Turno</th><th>Horario</th><th>Auxiliares</th></tr></thead>
+    <tbody>
+      {% for b in bloques %}
+      <tr><td>{{ b.turno|capfirst }} ({{ b.total }})</td><td>{{ b.inicio }}–{{ b.fin }}</td><td>{{ b.auxiliares|join:", " }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
 </div>
 {% endblock %}

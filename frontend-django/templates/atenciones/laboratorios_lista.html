@@ -33,7 +33,7 @@
   <div class="tabla-scroll atencion-tabla">
   <table class="tabla">
     <thead>
-      <tr><th>Fecha</th><th>Laboratorio</th><th>Categoría</th><th>Auxiliar</th><th>Descripción</th><th></th></tr>
+      <tr><th>Fecha</th><th>Laboratorio</th><th>Categoría</th><th>Auxiliar</th><th>Turno</th><th>Descripción</th><th></th></tr>
     </thead>
     <tbody>
       {% for a in atenciones %}
@@ -42,6 +42,7 @@
         <td>{{ a.laboratorio }}</td>
         <td>{{ a.categoria }}</td>
         <td>{{ a.auxiliar_nombre }}</td>
+        <td>{{ a.turno|default:"—" }}</td>
         <td>{{ a.descripcion|truncatechars:60 }}</td>
         <td>
           <form method="post" action="{% url 'lab_eliminar' a.id %}" style="display:inline">
@@ -51,7 +52,7 @@
         </td>
       </tr>
       <tr>
-        <td colspan="6">
+        <td colspan="7">
           <form method="post" action="{% url 'lab_editar' a.id %}" class="batch-item">
             {% csrf_token %}
             <input type="text" name="descripcion" value="{{ a.descripcion }}" aria-label="Descripción" required>
@@ -61,7 +62,7 @@
         </td>
       </tr>
       {% empty %}
-      <tr><td colspan="6">Sin registros.</td></tr>
+      <tr><td colspan="7">Sin registros.</td></tr>
       {% endfor %}
     </tbody>
   </table>

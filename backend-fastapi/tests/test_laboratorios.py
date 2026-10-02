@@ -19,7 +19,10 @@ from app.models.laboratorio import LabAtencion, LabCategoria, Laboratorio
 from app.models.usuario import Usuario
 
 MIG_PATH = (
-    Path(__file__).resolve().parent.parent / "alembic" / "versions" / "0011_laboratorios.py"
+    Path(__file__).resolve().parent.parent
+    / "alembic"
+    / "versions"
+    / "0011_laboratorios.py"
 )
 
 
@@ -29,6 +32,7 @@ def _mig():
     mod = module_from_spec(spec)
     spec.loader.exec_module(mod)
     return mod
+
 
 MARK = "TEST-LAB-"
 
@@ -42,7 +46,9 @@ def _uid() -> int:
 
 def _limpiar() -> None:
     with SessionLocal() as db:
-        db.execute(delete(LabAtencion).where(LabAtencion.auxiliar_nombre.like(f"{MARK}%")))
+        db.execute(
+            delete(LabAtencion).where(LabAtencion.auxiliar_nombre.like(f"{MARK}%"))
+        )
         db.execute(delete(Laboratorio).where(Laboratorio.codigo.like(f"{MARK}%")))
         db.execute(delete(LabCategoria).where(LabCategoria.nombre.like(f"{MARK}%")))
         db.commit()
@@ -57,7 +63,10 @@ def sin_residuos():
 
 def _lab(codigo: str) -> Laboratorio:
     return Laboratorio(
-        codigo=codigo, nombre=f"{codigo} nombre", activa=True, created_at=datetime.now(UTC)
+        codigo=codigo,
+        nombre=f"{codigo} nombre",
+        activa=True,
+        created_at=datetime.now(UTC),
     )
 
 
@@ -95,9 +104,11 @@ def test_unknown_category_rejected():
 
 def test_downgrade_reverts_without_touching_soporte_tables():
     src = inspect.getsource(_mig().downgrade)
-    assert src.index('drop_table("LabAtenciones")') < src.index(
-        'drop_table("LabCategorias")'
-    ) < src.index('drop_table("Laboratorios")')
+    assert (
+        src.index('drop_table("LabAtenciones")')
+        < src.index('drop_table("LabCategorias")')
+        < src.index('drop_table("Laboratorios")')
+    )
     for tabla in (
         '"Atenciones"',
         '"Usuarios"',
@@ -140,9 +151,7 @@ CMARK = "TEST-LAB-CAT-"
 
 def _limpiar_api() -> None:
     with SessionLocal() as db:
-        db.execute(
-            delete(LabAtencion).where(LabAtencion.descripcion.like(f"{AMARK}%"))
-        )
+        db.execute(delete(LabAtencion).where(LabAtencion.descripcion.like(f"{AMARK}%")))
         db.execute(delete(Laboratorio).where(Laboratorio.codigo.like(f"{AMARK}%")))
         db.execute(delete(LabCategoria).where(LabCategoria.nombre.like(f"{CMARK}%")))
         db.commit()
@@ -197,7 +206,9 @@ def test_cards_incluye_seeds(api_limpia):
     assert r.status_code == 200, r.text
     body = r.json()
     assert set(body) == {"activas", "inactivas"}
-    assert {c["codigo"] for c in body["activas"]} >= {f"LAB-{i:02d}" for i in range(1, 11)}
+    assert {c["codigo"] for c in body["activas"]} >= {
+        f"LAB-{i:02d}" for i in range(1, 11)
+    }
     assert client.get("/api/laboratorios/cards").status_code == 401
 
 
@@ -250,9 +261,7 @@ def test_categorias_todas_requiere_jefe(api_limpia):
         ).status_code
         == 403
     )
-    publicas = client.get(
-        "/api/laboratorios/categorias", headers=h(UID_TEC)
-    ).json()
+    publicas = client.get("/api/laboratorios/categorias", headers=h(UID_TEC)).json()
     assert cat["id"] in [c["id"] for c in publicas]
     assert (
         client.put(
@@ -262,9 +271,7 @@ def test_categorias_todas_requiere_jefe(api_limpia):
         ).status_code
         == 204
     )
-    publicas = client.get(
-        "/api/laboratorios/categorias", headers=h(UID_TEC)
-    ).json()
+    publicas = client.get("/api/laboratorios/categorias", headers=h(UID_TEC)).json()
     assert cat["id"] not in [c["id"] for c in publicas]
 
 
@@ -280,9 +287,7 @@ def test_post_atencion_422_inactiva_o_desconocida(api_limpia):
     client.put(
         f"/api/laboratorios/{lab['id']}", json={"activa": False}, headers=h(UID_JEFE)
     )
-    r = client.post(
-        "/api/laboratorios/atenciones", json=payload, headers=h(UID_TEC)
-    )
+    r = client.post("/api/laboratorios/atenciones", json=payload, headers=h(UID_TEC))
     assert r.status_code == 422
     client.put(
         f"/api/laboratorios/{lab['id']}", json={"activa": True}, headers=h(UID_JEFE)
@@ -292,14 +297,10 @@ def test_post_atencion_422_inactiva_o_desconocida(api_limpia):
         json={"activa": False},
         headers=h(UID_JEFE),
     )
-    r = client.post(
-        "/api/laboratorios/atenciones", json=payload, headers=h(UID_TEC)
-    )
+    r = client.post("/api/laboratorios/atenciones", json=payload, headers=h(UID_TEC))
     assert r.status_code == 422
     payload["categoria"] = "NoExiste jamas"
-    r = client.post(
-        "/api/laboratorios/atenciones", json=payload, headers=h(UID_TEC)
-    )
+    r = client.post("/api/laboratorios/atenciones", json=payload, headers=h(UID_TEC))
     assert r.status_code == 422
 
 
@@ -327,15 +328,11 @@ def test_get_atenciones_ambito_y_orden(api_limpia):
     cat = _crear_cat(f"{CMARK}Ambito")
     a1 = _crear_atencion(lab["id"], cat["nombre"], f"{AMARK}una", UID_TEC)
     a2 = _crear_atencion(lab["id"], cat["nombre"], f"{AMARK}otra", UID_JEFE)
-    propias = client.get(
-        "/api/laboratorios/atenciones", headers=h(UID_TEC)
-    ).json()
+    propias = client.get("/api/laboratorios/atenciones", headers=h(UID_TEC)).json()
     assert all(a["usuario_id"] == UID_TEC for a in propias)
     assert a1["id"] in [a["id"] for a in propias]
     assert a2["id"] not in [a["id"] for a in propias]
-    todas = client.get(
-        "/api/laboratorios/atenciones", headers=h(UID_JEFE)
-    ).json()
+    todas = client.get("/api/laboratorios/atenciones", headers=h(UID_JEFE)).json()
     ids = [a["id"] for a in todas if a["descripcion"].startswith(AMARK)]
     assert a1["id"] in ids and a2["id"] in ids
     assert ids == sorted(ids, reverse=True)
@@ -374,22 +371,18 @@ def test_put_delete_owner_o_jefe(api_limpia):
         ).status_code
         == 204
     )
-    todas = client.get(
-        "/api/laboratorios/atenciones", headers=h(UID_JEFE)
-    ).json()
+    todas = client.get("/api/laboratorios/atenciones", headers=h(UID_JEFE)).json()
     assert tid not in [a["id"] for a in todas]
 
 
 def test_stats_privilegiado_y_filtros(api_limpia):
-    assert (
-        client.get("/api/laboratorios/stats", headers=h(UID_TEC)).status_code == 401
-    )
+    assert client.get("/api/laboratorios/stats", headers=h(UID_TEC)).status_code == 401
     assert client.get("/api/laboratorios/stats").status_code == 401
     lab = _crear_lab(f"{AMARK}06")
     cat = _crear_cat(f"{CMARK}Stats")
     _crear_atencion(lab["id"], cat["nombre"], f"{AMARK}s1", UID_TEC)
     s = client.get("/api/laboratorios/stats", headers=h(UID_JEFE)).json()
-    assert set(s) == {"total", "por_lab", "por_categoria", "por_mes"}
+    assert set(s) == {"total", "por_lab", "por_categoria", "por_mes", "por_turno"}
     assert s["total"] >= 1
     assert sum(p["total"] for p in s["por_lab"]) == s["total"]
     assert sum(p["total"] for p in s["por_categoria"]) == s["total"]
@@ -433,7 +426,7 @@ def test_export_csv(api_limpia):
     assert r.status_code == 200, r.text
     lineas = r.text.strip().splitlines()
     assert lineas[0] == (
-        "id,laboratorio,categoria,auxiliar,descripcion,fecha_registro,fuera_de_turno"
+        "id,laboratorio,categoria,auxiliar,turno,descripcion,fecha_registro,fuera_de_turno"
     )
     assert any(f"{AMARK}csv1" in linea for linea in lineas[1:])
     r2 = client.get(
@@ -483,7 +476,7 @@ def test_export_csv_vacio_y_filtros_estrictos(api_limpia):
     assert r0.status_code == 200, r0.text
     lineas0 = r0.text.strip().splitlines()
     assert lineas0 == [
-        "id,laboratorio,categoria,auxiliar,descripcion,fecha_registro,fuera_de_turno"
+        "id,laboratorio,categoria,auxiliar,turno,descripcion,fecha_registro,fuera_de_turno"
     ]
     r1 = client.get(
         "/api/laboratorios/export.csv",
@@ -493,7 +486,7 @@ def test_export_csv_vacio_y_filtros_estrictos(api_limpia):
     assert r1.status_code == 200, r1.text
     lineas1 = r1.text.strip().splitlines()
     assert lineas1[0] == (
-        "id,laboratorio,categoria,auxiliar,descripcion,fecha_registro,fuera_de_turno"
+        "id,laboratorio,categoria,auxiliar,turno,descripcion,fecha_registro,fuera_de_turno"
     )
     assert any(f"{AMARK}csvA" in linea for linea in lineas1[1:])
     assert not any(f"{AMARK}csvB" in linea for linea in lineas1)
@@ -553,3 +546,205 @@ def test_guia_visible_en_payload_todas(api_limpia):
     assert "robótica" in (
         por_nombre["SOPORTE EN LABORATORIOS"].get("descripcion") or ""
     )
+
+
+DATA_DIR = Path(__file__).resolve().parent.parent / "data"
+EQUIPO_FILE = DATA_DIR / "equipo_auxiliares.json"
+HORARIOS_FILE = DATA_DIR / "horarios_auxiliares.json"
+
+
+@pytest.fixture
+def archivos_data():
+    respaldo = {
+        p: p.read_bytes() if p.exists() else None for p in (EQUIPO_FILE, HORARIOS_FILE)
+    }
+    client.put("/api/laboratorios/equipo", json={"auxiliares": []}, headers=h(UID_JEFE))
+    yield
+    for ruta, contenido in respaldo.items():
+        if contenido is None:
+            if ruta.exists():
+                ruta.unlink()
+        else:
+            ruta.write_bytes(contenido)
+
+
+AUX = "TEST-LAB-AUX-"
+
+
+def _agregar_aux(nombre: str) -> None:
+    r = client.post(
+        "/api/laboratorios/equipo", json={"nombre": nombre}, headers=h(UID_JEFE)
+    )
+    assert r.status_code == 200, r.text
+
+
+def test_equipo_crud_jefe_y_403_tecnico(api_limpia, archivos_data):
+    r = client.post(
+        "/api/laboratorios/equipo",
+        json={"nombre": f"{AUX}1"},
+        headers=h(UID_TEC),
+    )
+    assert r.status_code == 403
+    assert (
+        client.put(
+            "/api/laboratorios/equipo",
+            json={"auxiliares": []},
+            headers=h(UID_TEC),
+        ).status_code
+        == 403
+    )
+    r = client.post(
+        "/api/laboratorios/equipo",
+        json={"nombre": f"{AUX}1"},
+        headers=h(UID_JEFE),
+    )
+    assert r.status_code == 200, r.text
+    assert r.json() == {"nombre": f"{AUX}1", "activo": True}
+    dup = client.post(
+        "/api/laboratorios/equipo",
+        json={"nombre": f"  {AUX.lower()}1  "},
+        headers=h(UID_JEFE),
+    )
+    assert dup.status_code == 400
+    vacio = client.post(
+        "/api/laboratorios/equipo", json={"nombre": "   "}, headers=h(UID_JEFE)
+    )
+    assert vacio.status_code == 400
+    r = client.put(
+        "/api/laboratorios/equipo",
+        json={"auxiliares": [{"nombre": f"{AUX}2", "activo": True}]},
+        headers=h(UID_JEFE),
+    )
+    assert r.status_code == 200, r.text
+    assert [m["nombre"] for m in r.json()["auxiliares"]] == [f"{AUX}2"]
+    assert (
+        client.put(
+            "/api/laboratorios/equipo",
+            json={"auxiliares": [{"nombre": f"{AUX}2"}, {"nombre": f"{AUX}2"}]},
+            headers=h(UID_JEFE),
+        ).status_code
+        == 400
+    )
+    body = client.get("/api/laboratorios/equipo", headers=h(UID_TEC)).json()
+    assert [m["nombre"] for m in body["auxiliares"]] == [f"{AUX}2"]
+
+
+def test_horarios_put_y_conteo(api_limpia, archivos_data):
+    _agregar_aux(f"{AUX}1")
+    _agregar_aux(f"{AUX}2")
+    base = {
+        "mañana": {"inicio": "07:00", "fin": "12:00", "auxiliares": [f"{AUX}1"]},
+        "mediodia": {"inicio": "12:00", "fin": "16:00", "auxiliares": []},
+        "tarde": {"inicio": "14:30", "fin": "18:30", "auxiliares": [f"{AUX}2"]},
+        "noche": {"inicio": "18:00", "fin": "22:00", "auxiliares": []},
+    }
+    assert (
+        client.put(
+            "/api/laboratorios/horarios", json=base, headers=h(UID_TEC)
+        ).status_code
+        == 403
+    )
+    incompleto = dict(base)
+    del incompleto["noche"]
+    assert (
+        client.put(
+            "/api/laboratorios/horarios", json=incompleto, headers=h(UID_JEFE)
+        ).status_code
+        == 400
+    )
+    mala_hora = {t: dict(b) for t, b in base.items()}
+    mala_hora["mañana"] = {"inicio": "7am", "fin": "12:00", "auxiliares": []}
+    assert (
+        client.put(
+            "/api/laboratorios/horarios", json=mala_hora, headers=h(UID_JEFE)
+        ).status_code
+        == 400
+    )
+    fantasma = {t: dict(b) for t, b in base.items()}
+    fantasma["tarde"] = {
+        "inicio": "14:30",
+        "fin": "18:30",
+        "auxiliares": ["No Existe Jamas"],
+    }
+    assert (
+        client.put(
+            "/api/laboratorios/horarios", json=fantasma, headers=h(UID_JEFE)
+        ).status_code
+        == 400
+    )
+    r = client.put("/api/laboratorios/horarios", json=base, headers=h(UID_JEFE))
+    assert r.status_code == 200, r.text
+    assert r.json()["tarde"]["auxiliares"] == [f"{AUX}2"]
+    conteo = client.get("/api/laboratorios/horarios/conteo", headers=h(UID_TEC)).json()
+    assert conteo == {"mañana": 1, "mediodia": 0, "tarde": 1, "noche": 0}
+
+
+def test_atencion_con_turno_guarda_turno(api_limpia, archivos_data):
+    _agregar_aux(f"{AUX}1")
+    _agregar_aux(f"{AUX}2")
+    client.put(
+        "/api/laboratorios/horarios",
+        json={
+            "mañana": {"inicio": "07:00", "fin": "12:00", "auxiliares": [f"{AUX}1"]},
+            "mediodia": {"inicio": "12:00", "fin": "16:00", "auxiliares": []},
+            "tarde": {"inicio": "14:30", "fin": "18:30", "auxiliares": [f"{AUX}2"]},
+            "noche": {"inicio": "18:00", "fin": "22:00", "auxiliares": []},
+        },
+        headers=h(UID_JEFE),
+    )
+    lab = _crear_lab(f"{AMARK}14")
+    cat = _crear_cat(f"{CMARK}Turno")
+    r = client.post(
+        "/api/laboratorios/atenciones",
+        json={
+            "laboratorio_id": lab["id"],
+            "categoria": cat["nombre"],
+            "descripcion": f"{AMARK}turno-1",
+            "solucion": "s",
+            "auxiliar_nombre": f"{AUX}2",
+            "turno": "tarde",
+        },
+        headers=h(UID_TEC),
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["turno"] == "tarde"
+    mala = client.post(
+        "/api/laboratorios/atenciones",
+        json={
+            "laboratorio_id": lab["id"],
+            "categoria": cat["nombre"],
+            "descripcion": f"{AMARK}turno-malo",
+            "solucion": "s",
+            "turno": "madrugada",
+        },
+        headers=h(UID_TEC),
+    )
+    assert mala.status_code == 400
+    sug = client.get(
+        "/api/laboratorios/equipo", params={"turno": "tarde"}, headers=h(UID_TEC)
+    ).json()
+    assert [m["nombre"] for m in sug["auxiliares"]] == [f"{AUX}2"]
+    assert (
+        client.get(
+            "/api/laboratorios/equipo",
+            params={"turno": "madrugada"},
+            headers=h(UID_TEC),
+        ).status_code
+        == 400
+    )
+    stats = client.get("/api/laboratorios/stats", headers=h(UID_JEFE)).json()
+    por_turno = {p["turno"]: p["total"] for p in stats["por_turno"]}
+    assert por_turno.get("tarde", 0) >= 1
+    filtrado = client.get(
+        "/api/laboratorios/stats",
+        params={"turno": "tarde"},
+        headers=h(UID_JEFE),
+    ).json()
+    assert filtrado["total"] >= 1
+    csv = client.get(
+        "/api/laboratorios/export.csv",
+        params={"turno": "tarde"},
+        headers=h(UID_JEFE),
+    )
+    assert csv.status_code == 200, csv.text
+    assert any("tarde" in linea for linea in csv.text.strip().splitlines()[1:])

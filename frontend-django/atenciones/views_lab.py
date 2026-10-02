@@ -2,6 +2,7 @@
 
 import contextlib
 import datetime as _dt
+import json
 import logging
 
 import requests
@@ -14,6 +15,8 @@ from .api import TIMEOUT, ApiError, api_delete, api_get, api_post, api_put
 from .auth import con_login
 
 _log = logging.getLogger(__name__)
+
+TURNOS = ["mañana", "mediodia", "tarde", "noche"]
 
 
 def _rol(request: HttpRequest) -> str:
@@ -53,6 +56,37 @@ def _cards(token: str) -> dict[str, list[dict[str, object]]]:
 def _categorias(token: str) -> list[dict[str, object]]:
     data = api_get("/api/laboratorios/categorias", token)
     return [c for c in data if isinstance(c, dict)] if isinstance(data, list) else []
+
+
+def _sugerencias_por_turno(token: str) -> dict[str, list[str]]:
+    """Auxiliar names per turno for the datalist filter. Empty on API failure."""
+    try:
+        equipo = api_get("/api/laboratorios/equipo", token)
+        horarios = api_get("/api/laboratorios/horarios", token)
+    except ApiError:
+        return {}
+    if not isinstance(equipo, dict) or not isinstance(horarios, dict):
+        return {}
+    miembros = equipo.get("auxiliares")
+    nombres = (
+        {str(m.get("nombre", "")).strip() for m in miembros if isinstance(m, dict)}
+        if isinstance(miembros, list)
+        else set()
+    )
+    salida: dict[str, list[str]] = {}
+    for turno in TURNOS:
+        bloque = horarios.get(turno)
+        if not isinstance(bloque, dict):
+            continue
+        aux = bloque.get("auxiliares")
+        lista = [str(n) for n in aux if isinstance(n, str) and str(n) in nombres] if isinstance(aux, list) else []
+        salida[turno] = sorted(lista)
+    return salida
+
+
+def _turno_o_none(valor: object) -> str | None:
+    texto = str(valor or "").strip()
+    return texto if texto in TURNOS else None
 
 
 @con_login
@@ -106,6 +140,7 @@ def lab_nueva_vista(request: HttpRequest) -> HttpResponse:
                         "laboratorio_id": lab_id_int,
                         "categoria": categoria,
                         "auxiliar_nombre": request.POST.get("auxiliar_nombre", "").strip(),
+                        "turno": _turno_o_none(request.POST.get("turno")),
                         "descripcion": descripcion,
                         "solucion": solucion,
                         "observaciones": request.POST.get("observaciones") or None,
@@ -169,6 +204,8 @@ def lab_nueva_vista(request: HttpRequest) -> HttpResponse:
             "hoy": _hoy_iso(),
             "edit_item": batch[edit_idx] if edit_idx is not None else None,
             "edit_idx": edit_idx,
+            "turnos": TURNOS,
+            "sugerencias_json": json.dumps(_sugerencias_por_turno(token)),
         },
     )
 
@@ -182,6 +219,9 @@ def _cuerpo_lab_edicion(request: HttpRequest) -> dict[str, object]:
         "observaciones": request.POST.get("observaciones", ""),
         "fecha_registro": request.POST.get("fecha_registro", ""),
     }
+    turno = _turno_o_none(request.POST.get("turno"))
+    if turno is not None:
+        cuerpo["turno"] = turno
     lab_id = request.POST.get("laboratorio_id", "").strip()
     if lab_id:
         with contextlib.suppress(ValueError):
@@ -226,6 +266,9 @@ def _params_lab(request: HttpRequest) -> dict[str, str]:
     lab = request.GET.get("laboratorio_id", "").strip()
     if lab:
         params["laboratorio_id"] = lab
+    turno = request.GET.get("turno", "").strip()
+    if turno in TURNOS:
+        params["turno"] = turno
     for clave in ("desde", "hasta"):
         valor = request.GET.get(clave, "").strip()
         if len(valor) == 7 and valor[4] == "-":
@@ -266,7 +309,9 @@ def lab_reportes_vista(request: HttpRequest) -> HttpResponse:
                 "laboratorio_id": params.get("laboratorio_id", ""),
                 "desde": params.get("desde_ym", ""),
                 "hasta": params.get("hasta_ym", ""),
+                "turno": params.get("turno", ""),
             },
+            "turnos": TURNOS,
             "csv_url": csv_url,
         },
     )

@@ -5,6 +5,10 @@ from pydantic import BaseModel, ConfigDict
 from app.schemas.atencion import PorCategoria, PorMes
 
 __all__ = [
+    "AuxiliarCreate",
+    "AuxiliarEntry",
+    "EquipoOut",
+    "EquipoReplace",
     "LabAtencionCreate",
     "LabAtencionOut",
     "LabAtencionUpdate",
@@ -18,6 +22,8 @@ __all__ = [
     "PorCategoria",
     "PorLab",
     "PorMes",
+    "PorTurno",
+    "TurnoHorario",
 ]
 
 
@@ -65,6 +71,7 @@ class LabAtencionCreate(BaseModel):
     laboratorio_id: int
     categoria: str
     auxiliar_nombre: str = ""
+    turno: str | None = None
     descripcion: str
     solucion: str
     observaciones: str | None = None
@@ -75,6 +82,7 @@ class LabAtencionUpdate(BaseModel):
     laboratorio_id: int | None = None
     categoria: str | None = None
     auxiliar_nombre: str | None = None
+    turno: str | None = None
     descripcion: str | None = None
     solucion: str | None = None
     observaciones: str | None = None
@@ -92,6 +100,7 @@ class LabAtencionOut(BaseModel):
     categoria_id: int
     categoria: str = ""
     auxiliar_nombre: str
+    turno: str | None = None
     descripcion: str
     solucion: str
     observaciones: str | None = None
@@ -106,8 +115,37 @@ class PorLab(BaseModel):
     total: int
 
 
+class PorTurno(BaseModel):
+    turno: str
+    total: int
+
+
 class LabStatsOut(BaseModel):
     total: int
     por_lab: list[PorLab]
     por_categoria: list[PorCategoria]
     por_mes: list[PorMes]
+    por_turno: list[PorTurno] = []
+
+
+class AuxiliarEntry(BaseModel):
+    nombre: str
+    activo: bool = True
+
+
+class AuxiliarCreate(BaseModel):
+    nombre: str
+
+
+class EquipoOut(BaseModel):
+    auxiliares: list[AuxiliarEntry] = []
+
+
+class EquipoReplace(BaseModel):
+    auxiliares: list[AuxiliarEntry] = []
+
+
+class TurnoHorario(BaseModel):
+    inicio: str
+    fin: str
+    auxiliares: list[str] = []
