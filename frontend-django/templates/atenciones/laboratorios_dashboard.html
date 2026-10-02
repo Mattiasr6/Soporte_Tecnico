@@ -1,4 +1,5 @@
 {% extends "atenciones/base.html" %}
+{% load static %}
 {% block titulo %}Dashboard de laboratorios — Soporte Técnico{% endblock %}
 {% block contenido %}
 <div class="page-wide rep">
@@ -50,7 +51,10 @@
       <b>{{ kpis.auxiliares_activos }}</b>
     </div>
   </div>
+  <h2>Evolución {{ mes|slice:":4" }}</h2>
+  <div class="chart" id="lab-evolucion"></div>
   <h2>Por laboratorio</h2>
+  <div class="chart" id="lab-por-lab"></div>
   <table class="tabla">
     <thead><tr><th>Laboratorio</th><th>Total</th><th>Categoría top</th><th>Turno top</th></tr></thead>
     <tbody>
@@ -61,17 +65,24 @@
       {% endfor %}
     </tbody>
   </table>
+  <h2>Por categoría</h2>
+  <div class="chart" id="lab-por-categoria"></div>
+  <h2>Por turno</h2>
+  <div class="chart" id="lab-por-turno"></div>
   <h2>Recientes</h2>
   <table class="tabla">
-    <thead><tr><th>Fecha</th><th>Laboratorio</th><th>Categoría</th><th>Auxiliar</th><th>Turno</th></tr></thead>
+    <thead><tr><th>Fecha</th><th>Laboratorio</th><th>Categoría</th><th>Auxiliar</th><th>Turno</th><th>Medio</th></tr></thead>
     <tbody>
       {% for a in recientes %}
-      <tr><td>{{ a.fecha_registro }}</td><td>{{ a.laboratorio }}</td><td>{{ a.categoria }}</td><td>{{ a.auxiliar_nombre }}</td><td>{{ a.turno|default:"—" }}</td></tr>
+      <tr><td>{{ a.fecha_registro }}</td><td>{{ a.laboratorio }}</td><td>{{ a.categoria }}</td><td>{{ a.auxiliar_nombre }}</td><td>{{ a.turno|default:"—" }}</td><td>{{ a.medio_solicitud|default:"Presencial" }}</td></tr>
       {% empty %}
-      <tr><td colspan="5">Sin registros en el mes.</td></tr>
+      <tr><td colspan="6">Sin registros en el mes.</td></tr>
       {% endfor %}
     </tbody>
   </table>
+  {{ payload|json_script:"payload" }}
+  <script src="/static/js/vendor/echarts.min.js?v={{ asset_version }}"></script>
+  <script src="{% static 'js/lab_dashboard.js' %}?v={{ asset_version }}" defer></script>
   {% endif %}
 </div>
 {% endblock %}

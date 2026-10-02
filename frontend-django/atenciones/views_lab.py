@@ -18,6 +18,8 @@ _log = logging.getLogger(__name__)
 
 TURNOS = ["mañana", "mediodia", "tarde", "noche"]
 
+MEDIOS = ["Presencial", "WhatsApp"]
+
 
 def _rol(request: HttpRequest) -> str:
     usuario = request.session.get("usuario") or {}
@@ -96,6 +98,11 @@ def _turno_o_none(valor: object) -> str | None:
     return texto if texto in TURNOS else None
 
 
+def _medio_o_default(valor: object) -> str:
+    texto = str(valor or "").strip()
+    return texto if texto in MEDIOS else "Presencial"
+
+
 @con_login
 def lab_lista_vista(request: HttpRequest) -> HttpResponse:
     token = str(request.session["jwt"])
@@ -148,6 +155,9 @@ def lab_nueva_vista(request: HttpRequest) -> HttpResponse:
                         "categoria": categoria,
                         "auxiliar_nombre": request.POST.get("auxiliar_nombre", "").strip(),
                         "turno": _turno_o_none(request.POST.get("turno")),
+                        "medio_solicitud": _medio_o_default(
+                            request.POST.get("medio_solicitud")
+                        ),
                         "descripcion": descripcion,
                         "solucion": solucion,
                         "observaciones": request.POST.get("observaciones") or None,
@@ -214,6 +224,7 @@ def lab_nueva_vista(request: HttpRequest) -> HttpResponse:
             "edit_item": batch[edit_idx] if edit_idx is not None else None,
             "edit_idx": edit_idx,
             "turnos": TURNOS,
+            "medios": MEDIOS,
             "sugerencias_json": json.dumps(_sugerencias_por_turno(token)),
         },
     )
@@ -231,6 +242,7 @@ def _cuerpo_lab_edicion(request: HttpRequest) -> dict[str, object]:
     turno = _turno_o_none(request.POST.get("turno"))
     if turno is not None:
         cuerpo["turno"] = turno
+    cuerpo["medio_solicitud"] = _medio_o_default(request.POST.get("medio_solicitud"))
     lab_id = request.POST.get("laboratorio_id", "").strip()
     if lab_id:
         with contextlib.suppress(ValueError):
@@ -348,6 +360,61 @@ def lab_reportes_vista(request: HttpRequest) -> HttpResponse:
     )
 
 
+def _par(labels_values: list[tuple[str, int]]) -> dict[str, list]:
+    return {
+        "labels": [l for l, _ in labels_values],
+        "values": [v for _, v in labels_values],
+    }
+
+
+def _payload_lab_dashboard(
+    stats: dict, anio_stats: dict | None = None
+) -> dict[str, dict[str, dict[str, list]]]:
+    """ECharts payload from existing /api/laboratorios/stats data (no new backend)."""
+    por_mes = anio_stats.get("por_mes") if isinstance(anio_stats, dict) else None
+    if not por_mes:
+        por_mes = stats.get("por_mes") or []
+    evolucion = _par(
+        [
+            (f"{p.get('anio')}-{int(p.get('mes', 0)):02d}", int(p.get("total", 0)))
+            for p in por_mes
+            if isinstance(p, dict)
+        ]
+    )
+    por_lab = stats.get("por_lab") or []
+    barras_lab = _par(
+        [
+            (str(p.get("laboratorio", "")), int(p.get("total", 0)))
+            for p in por_lab
+            if isinstance(p, dict)
+        ]
+    )
+    por_cat = stats.get("por_categoria") or []
+    dona_cat = _par(
+        [
+            (str(p.get("categoria", "")), int(p.get("total", 0)))
+            for p in por_cat
+            if isinstance(p, dict)
+        ]
+    )
+    por_turno = stats.get("por_turno") or []
+    barras_turno = _par(
+        [
+            (str(p.get("turno", "") or "—"), int(p.get("total", 0)))
+            for p in por_turno
+            if isinstance(p, dict)
+        ]
+    )
+    return {
+        "charts": {
+            "evolucion": evolucion,
+            "por_lab": barras_lab,
+            "por_categoria": dona_cat,
+            "por_turno": barras_turno,
+        }
+    }
+
+
 @con_login
 def lab_dashboard_vista(request: HttpRequest) -> HttpResponse:
     if not _puede_reportes(request):
@@ -371,6 +438,16 @@ def lab_dashboard_vista(request: HttpRequest) -> HttpResponse:
             status=502,
         )
     stats = stats if isinstance(stats, dict) else {}
+    anio = mes[:4]
+    try:
+        anio_stats = api_get(
+            "/api/laboratorios/stats",
+            token,
+            {"desde_ym": f"{anio}-01", "hasta_ym": mes},
+        )
+    except ApiError:
+        anio_stats = None
+    anio_stats = anio_stats if isinstance(anio_stats, dict) else None
     filas = (
         [a for a in atenciones if isinstance(a, dict)]
         if isinstance(atenciones, list)
@@ -427,6 +504,7 @@ def lab_dashboard_vista(request: HttpRequest) -> HttpResponse:
             },
             "por_lab_tabla": por_lab_tabla,
             "recientes": mes_filas[:10],
+            "payload": _payload_lab_dashboard(stats, anio_stats),
         },
     )
 

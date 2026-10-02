@@ -71,5 +71,8 @@ class LabAtencion(Base):
         "FueraDeTurno", Boolean, nullable=False, default=False
     )
     turno: Mapped[str | None] = mapped_column("Turno", String(20), nullable=True)
+    medio_solicitud: Mapped[str | None] = mapped_column(
+        "MedioSolicitud", String(50), nullable=True, default="Presencial"
+    )
     fecha_registro: Mapped[date] = mapped_column("FechaRegistro", Date, nullable=False)
     created_at: Mapped[datetime] = mapped_column("CreatedAt", DateTime(timezone=True))

@@ -47,9 +47,7 @@ from app.services.lab_categorias import (
 
 router = APIRouter(prefix="/api/laboratorios", tags=["laboratorios"])
 
-CSV_HEADER = (
-    "id,laboratorio,categoria,auxiliar,turno,descripcion,fecha_registro,fuera_de_turno"
-)
+CSV_HEADER = "id,laboratorio,categoria,auxiliar,turno,medio,descripcion,fecha_registro,fuera_de_turno"
 
 
 def _solo_jefe(user: Usuario) -> None:
@@ -112,6 +110,7 @@ def _serializar(db: DbSession, rows: list[LabAtencion]) -> list[dict[str, object
             "categoria": nombres_c.get(r.categoria_id, ""),
             "auxiliar_nombre": r.auxiliar_nombre,
             "turno": r.turno,
+            "medio_solicitud": r.medio_solicitud or "Presencial",
             "descripcion": r.descripcion,
             "solucion": r.solucion,
             "observaciones": r.observaciones,
@@ -160,6 +159,8 @@ def _filtros(
 
 
 TURNOS: tuple[str, ...] = ("mañana", "mediodia", "tarde", "noche")
+
+MEDIOS: tuple[str, ...] = ("Presencial", "WhatsApp")
 
 _HORA_RE = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
 
@@ -225,6 +226,14 @@ def _validar_turno(turno: str | None) -> str | None:
     if turno not in TURNOS:
         raise bad_request(f"Turno debe ser uno de: {', '.join(TURNOS)}")
     return turno
+
+
+def _validar_medio(medio: str | None) -> str:
+    if medio is None or not str(medio).strip():
+        return "Presencial"
+    if medio not in MEDIOS:
+        raise bad_request(f"Medio debe ser uno de: {', '.join(MEDIOS)}")
+    return medio
 
 
 @router.get("/equipo", response_model=EquipoOut)
@@ -459,6 +468,7 @@ def create_lab_atencion(dto: LabAtencionCreate, db: DbSession, user: CurrentUser
         categoria_id=cat.id,
         auxiliar_nombre=dto.auxiliar_nombre.strip() or user.display_name,
         turno=_validar_turno(dto.turno),
+        medio_solicitud=_validar_medio(dto.medio_solicitud),
         descripcion=descripcion,
         solucion=solucion,
         observaciones=dto.observaciones,
@@ -521,6 +531,8 @@ def update_lab_atencion(
         row.auxiliar_nombre = dto.auxiliar_nombre.strip()
     if dto.turno is not None:
         row.turno = _validar_turno(dto.turno) if dto.turno else None
+    if dto.medio_solicitud is not None:
+        row.medio_solicitud = _validar_medio(dto.medio_solicitud)
     if dto.descripcion is not None:
         if not dto.descripcion.strip():
             raise bad_request("Descripcion no puede estar vacia")
@@ -649,6 +661,7 @@ def export_lab_csv(
                 r["categoria"],
                 r["auxiliar_nombre"],
                 r["turno"] or "",
+                r["medio_solicitud"] or "Presencial",
                 r["descripcion"],
                 r["fecha_registro"],
                 str(bool(r["fuera_de_turno"])).lower(),

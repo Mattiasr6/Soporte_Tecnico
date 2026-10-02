@@ -164,6 +164,9 @@ def api_limpia():
     _limpiar_api()
 
 
+CSV_HEADER_LAB = "id,laboratorio,categoria,auxiliar,turno,medio,descripcion,fecha_registro,fuera_de_turno"
+
+
 def _crear_lab(codigo: str, nombre: str | None = None) -> dict[str, Any]:
     r = client.post(
         "/api/laboratorios/",
@@ -425,9 +428,7 @@ def test_export_csv(api_limpia):
     r = client.get("/api/laboratorios/export.csv", headers=h(UID_JEFE))
     assert r.status_code == 200, r.text
     lineas = r.text.strip().splitlines()
-    assert lineas[0] == (
-        "id,laboratorio,categoria,auxiliar,turno,descripcion,fecha_registro,fuera_de_turno"
-    )
+    assert lineas[0] == CSV_HEADER_LAB
     assert any(f"{AMARK}csv1" in linea for linea in lineas[1:])
     r2 = client.get(
         "/api/laboratorios/export.csv",
@@ -475,9 +476,7 @@ def test_export_csv_vacio_y_filtros_estrictos(api_limpia):
     )
     assert r0.status_code == 200, r0.text
     lineas0 = r0.text.strip().splitlines()
-    assert lineas0 == [
-        "id,laboratorio,categoria,auxiliar,turno,descripcion,fecha_registro,fuera_de_turno"
-    ]
+    assert lineas0 == [CSV_HEADER_LAB]
     r1 = client.get(
         "/api/laboratorios/export.csv",
         params={"laboratorio_id": lab_a["id"]},
@@ -485,9 +484,7 @@ def test_export_csv_vacio_y_filtros_estrictos(api_limpia):
     )
     assert r1.status_code == 200, r1.text
     lineas1 = r1.text.strip().splitlines()
-    assert lineas1[0] == (
-        "id,laboratorio,categoria,auxiliar,turno,descripcion,fecha_registro,fuera_de_turno"
-    )
+    assert lineas1[0] == CSV_HEADER_LAB
     assert any(f"{AMARK}csvA" in linea for linea in lineas1[1:])
     assert not any(f"{AMARK}csvB" in linea for linea in lineas1)
 
@@ -748,3 +745,72 @@ def test_atencion_con_turno_guarda_turno(api_limpia, archivos_data):
     )
     assert csv.status_code == 200, csv.text
     assert any("tarde" in linea for linea in csv.text.strip().splitlines()[1:])
+
+
+def test_medio_default_presencial(api_limpia):
+    lab = _crear_lab(f"{AMARK}15")
+    cat = _crear_cat(f"{CMARK}Medio")
+    a = _crear_atencion(lab["id"], cat["nombre"], f"{AMARK}medio-def", UID_TEC)
+    assert a["medio_solicitud"] == "Presencial"
+
+
+def test_medio_invalido_400(api_limpia):
+    lab = _crear_lab(f"{AMARK}16")
+    cat = _crear_cat(f"{CMARK}MedioMalo")
+    r = client.post(
+        "/api/laboratorios/atenciones",
+        json={
+            "laboratorio_id": lab["id"],
+            "categoria": cat["nombre"],
+            "descripcion": f"{AMARK}medio-malo",
+            "solucion": "s",
+            "medio_solicitud": "Email",
+        },
+        headers=h(UID_TEC),
+    )
+    assert r.status_code == 400
+    creada = _crear_atencion(lab["id"], cat["nombre"], f"{AMARK}medio-ok", UID_TEC)
+    r2 = client.put(
+        f"/api/laboratorios/atenciones/{creada['id']}",
+        json={"medio_solicitud": "Paloma"},
+        headers=h(UID_TEC),
+    )
+    assert r2.status_code == 400
+
+
+def test_medio_roundtrip_whatsapp(api_limpia):
+    lab = _crear_lab(f"{AMARK}17")
+    cat = _crear_cat(f"{CMARK}MedioWa")
+    r = client.post(
+        "/api/laboratorios/atenciones",
+        json={
+            "laboratorio_id": lab["id"],
+            "categoria": cat["nombre"],
+            "descripcion": f"{AMARK}medio-wa",
+            "solucion": "s",
+            "medio_solicitud": "WhatsApp",
+        },
+        headers=h(UID_TEC),
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["medio_solicitud"] == "WhatsApp"
+    tid = r.json()["id"]
+    assert (
+        client.put(
+            f"/api/laboratorios/atenciones/{tid}",
+            json={"medio_solicitud": "Presencial"},
+            headers=h(UID_TEC),
+        ).status_code
+        == 204
+    )
+    got = client.get(f"/api/laboratorios/atenciones/{tid}", headers=h(UID_TEC)).json()
+    assert got["medio_solicitud"] == "Presencial"
+    csv = client.get(
+        "/api/laboratorios/export.csv",
+        params={"laboratorio_id": lab["id"]},
+        headers=h(UID_JEFE),
+    )
+    assert csv.status_code == 200, csv.text
+    lineas = csv.text.strip().splitlines()
+    assert lineas[0] == CSV_HEADER_LAB
+    assert any("Presencial" in linea for linea in lineas[1:])

@@ -72,6 +72,7 @@ class LabAtencionCreate(BaseModel):
     categoria: str
     auxiliar_nombre: str = ""
     turno: str | None = None
+    medio_solicitud: str | None = None
     descripcion: str
     solucion: str
     observaciones: str | None = None
@@ -83,6 +84,7 @@ class LabAtencionUpdate(BaseModel):
     categoria: str | None = None
     auxiliar_nombre: str | None = None
     turno: str | None = None
+    medio_solicitud: str | None = None
     descripcion: str | None = None
     solucion: str | None = None
     observaciones: str | None = None
@@ -101,6 +103,7 @@ class LabAtencionOut(BaseModel):
     categoria: str = ""
     auxiliar_nombre: str
     turno: str | None = None
+    medio_solicitud: str | None = None
     descripcion: str
     solucion: str
     observaciones: str | None = None

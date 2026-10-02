@@ -19,6 +19,12 @@
     <p id="cat-guia" class="sub" hidden style="margin-top:6px; line-height:1.4"></p>
     <script>(function(){var s=document.getElementById('cat-select'),g=document.getElementById('cat-guia');function upd(){var o=s.options[s.selectedIndex];var t=o?o.getAttribute('data-guia'):'';if(t){g.textContent='Ej: '+t;g.hidden=false;}else{g.hidden=true;}}s.addEventListener('change',upd);upd();})();</script>
     {% if not categorias %}<p class="sub">Sin categorías activas.</p>{% endif %}
+    <span>Medio de solicitud</span>
+    <div role="radiogroup" aria-label="Medio de solicitud">
+      {% for m in medios %}
+      <label class="pill"><input type="radio" name="medio_solicitud" value="{{ m }}"{% if edit_item.medio_solicitud == m or not edit_item.medio_solicitud and m == "Presencial" %} checked{% endif %}> {{ m }}</label>
+      {% endfor %}
+    </div>
     <label for="id_turno">Turno</label>
     <select id="id_turno" name="turno">
       <option value="">— Sin turno —</option>
@@ -52,7 +58,7 @@
   {% for item in batch %}
   <form method="post" class="batch-item">
     {% csrf_token %}
-    <span>{{ item.fecha_registro }} · {% if item.turno %}{{ item.turno }} · {% endif %}{{ item.descripcion|truncatechars:60 }}</span>
+    <span>{{ item.fecha_registro }} · {{ item.medio_solicitud|default:"Presencial" }} · {% if item.turno %}{{ item.turno }} · {% endif %}{{ item.descripcion|truncatechars:60 }}</span>
     <span class="batch-actions">
       <button type="submit" name="action" value="editar" title="Editar">Editar</button>
       <button type="submit" name="action" value="quitar" title="Quitar">×</button>
