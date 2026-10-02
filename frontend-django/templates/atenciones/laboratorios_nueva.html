@@ -30,8 +30,8 @@
     <select id="id_aux" name="auxiliar_nombre">
       <option value="">— Elegí turno primero —</option>
     </select>
-    <script>(function(){var sug=JSON.parse(document.getElementById('sug-data').textContent||'{}');var turno=document.getElementById('id_turno');var sel=document.getElementById('id_aux');var actual="{{ edit_item.auxiliar_nombre|default:''|escapejs }}";function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');}function upd(){var t=turno.value;var nombres=t&&sug[t]?sug[t]:[];var h='<option value="">— Elegí auxiliar —</option>';nombres.forEach(function(n){h+='<option value="'+esc(n)+'"'+(n===actual?' selected':'')+'>'+esc(n)+'</option>';});sel.innerHTML=h;}turno.addEventListener('change',upd);upd();})();</script>
     <script id="sug-data" type="application/json">{{ sugerencias_json|safe }}</script>
+    <script>(function(){var sug=JSON.parse(document.getElementById('sug-data').textContent||'{}');var turno=document.getElementById('id_turno');var sel=document.getElementById('id_aux');var actual="{{ edit_item.auxiliar_nombre|default:''|escapejs }}";function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');}function upd(){var t=turno.value;var nombres=t&&sug[t]?sug[t]:[];var h='<option value="">— Elegí auxiliar —</option>';nombres.forEach(function(n){h+='<option value="'+esc(n)+'"'+(n===actual?' selected':'')+'>'+esc(n)+'</option>';});sel.innerHTML=h;}turno.addEventListener('change',upd);upd();})();</script>
     <label for="id_desc">Descripción</label>
     <textarea id="id_desc" name="descripcion" rows="3" required>{{ edit_item.descripcion|default:"" }}</textarea>
     <label for="id_sol">Solución</label>
