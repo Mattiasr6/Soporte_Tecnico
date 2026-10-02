@@ -19,17 +19,18 @@
     <p id="cat-guia" class="sub" hidden style="margin-top:6px; line-height:1.4"></p>
     <script>(function(){var s=document.getElementById('cat-select'),g=document.getElementById('cat-guia');function upd(){var o=s.options[s.selectedIndex];var t=o?o.getAttribute('data-guia'):'';if(t){g.textContent='Ej: '+t;g.hidden=false;}else{g.hidden=true;}}s.addEventListener('change',upd);upd();})();</script>
     {% if not categorias %}<p class="sub">Sin categorías activas.</p>{% endif %}
-    <label for="id_turno">Turno (opcional)</label>
+    <label for="id_turno">Turno</label>
     <select id="id_turno" name="turno">
       <option value="">— Sin turno —</option>
       {% for t in turnos %}
       <option value="{{ t }}"{% if edit_item.turno == t %} selected{% endif %}>{{ t|capfirst }}</option>
       {% endfor %}
     </select>
-    <label for="id_aux">Auxiliar (opcional)</label>
-    <input type="text" id="id_aux" name="auxiliar_nombre" list="aux-sugerencias" value="{{ edit_item.auxiliar_nombre|default:"" }}" placeholder="Nombre del auxiliar" autocomplete="off">
-    <datalist id="aux-sugerencias"></datalist>
-    <script>(function(){var sug=JSON.parse(document.getElementById('sug-data').textContent||'{}');var turno=document.getElementById('id_turno');var list=document.getElementById('aux-sugerencias');function upd(){var t=turno.value;var nombres=t&&sug[t]?sug[t]:Object.values(sug).flat();list.innerHTML=[...new Set(nombres)].map(function(n){return '<option value="'+n.replace(/"/g,'&quot;')+'">';}).join('');}turno.addEventListener('change',upd);upd();})();</script>
+    <label for="id_aux">Auxiliar</label>
+    <select id="id_aux" name="auxiliar_nombre">
+      <option value="">— Elegí turno primero —</option>
+    </select>
+    <script>(function(){var sug=JSON.parse(document.getElementById('sug-data').textContent||'{}');var turno=document.getElementById('id_turno');var sel=document.getElementById('id_aux');var actual="{{ edit_item.auxiliar_nombre|default:''|escapejs }}";function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');}function upd(){var t=turno.value;var nombres=t&&sug[t]?sug[t]:[];var h='<option value="">— Elegí auxiliar —</option>';nombres.forEach(function(n){h+='<option value="'+esc(n)+'"'+(n===actual?' selected':'')+'>'+esc(n)+'</option>';});sel.innerHTML=h;}turno.addEventListener('change',upd);upd();})();</script>
     <script id="sug-data" type="application/json">{{ sugerencias_json|safe }}</script>
     <label for="id_desc">Descripción</label>
     <textarea id="id_desc" name="descripcion" rows="3" required>{{ edit_item.descripcion|default:"" }}</textarea>
