@@ -14,7 +14,7 @@
           <iconify-icon icon="mdi:menu" aria-hidden="true"></iconify-icon>
         </button>
       </div>
-      {% if can_dashboard %}
+      {% if can_dashboard and not es_auxiliar %}
       <div class="context-toggle" role="tablist" aria-label="Contexto visual de sistema">
         <button type="button" data-system-view="SOPORTE">SOPORTE</button>
         <button type="button" data-system-view="AUXILIARES">AUXILIARES</button>
