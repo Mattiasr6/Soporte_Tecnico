@@ -9,12 +9,15 @@
   <form method="post" id="form-lab">
     {% csrf_token %}
     {% include "atenciones/_lab_card_picker.html" %}
-    <label>Categoría</label>
-    <div class="pills">
+    <label for="cat-select">Categoría</label>
+    <select id="cat-select" name="categoria" required>
+      <option value="">— Elegí categoría —</option>
       {% for c in categorias %}
-      <label class="pill" title="{{ c.descripcion|default:c.nombre }}"><input type="radio" name="categoria" value="{{ c.nombre }}" required{% if edit_item.categoria == c.nombre %} checked{% endif %}> {{ c.nombre }}{% if c.descripcion %}<small class="sub">{{ c.descripcion }}</small>{% endif %}</label>
+      <option value="{{ c.nombre }}"{% if edit_item.categoria == c.nombre %} selected{% endif %} data-guia="{{ c.descripcion|default:'' }}">{{ c.nombre }}</option>
       {% endfor %}
-    </div>
+    </select>
+    <p id="cat-guia" class="sub" hidden style="margin-top:6px; line-height:1.4"></p>
+    <script>(function(){var s=document.getElementById('cat-select'),g=document.getElementById('cat-guia');function upd(){var o=s.options[s.selectedIndex];var t=o?o.getAttribute('data-guia'):'';if(t){g.textContent='Ej: '+t;g.hidden=false;}else{g.hidden=true;}}s.addEventListener('change',upd);upd();})();</script>
     {% if not categorias %}<p class="sub">Sin categorías activas.</p>{% endif %}
     <label for="id_aux">Auxiliar (opcional)</label>
     <input type="text" id="id_aux" name="auxiliar_nombre" value="{{ edit_item.auxiliar_nombre|default:"" }}" placeholder="Nombre del auxiliar">
