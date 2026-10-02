@@ -50,16 +50,6 @@
           </form>
         </td>
       </tr>
-      <tr>
-        <td colspan="7">
-          <form method="post" action="{% url 'lab_editar' a.id %}" class="batch-item">
-            {% csrf_token %}
-            <input type="text" name="descripcion" value="{{ a.descripcion }}" aria-label="Descripción" required>
-            <input type="text" name="solucion" value="{{ a.solucion }}" aria-label="Solución" required>
-            <button type="submit">Guardar</button>
-          </form>
-        </td>
-      </tr>
       {% empty %}
       <tr><td colspan="7">Sin registros.</td></tr>
       {% endfor %}
