@@ -66,7 +66,7 @@
         <iconify-icon icon="mdi:home-outline" aria-hidden="true"></iconify-icon>
         <span class="side-link-label">Inicio</span>
       </a>
-      <a class="side-link{% if nav_page == 'sugerencias' %} active{% endif %}" href="{% url 'sugerencias' %}" {% if nav_page == 'sugerencias' %}aria-current="page"{% endif %} data-nav-page="sugerencias">
+      <a class="side-link{% if nav_page == 'sugerencias' %} active{% endif %}" href="{% url 'sugerencias' %}?panel=SOPORTE" {% if nav_page == 'sugerencias' %}aria-current="page"{% endif %} data-nav-page="sugerencias">
         <iconify-icon icon="mdi:comment-quote-outline" aria-hidden="true"></iconify-icon>
         <span class="side-link-label">Sugerencias</span>
       </a>
@@ -85,7 +85,7 @@
           <iconify-icon icon="mdi:flask-outline" aria-hidden="true"></iconify-icon>
           <span class="side-link-label">Laboratorios</span>
         </a>
-        <a class="side-link" href="{% url 'lab_dashboard' %}" data-nav-page="laboratorios">
+        <a class="side-link{% if nav_page == 'lab_dashboard' %} active{% endif %}" href="{% url 'lab_dashboard' %}" {% if nav_page == 'lab_dashboard' %}aria-current="page"{% endif %} data-nav-page="lab_dashboard">
           <iconify-icon icon="mdi:view-dashboard-outline" aria-hidden="true"></iconify-icon>
           <span class="side-link-label">Dashboard labs</span>
         </a>
@@ -97,7 +97,7 @@
           <iconify-icon icon="mdi:calendar-clock-outline" aria-hidden="true"></iconify-icon>
           <span class="side-link-label">Horarios</span>
         </a>
-        <a class="side-link{% if nav_page == 'sugerencias' %} active{% endif %}" href="{% url 'sugerencias' %}" {% if nav_page == 'sugerencias' %}aria-current="page"{% endif %} data-nav-page="sugerencias">
+        <a class="side-link{% if nav_page == 'sugerencias' %} active{% endif %}" href="{% url 'sugerencias' %}?panel=AUXILIARES" {% if nav_page == 'sugerencias' %}aria-current="page"{% endif %} data-nav-page="sugerencias">
           <iconify-icon icon="mdi:comment-quote-outline" aria-hidden="true"></iconify-icon>
           <span class="side-link-label">Sugerencias</span>
         </a>

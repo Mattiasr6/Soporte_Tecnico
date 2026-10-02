@@ -2040,15 +2040,18 @@ def sugerencias_vista(request: HttpRequest) -> HttpResponse:
             _flash(request, "ok", "Sugerencia enviada.")
             return redirect("sugerencias")
     sugerencias = api_get("/api/sugerencias", token)
-    return render(
-        request,
-        "atenciones/sugerencias.html",
-        {
-            "sugerencias": sugerencias if isinstance(sugerencias, list) else [],
-            "error": error,
-            "flash": request.session.pop("flash", None),
-        },
-    )
+    panel = request.GET.get("panel", "")
+    if panel in ("SOPORTE", "AUXILIARES"):
+        request.session["sistema_panel"] = panel
+    ctx: dict[str, object] = {
+        "sugerencias": sugerencias if isinstance(sugerencias, list) else [],
+        "error": error,
+        "flash": request.session.pop("flash", None),
+    }
+    guardado = request.session.get("sistema_panel", "")
+    if guardado in ("SOPORTE", "AUXILIARES"):
+        ctx["sistema"] = guardado
+    return render(request, "atenciones/sugerencias.html", ctx)
 
 
 @con_login
