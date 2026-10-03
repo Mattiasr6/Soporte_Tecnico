@@ -469,6 +469,10 @@ def create_lab_atencion(dto: LabAtencionCreate, db: DbSession, user: CurrentUser
     solucion = dto.solucion.strip()
     if not descripcion or not solucion:
         raise bad_request("Descripcion y solucion son obligatorias")
+    aux_nombre = dto.auxiliar_nombre.strip() or user.display_name
+    nomina = {_norm_nb(m["nombre"]) for m in _equipo()}
+    if _norm_nb(aux_nombre) not in nomina:
+        raise bad_request(f"Auxiliar '{dto.auxiliar_nombre.strip()}' no esta en la nomina")
     now = datetime.now(UTC)
     dup = db.scalar(
         select(LabAtencion).where(
@@ -481,7 +485,6 @@ def create_lab_atencion(dto: LabAtencionCreate, db: DbSession, user: CurrentUser
     )
     if dup is not None:
         raise conflict("Atencion duplicada en los ultimos 60 segundos")
-    aux_nombre = dto.auxiliar_nombre.strip() or user.display_name
     turno_val = _validar_turno(dto.turno)
     row = LabAtencion(
         usuario_id=user.id,

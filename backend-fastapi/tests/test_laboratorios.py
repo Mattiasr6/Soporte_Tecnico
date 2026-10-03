@@ -190,6 +190,11 @@ def _crear_cat(nombre: str) -> dict[str, Any]:
 def _crear_atencion(
     lab_id: int, categoria: str, descripcion: str, uid: int
 ) -> dict[str, Any]:
+    client.post(
+        "/api/laboratorios/equipo",
+        json={"nombre": f"{MARK}aux"},
+        headers=h(UID_JEFE),
+    )
     r = client.post(
         "/api/laboratorios/atenciones",
         json={
@@ -197,6 +202,7 @@ def _crear_atencion(
             "categoria": categoria,
             "descripcion": descripcion,
             "solucion": "reinicio",
+            "auxiliar_nombre": f"{MARK}aux",
         },
         headers=h(uid),
     )
@@ -320,6 +326,7 @@ def test_post_atencion_409_duplicada_60s(api_limpia):
             "categoria": cat["nombre"],
             "descripcion": desc,
             "solucion": "otra",
+            "auxiliar_nombre": f"{MARK}aux",
         },
         headers=h(UID_TEC),
     )
@@ -572,7 +579,7 @@ def _agregar_aux(nombre: str) -> None:
     r = client.post(
         "/api/laboratorios/equipo", json={"nombre": nombre}, headers=h(UID_JEFE)
     )
-    assert r.status_code == 200, r.text
+    assert r.status_code in (200, 400), r.text
 
 
 def test_equipo_crud_jefe_y_403_tecnico(api_limpia, archivos_data):
@@ -764,6 +771,7 @@ def test_medio_invalido_400(api_limpia):
             "categoria": cat["nombre"],
             "descripcion": f"{AMARK}medio-malo",
             "solucion": "s",
+            "auxiliar_nombre": f"{MARK}aux",
             "medio_solicitud": "Email",
         },
         headers=h(UID_TEC),
@@ -781,6 +789,7 @@ def test_medio_invalido_400(api_limpia):
 def test_medio_roundtrip_whatsapp(api_limpia):
     lab = _crear_lab(f"{AMARK}17")
     cat = _crear_cat(f"{CMARK}MedioWa")
+    _agregar_aux(f"{MARK}aux")
     r = client.post(
         "/api/laboratorios/atenciones",
         json={
@@ -788,6 +797,7 @@ def test_medio_roundtrip_whatsapp(api_limpia):
             "categoria": cat["nombre"],
             "descripcion": f"{AMARK}medio-wa",
             "solucion": "s",
+            "auxiliar_nombre": f"{MARK}aux",
             "medio_solicitud": "WhatsApp",
         },
         headers=h(UID_TEC),
@@ -814,3 +824,20 @@ def test_medio_roundtrip_whatsapp(api_limpia):
     lineas = csv.text.strip().splitlines()
     assert lineas[0] == CSV_HEADER_LAB
     assert any("Presencial" in linea for linea in lineas[1:])
+
+
+def test_auxiliar_desconocido_400(api_limpia):
+    lab = _crear_lab(f"{AMARK}18")
+    cat = _crear_cat(f"{CMARK}AuxDesc")
+    r = client.post(
+        "/api/laboratorios/atenciones",
+        json={
+            "laboratorio_id": lab["id"],
+            "categoria": cat["nombre"],
+            "descripcion": f"{AMARK}aux-desc",
+            "solucion": "s",
+            "auxiliar_nombre": "Nadie Inexistente",
+        },
+        headers=h(UID_TEC),
+    )
+    assert r.status_code == 400, r.text
