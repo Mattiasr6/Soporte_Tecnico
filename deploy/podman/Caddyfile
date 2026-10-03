@@ -1,0 +1,6 @@
+# Se activa con: podman-compose -f prod.compose.yml --profile edge up -d
+# Ajustar paths cuando se defina la URL publica.
+{$DOMAIN} {
+	reverse_proxy /api/* api:5002
+	reverse_proxy web:8001
+}

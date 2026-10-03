@@ -1,0 +1,79 @@
+# PROD mirror: mismos puertos que systemd hoy (api 5002, web 8001, pg 5433).
+# NO prender hasta el cutover (backup + restore test + DNS). Solo validar con:
+#   podman-compose -f prod.compose.yml config
+name: soporte-prod
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-soporte}
+    volumes:
+      - pgdata-prod:/var/lib/postgresql/data
+    ports:
+      - "5433:5432" # igual que hoy: la API usa localhost:5433 sin cambiar .env
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 10s
+      retries: 5
+
+  api:
+    build:
+      context: ../../backend-fastapi
+    env_file: [.env.prod]
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-soporte}
+    ports:
+      - "127.0.0.1:5002:5002"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ../../frontend-django
+    env_file: [.env.prod]
+    environment:
+      FASTAPI_URL: http://api:5002
+    ports:
+      - "8001:8001"
+    depends_on: [api]
+    restart: unless-stopped
+
+  # Backup correcto por construccion: vuelca db (prod), NO el zombi.
+  pgbackup:
+    image: postgres:16-alpine
+    environment:
+      PGHOST: db
+      PGUSER: ${POSTGRES_USER}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      PGDATABASE: ${POSTGRES_DB:-soporte}
+    volumes:
+      - pgbackups-prod:/backups
+    command: >
+      sh -c 'while true; do DATE=$$(date +%Y%m%d_%H%M%S);
+      pg_dump -Fc > /backups/soporte_$$DATE.dump &&
+      echo "backup $$DATE OK" || echo "backup $$DATE FALLO" >&2;
+      find /backups -name "soporte_*.dump" -mtime +7 -delete;
+      sleep 86400; done'
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2-alpine
+    ports: ["80:80", "443:443"]
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+    profiles: ["edge"] # solo cuando el DNS apunte a este equipo
+
+volumes:
+  pgdata-prod:
+  pgbackups-prod:
+  caddy-data:
