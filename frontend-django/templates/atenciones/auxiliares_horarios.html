@@ -10,6 +10,7 @@
     <h2>Cobertura 24 h (solo lectura)</h2>
     <div class="chart" id="cob-turnos" style="height:220px"></div>
     <div class="chart" id="cob-horas" style="height:190px"></div>
+    <style>@media (max-width:767px){#cob-turnos{height:300px !important;}#cob-horas{height:260px !important;}}</style>
     <p class="sub" id="cob-resumen"></p>
   </section>
   <style>
@@ -96,6 +97,7 @@
     var ORDEN=["mañana","mediodia","tarde","noche"];
     var NOMBRE={"mañana":"Mañana","mediodia":"Mediodía","tarde":"Tarde","noche":"Noche"};
     var VERDE="#006241",ROJO="#c0392b",GRIS="#6b7280",TEXTO="#1e3932";
+    var MOVIL=window.innerWidth<768,FS=MOVIL?13:11,FSX=MOVIL?11:9;
     var chT=echarts.init(elT),chH=echarts.init(elH);
     var datos=[];
     function aDec(s){var m=/^(\d{1,2}):(\d{2})/.exec(s||"");if(!m)return null;var h=+m[1],mi=+m[2];if(h>24||mi>59)return null;return h+mi/60;}
@@ -126,10 +128,10 @@
       });
       chT.setOption({
         grid:{left:0,right:64,top:8,bottom:22,containLabel:true},
-        textStyle:{color:TEXTO,fontSize:12},
+        textStyle:{color:TEXTO,fontSize:FS},
         tooltip:{trigger:'item',formatter:function(p){var d=p.data;return d.nombre+": <b>"+d.ini+"–"+d.fin+"</b> · "+d.n+" aux.";}},
-        xAxis:{type:'value',min:0,max:24,interval:2,axisLabel:{color:GRIS,fontSize:10,formatter:'{value}h'}},
-        yAxis:{type:'category',data:inv.map(function(t){return NOMBRE[t]||t;}),axisLabel:{color:TEXTO,fontSize:11}},
+        xAxis:{type:'value',min:0,max:24,interval:2,axisLabel:{color:GRIS,fontSize:FSX,formatter:'{value}h'}},
+        yAxis:{type:'category',data:inv.map(function(t){return NOMBRE[t]||t;}),axisLabel:{color:TEXTO,fontSize:FS}},
         series:[{type:'custom',data:datos,renderItem:function(params,api){
           var d=datos[params.dataIndex];
           var a=api.coord([d.desde,d.turno]),b=api.coord([d.hasta,d.turno]);
@@ -141,9 +143,9 @@
       for(var h=0;h<24;h++){var c={n:0,turnos:[]};ORDEN.forEach(function(t){var d=P[t];if(!d)return;if(cubre(segmentos(aDec(d.ini),aDec(d.fin)),h)){c.n+=d.n;c.turnos.push((NOMBRE[t]||t)+" ("+d.n+")");}});cob.push(c);}
       chH.setOption({
         grid:{left:0,right:8,top:8,bottom:22,containLabel:true},
-        textStyle:{color:TEXTO,fontSize:12},
+        textStyle:{color:TEXTO,fontSize:FS},
         tooltip:{trigger:'axis',axisPointer:{type:'shadow'},formatter:function(ps){var h=+ps[0].name,c=cob[h];var s="<b>"+ps[0].name+"h</b>: "+c.n+" aux.";if(c.turnos.length)s+="<br/>"+c.turnos.join("<br/>");return s;}},
-        xAxis:{type:'category',data:cob.map(function(_,h){return hh(h);}),axisLabel:{color:GRIS,fontSize:9,interval:1}},
+        xAxis:{type:'category',data:cob.map(function(_,h){return hh(h);}),axisLabel:{color:GRIS,fontSize:FSX,interval:MOVIL?2:1}},
         yAxis:{type:'value',min:0,axisLabel:{color:GRIS,fontSize:10},splitLine:{lineStyle:{color:"#e7ece9"}}},
         series:[{type:'bar',barWidth:'70%',data:cob.map(function(c){return {value:c.n,itemStyle:{color:c.n<2?ROJO:VERDE}};}),label:{show:true,position:'top',color:TEXTO,fontSize:9}}]
       },true);
