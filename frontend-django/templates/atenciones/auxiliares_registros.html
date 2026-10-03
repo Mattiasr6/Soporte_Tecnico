@@ -63,7 +63,7 @@
     cuerpo.innerHTML = '<p class="sub">Cargando…</p>';
     dlg.showModal();
     try {
-      const res = await fetch("/laboratorios/" + id + "/ticket/");
+      const res = await fetch("/auxiliares/atenciones/" + id + "/ticket/");
       cuerpo.innerHTML = res.ok
         ? await res.text()
         : '<p class="error">No se pudo cargar el detalle.</p>';
