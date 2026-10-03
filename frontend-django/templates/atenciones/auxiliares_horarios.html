@@ -6,6 +6,12 @@
   <p class="sub"><a href="{% url 'auxiliares' %}">← Volver a nómina</a></p>
   {% if error %}<p class="error">{{ error }}</p>{% endif %}
   {% if es_jefe %}
+  <section aria-label="Cobertura de 24 horas">
+    <h2>Cobertura 24 h (solo lectura)</h2>
+    <div class="chart" id="cob-turnos" style="height:220px"></div>
+    <div class="chart" id="cob-horas" style="height:190px"></div>
+    <p class="sub" id="cob-resumen"></p>
+  </section>
   <form method="post" id="form-horarios">
     {% csrf_token %}
     <h2>Sin asignar (<span id="pool-count"></span>)</h2>
@@ -50,13 +56,88 @@
       z.addEventListener('dragover',function(e){e.preventDefault();});
       z.addEventListener('drop',function(e){e.preventDefault();var n=e.dataTransfer.getData('text/plain');if(!n)return;
         quitarDeTurnos(n);
-        var ta=z.querySelector('textarea');var cur=names(ta);cur.push(n);ta.value=cur.join('\n')+'\n';refresh(ta);syncPool();});
+        var ta=z.querySelector('textarea');var cur=names(ta);cur.push(n);ta.value=cur.join('\n')+'\n';refresh(ta);syncPool();if(window.__cobertura)window.__cobertura();});
     });
     pool.addEventListener('dragover',function(e){e.preventDefault();});
     pool.addEventListener('drop',function(e){e.preventDefault();var n=e.dataTransfer.getData('text/plain');if(!n)return;
-      quitarDeTurnos(n);syncPool();});
+      quitarDeTurnos(n);syncPool();if(window.__cobertura)window.__cobertura();});
     document.querySelectorAll('fieldset.dropzone textarea').forEach(refresh);
     syncPool();
+    document.querySelectorAll('fieldset.dropzone input[type="time"]').forEach(function(inp){
+      inp.addEventListener('change',function(){if(window.__cobertura)window.__cobertura();});
+    });
+  })();</script>
+  {{ bloques|json_script:"bloques-horarios" }}
+  <script src="/static/js/vendor/echarts.min.js?v={{ asset_version }}"></script>
+  <script>(function(){
+    if(typeof echarts==="undefined")return;
+    var elT=document.getElementById('cob-turnos'),elH=document.getElementById('cob-horas'),elR=document.getElementById('cob-resumen');
+    var pel=document.getElementById('bloques-horarios');
+    if(!elT||!elH||!pel)return;
+    var ORDEN=["mañana","mediodia","tarde","noche"];
+    var NOMBRE={"mañana":"Mañana","mediodia":"Mediodía","tarde":"Tarde","noche":"Noche"};
+    var VERDE="#006241",ROJO="#c0392b",GRIS="#6b7280",TEXTO="#1e3932";
+    var chT=echarts.init(elT),chH=echarts.init(elH);
+    var datos=[];
+    function aDec(s){var m=/^(\d{1,2}):(\d{2})/.exec(s||"");if(!m)return null;var h=+m[1],mi=+m[2];if(h>24||mi>59)return null;return h+mi/60;}
+    function segmentos(d,h){if(d==null||h==null||h===d)return [];if(h>d)return [[d,h]];return [[d,24],[0,h]];}
+    function cubre(segs,h){for(var i=0;i<segs.length;i++){if(h+0.5>=segs[i][0]&&h+0.5<segs[i][1])return true;}return false;}
+    function hh(h){return (h<10?"0":"")+h;}
+    function leer(){
+      var P={};
+      document.querySelectorAll('fieldset.dropzone').forEach(function(z){
+        var t=z.getAttribute('data-turno');
+        var ins=z.querySelectorAll('input[type="time"]');
+        var ta=z.querySelector('textarea');
+        var n=ta?ta.value.split('\n').map(function(s){return s.trim();}).filter(Boolean).length:0;
+        P[t]={ini:ins[0]?ins[0].value:"",fin:ins[1]?ins[1].value:"",n:n};
+      });
+      if(!Object.keys(P).length){try{JSON.parse(pel.textContent||"[]").forEach(function(b){P[b.turno]={ini:b.inicio||"",fin:b.fin||"",n:b.total||0};});}catch(e){}}
+      return P;
+    }
+    function pintar(){
+      var P=leer();
+      var inv=ORDEN.slice().reverse();
+      datos=[];
+      ORDEN.forEach(function(t){
+        var d=P[t]||{ini:"",fin:"",n:0},yi=inv.indexOf(t);
+        segmentos(aDec(d.ini),aDec(d.fin)).forEach(function(s,i){
+          datos.push({turno:yi,desde:s[0],hasta:s[1],nombre:NOMBRE[t]||t,ini:d.ini,fin:d.fin,n:d.n,etiqueta:i===0?(d.n+" aux."):""});
+        });
+      });
+      chT.setOption({
+        grid:{left:0,right:64,top:8,bottom:22,containLabel:true},
+        textStyle:{color:TEXTO,fontSize:12},
+        tooltip:{trigger:'item',formatter:function(p){var d=p.data;return d.nombre+": <b>"+d.ini+"–"+d.fin+"</b> · "+d.n+" aux.";}},
+        xAxis:{type:'value',min:0,max:24,interval:2,axisLabel:{color:GRIS,fontSize:10,formatter:'{value}h'}},
+        yAxis:{type:'category',data:inv.map(function(t){return NOMBRE[t]||t;}),axisLabel:{color:TEXTO,fontSize:11}},
+        series:[{type:'custom',data:datos,renderItem:function(params,api){
+          var d=datos[params.dataIndex];
+          var a=api.coord([d.desde,d.turno]),b=api.coord([d.hasta,d.turno]);
+          var alt=api.size([0,1])[1]*0.52;
+          return {type:'rect',shape:{x:a[0],y:a[1]-alt/2,width:Math.max(b[0]-a[0],1),height:alt},style:{fill:VERDE}};
+        },label:{show:true,position:'right',color:TEXTO,fontSize:11,formatter:function(p){return p.data.etiqueta;}}}]
+      },true);
+      var cob=[];
+      for(var h=0;h<24;h++){var c={n:0,turnos:[]};ORDEN.forEach(function(t){var d=P[t];if(!d)return;if(cubre(segmentos(aDec(d.ini),aDec(d.fin)),h)){c.n+=d.n;c.turnos.push((NOMBRE[t]||t)+" ("+d.n+")");}});cob.push(c);}
+      chH.setOption({
+        grid:{left:0,right:8,top:8,bottom:22,containLabel:true},
+        textStyle:{color:TEXTO,fontSize:12},
+        tooltip:{trigger:'axis',axisPointer:{type:'shadow'},formatter:function(ps){var h=+ps[0].name,c=cob[h];var s="<b>"+ps[0].name+"h</b>: "+c.n+" aux.";if(c.turnos.length)s+="<br/>"+c.turnos.join("<br/>");return s;}},
+        xAxis:{type:'category',data:cob.map(function(_,h){return hh(h);}),axisLabel:{color:GRIS,fontSize:9,interval:1}},
+        yAxis:{type:'value',min:0,axisLabel:{color:GRIS,fontSize:10},splitLine:{lineStyle:{color:"#e7ece9"}}},
+        series:[{type:'bar',barWidth:'70%',data:cob.map(function(c){return {value:c.n,itemStyle:{color:c.n<2?ROJO:VERDE}};}),label:{show:true,position:'top',color:TEXTO,fontSize:9}}]
+      },true);
+      if(elR){
+        var brechas=[],pico={n:-1,h:0};
+        cob.forEach(function(c,h){if(c.n<2)brechas.push(hh(h)+"h");if(c.n>pico.n)pico={n:c.n,h:h};});
+        elR.textContent=(brechas.length?("Brechas (<2 auxiliares): "+brechas.join(", ")):"Cobertura completa: todas las horas con 2+ auxiliares")+" · Pico: "+pico.n+" aux. a las "+hh(pico.h)+"h.";
+      }
+    }
+    window.__cobertura=pintar;
+    pintar();
+    var ancho=window.innerWidth;
+    window.addEventListener('resize',function(){if(window.innerWidth===ancho)return;ancho=window.innerWidth;chT.resize();chH.resize();});
   })();</script>
   {% else %}
   <table class="tabla">
