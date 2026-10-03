@@ -14,7 +14,7 @@
           <iconify-icon icon="mdi:menu" aria-hidden="true"></iconify-icon>
         </button>
       </div>
-      {% if can_dashboard %}
+      {% if can_dashboard and not es_auxiliar %}
       <div class="context-toggle" role="tablist" aria-label="Contexto visual de sistema">
         <button type="button" data-system-view="SOPORTE">SOPORTE</button>
         <button type="button" data-system-view="AUXILIARES">AUXILIARES</button>
@@ -66,6 +66,10 @@
         <iconify-icon icon="mdi:home-outline" aria-hidden="true"></iconify-icon>
         <span class="side-link-label">Inicio</span>
       </a>
+      <a class="side-link{% if nav_page == 'sugerencias' %} active{% endif %}" href="{% url 'sugerencias' %}?panel=SOPORTE" {% if nav_page == 'sugerencias' %}aria-current="page"{% endif %} data-nav-page="sugerencias">
+        <iconify-icon icon="mdi:comment-quote-outline" aria-hidden="true"></iconify-icon>
+        <span class="side-link-label">Sugerencias</span>
+      </a>
       <a class="side-link{% if nav_page == 'perfil' %} active{% endif %}" href="{% url 'perfil' %}" {% if nav_page == 'perfil' %}aria-current="page"{% endif %} data-nav-page="perfil">
         <iconify-icon icon="mdi:account-circle-outline" aria-hidden="true"></iconify-icon>
         <span class="side-link-label">Perfil</span>
@@ -77,9 +81,33 @@
       <div class="mock-note">Sistema y notas: solo visual por ahora (S10).</div>
       </div>
       <div class="sistema-panel" data-sistema-panel="AUXILIARES"{% if sistema != 'AUXILIARES' %} hidden{% endif %}>
+        <a class="side-link{% if nav_page == 'laboratorios' %} active{% endif %}" href="{% url 'lab_lista' %}" {% if nav_page == 'laboratorios' %}aria-current="page"{% endif %} data-nav-page="laboratorios">
+          <iconify-icon icon="mdi:flask-outline" aria-hidden="true"></iconify-icon>
+          <span class="side-link-label">Laboratorios</span>
+        </a>
+        <a class="side-link{% if nav_page == 'lab_dashboard' %} active{% endif %}" href="{% url 'lab_dashboard' %}" {% if nav_page == 'lab_dashboard' %}aria-current="page"{% endif %} data-nav-page="lab_dashboard">
+          <iconify-icon icon="mdi:view-dashboard-outline" aria-hidden="true"></iconify-icon>
+          <span class="side-link-label">Dashboard labs</span>
+        </a>
+        <a class="side-link{% if nav_page == 'lab_nueva' %} active{% endif %}" href="{% url 'lab_nueva' %}" {% if nav_page == 'lab_nueva' %}aria-current="page"{% endif %} data-nav-page="lab_nueva">
+          <iconify-icon icon="mdi:plus-circle-outline" aria-hidden="true"></iconify-icon>
+          <span class="side-link-label">Nueva atención</span>
+        </a>
+        <a class="side-link{% if nav_page == 'lab_reportes' %} active{% endif %}" href="{% url 'lab_reportes' %}" {% if nav_page == 'lab_reportes' %}aria-current="page"{% endif %} data-nav-page="lab_reportes">
+          <iconify-icon icon="mdi:file-chart-outline" aria-hidden="true"></iconify-icon>
+          <span class="side-link-label">Reportes</span>
+        </a>
         <a class="side-link{% if nav_page == 'auxiliares' %} active{% endif %}" href="{% url 'auxiliares' %}" {% if nav_page == 'auxiliares' %}aria-current="page"{% endif %} data-nav-page="auxiliares">
           <iconify-icon icon="mdi:account-supervisor-outline" aria-hidden="true"></iconify-icon>
           <span class="side-link-label">Auxiliares</span>
+        </a>
+        <a class="side-link{% if nav_page == 'auxiliares_horarios' %} active{% endif %}" href="{% url 'auxiliares_horarios' %}" {% if nav_page == 'auxiliares_horarios' %}aria-current="page"{% endif %} data-nav-page="auxiliares_horarios">
+          <iconify-icon icon="mdi:calendar-clock-outline" aria-hidden="true"></iconify-icon>
+          <span class="side-link-label">Horarios</span>
+        </a>
+        <a class="side-link{% if nav_page == 'sugerencias' %} active{% endif %}" href="{% url 'sugerencias' %}?panel=AUXILIARES" {% if nav_page == 'sugerencias' %}aria-current="page"{% endif %} data-nav-page="sugerencias">
+          <iconify-icon icon="mdi:comment-quote-outline" aria-hidden="true"></iconify-icon>
+          <span class="side-link-label">Sugerencias</span>
         </a>
         <p class="soon-panel">Próximamente sidebar completo para auxiliares</p>
       </div>

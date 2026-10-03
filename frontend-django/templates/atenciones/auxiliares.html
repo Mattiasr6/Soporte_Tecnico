@@ -2,10 +2,39 @@
 {% block titulo %}Auxiliares — Soporte Técnico{% endblock %}
 {% block contenido %}
 <div class="page-wide">
-  <h1>Auxiliares</h1>
+  <h1>Auxiliares de laboratorio</h1>
   <p class="sub">{{ usuario.display_name|default:"Auxiliar" }} · {{ usuario.role|default:"" }}</p>
-  <div class="soon-block">
-    <p>Próximamente apartado completo para auxiliares.</p>
-  </div>
+  {% if error %}<p class="error">{{ error }}</p>{% endif %}
+  <p><a class="btn ghost" href="{% url 'auxiliares_horarios' %}">Ver horarios por turno →</a></p>
+  <h2>Nómina ({{ equipo|length }})</h2>
+  {% if es_jefe %}
+  <form method="post" class="filtros-fila" style="margin-bottom:22px">
+    {% csrf_token %}
+    <input type="text" name="nombre" placeholder="Nombre del auxiliar" required aria-label="Nombre del auxiliar">
+    <button type="submit" name="action" value="aux_agregar" class="btn">Agregar</button>
+  </form>
+  {% endif %}
+  <table class="tabla">
+    <thead><tr><th>Nombre</th><th>Estado</th>{% if es_jefe %}<th></th>{% endif %}</tr></thead>
+    <tbody>
+      {% for m in equipo %}
+      <tr>
+        <td>{{ m.nombre }}</td>
+        <td>{% if m.activo %}Activo{% else %}Inactivo{% endif %}</td>
+        {% if es_jefe %}
+        <td>
+          <form method="post" style="display:inline">
+            {% csrf_token %}
+            <input type="hidden" name="nombre" value="{{ m.nombre }}">
+            <button type="submit" name="action" value="aux_quitar" title="Quitar" onclick="return confirm('¿Quitar a {{ m.nombre }} de la nómina?')">×</button>
+          </form>
+        </td>
+        {% endif %}
+      </tr>
+      {% empty %}
+      <tr><td colspan="3">Nómina vacía. Agregá el primer auxiliar.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
 </div>
 {% endblock %}

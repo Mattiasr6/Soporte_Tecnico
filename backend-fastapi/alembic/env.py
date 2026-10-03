@@ -11,10 +11,12 @@ import app.models.area
 import app.models.atencion
 import app.models.feedback_ia
 import app.models.grupo
-import app.models.log_ia
-import app.models.propuesta_ia
 import app.models.grupo_padre
 import app.models.horario
+import app.models.laboratorio
+import app.models.log_ia
+import app.models.propuesta_ia
+import app.models.sugerencia
 import app.models.usuario  # noqa: F401
 from app.core.config import settings
 from app.db.base import Base

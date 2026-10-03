@@ -1,0 +1,68 @@
+{% extends "atenciones/base.html" %}
+{% load static %}
+{% block titulo %}Dashboard de laboratorios — Soporte Técnico{% endblock %}
+{% block contenido %}
+<div class="page-wide rep">
+  {% if error %}
+  <div class="page-head">
+    <div>
+      <h1>Dashboard — Laboratorios</h1>
+      <p class="sub">El período no se pudo calcular.</p>
+    </div>
+  </div>
+  <section class="bloque">
+    <p class="rep-error">No se pudo cargar el dashboard. Reintentá.</p>
+    <a class="btn" href="{{ request.get_full_path }}">Reintentar</a>
+  </section>
+  {% else %}
+  <div class="page-head">
+    <div>
+      <h1>Dashboard — Laboratorios</h1>
+      <p class="sub">Auxiliares · {{ mes }}</p>
+    </div>
+    <div>
+      <a class="btn ghost no-print" href="{% url 'lab_reportes' %}?desde={{ mes }}&hasta={{ mes }}">Ver reporte completo</a>
+    </div>
+  </div>
+  <form method="get" class="filtros no-print rep-selector">
+    <div class="filtros-fila">
+      <div>
+        <label for="dash-mes">Mes</label>
+        <input type="month" id="dash-mes" name="mes" value="{{ mes }}">
+      </div>
+      <button type="submit" class="btn">Ver</button>
+    </div>
+  </form>
+  <div class="kpis rep-kpis">
+    <div class="kpi">
+      <span>Atenciones del mes</span>
+      <b>{{ kpis.total_mes }}</b>
+    </div>
+    <div class="kpi">
+      <span>Laboratorio top</span>
+      <b>{{ kpis.lab_top }} ({{ kpis.lab_top_total }})</b>
+    </div>
+    <div class="kpi">
+      <span>Turno top</span>
+      <b>{{ kpis.turno_top|capfirst }}</b>
+    </div>
+    <div class="kpi">
+      <span>Auxiliares activos</span>
+      <b>{{ kpis.auxiliares_activos }}</b>
+    </div>
+  </div>
+  <h2>Evolución {{ mes|slice:":4" }}</h2>
+  <div class="chart" id="lab-evolucion"></div>
+  <h2>Por laboratorio</h2>
+  <div class="chart" id="lab-por-lab"></div>
+  <h2>Por categoría</h2>
+  <div class="chart" id="lab-por-categoria"></div>
+  <h2>Por turno</h2>
+  <div class="chart" id="lab-por-turno"></div>
+  <p><a class="btn ghost" href="{% url 'lab_lista' %}">Ver registros →</a></p>
+  {{ payload|json_script:"payload" }}
+  <script src="/static/js/vendor/echarts.min.js?v={{ asset_version }}"></script>
+  <script src="{% static 'js/lab_dashboard.js' %}?v={{ asset_version }}" defer></script>
+  {% endif %}
+</div>
+{% endblock %}

@@ -11,10 +11,14 @@
     {% include "atenciones/_selector_jerarquia.html" %}
     <div class="grid2">
       <div>
-        <label for="id_medio">Medio</label>
-        <select id="id_medio" name="medio_solicitud">
-          {% for m in medios %}<option value="{{ m }}"{% if edit_item.medio_solicitud == m %} selected{% endif %}>{{ m }}</option>{% endfor %}
-        </select>
+        <label style="margin-top:22px">Medio</label>
+        <div role="radiogroup" aria-label="Medio de solicitud" class="seg-medios">
+          {% for m in medios %}
+          <label class="pill seg{% if edit_item.medio_solicitud == m or not edit_item.medio_solicitud and m == "Interno" %} on{% endif %}"><input type="radio" name="medio_solicitud" value="{{ m }}"{% if edit_item.medio_solicitud == m or not edit_item.medio_solicitud and m == "Interno" %} checked{% endif %}> <iconify-icon icon="{% if m == "Presencial" %}mdi:account-group-outline{% elif m == "WhatsApp" %}mdi:whatsapp{% elif m == "E-ticket" %}mdi:ticket-outline{% else %}mdi:office-building-outline{% endif %}" aria-hidden="true"></iconify-icon> {{ m }}</label>
+          {% endfor %}
+        </div>
+        <style>.seg-medios .pill{cursor:pointer;transition:all .15s ease;border:2px solid transparent;}.seg-medios .pill:hover{transform:translateY(-1px);box-shadow:0 3px 8px rgba(0,0,0,.15);}.seg-medios .pill.on{border-color:var(--color-accent,#00754a);background-color:#e6f4ea;font-weight:700;}.seg-medios input{accent-color:var(--color-accent,#00754a);}.seg-medios iconify-icon{font-size:16px;vertical-align:-3px;margin-right:2px;}</style>
+        <script>(function(){document.querySelectorAll('.seg-medios .pill').forEach(function(l){var r=l.querySelector('input');function s(){document.querySelectorAll('.seg-medios .pill').forEach(function(x){x.classList.remove('on');});l.classList.add('on');}if(r)r.addEventListener('change',s);});})();</script>
       </div>
       <div>
         <label for="id_solicitante">Solicitante</label>

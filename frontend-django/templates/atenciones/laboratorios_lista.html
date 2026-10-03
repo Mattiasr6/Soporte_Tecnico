@@ -1,0 +1,128 @@
+{% extends "atenciones/base.html" %}
+{% block titulo %}Laboratorios — Soporte Técnico{% endblock %}
+{% block contenido %}
+<div class="page-wide">
+  <div class="page-head">
+    <div>
+      <h1>Laboratorios</h1>
+      <p class="sub">{{ total }} registros · {{ activas|length }} laboratorio(s) activo(s)</p>
+    </div>
+    <div>
+      <a class="btn" href="{% url 'lab_nueva' %}">Nueva atención</a>
+      <a class="btn ghost" href="{% url 'lab_reportes' %}">Reportes</a>
+    </div>
+  </div>
+  {% if flash %}<p class="flash {{ flash.tipo }}">{{ flash.texto }}</p>{% endif %}
+  <h2>Laboratorios activos</h2>
+  <div class="pills">
+    {% for lab in activas %}
+    <span class="pill">{{ lab.codigo }}</span>
+    {% empty %}
+    <p class="sub">Sin laboratorios activos.</p>
+    {% endfor %}
+  </div>
+  {% if inactivas %}
+  <h2>Inactivos</h2>
+  <div class="pills">
+    {% for lab in inactivas %}
+    <span class="pill" aria-disabled="true">{{ lab.codigo }}</span>
+    {% endfor %}
+  </div>
+  {% endif %}
+  <h2>Atenciones</h2>
+  <form method="get" class="filtros no-print">
+    <div class="filtros-fila">
+      <div>
+        <label for="lista-lab">Ambiente</label>
+        <select id="lista-lab" name="laboratorio_id" onchange="this.form.submit()">
+          <option value="">Todos</option>
+          {% for lab in activas %}<option value="{{ lab.id }}"{% if lab_sel == lab.id|stringformat:"s" %} selected{% endif %}>{{ lab.codigo }}</option>{% endfor %}
+        </select>
+      </div>
+    </div>
+  </form>
+  <div class="tabla-scroll atencion-tabla">
+  <table class="tabla">
+    <thead>
+      <tr><th>Fecha</th><th>Laboratorio</th><th>Categoría</th><th>Auxiliar</th><th>Turno</th><th>Descripción</th><th></th></tr>
+    </thead>
+    <tbody>
+      {% for a in atenciones %}
+      <tr>
+        <td>{{ a.fecha_registro }}</td>
+        <td>{{ a.laboratorio }}</td>
+        <td>{{ a.categoria }}</td>
+        <td>{{ a.auxiliar_nombre }}</td>
+        <td>{{ a.descripcion|truncatechars:60 }}</td>
+        <td><button type="button" class="link-btn" data-ver="{{ a.id }}">Ver</button>
+          <form method="post" action="{% url 'lab_eliminar' a.id %}" style="display:inline">
+            {% csrf_token %}
+            <button type="submit" title="Eliminar" aria-label="Eliminar la atención {{ a.id }}" onclick="return confirm('¿Eliminar la atención #{{ a.id }}?')">×</button>
+          </form>
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="7">Sin registros.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  <ul class="atencion-cards">
+    {% for a in atenciones %}
+    <li class="atencion-card">
+      <div class="ficha-fila"><span>Fecha</span><b>{{ a.fecha_registro }}</b></div>
+      <div class="ficha-fila"><span>Laboratorio</span><b>{{ a.laboratorio }}</b></div>
+      <div class="ficha-fila"><span>Categoría</span><b>{{ a.categoria }}</b></div>
+      <div class="ficha-fila"><span>Auxiliar</span><b>{{ a.auxiliar_nombre }}</b></div>
+      <div class="ficha-fila"><span>Turno</span><b>{{ a.turno|default:"—" }}</b></div>
+      <button type="button" class="ver-btn" data-ver="{{ a.id }}" title="Ver detalle" aria-label="Ver detalle de la atención {{ a.id }}">
+        <iconify-icon icon="mdi:eye-outline" aria-hidden="true"></iconify-icon>
+      </button>
+    </li>
+    {% empty %}
+    <li class="atencion-card"><p class="sub">Sin registros.</p></li>
+    {% endfor %}
+  </ul>
+  <p class="foot">Mostrando {{ atenciones|length }} de {{ total }} registros</p>
+</div>
+<dialog id="modal-ticket" class="modal">
+  <div class="modal-body"></div>
+  <button type="button" class="modal-close" aria-label="Cerrar">
+    <iconify-icon icon="mdi:close" aria-hidden="true"></iconify-icon>
+  </button>
+</dialog>
+<script>
+(function () {
+  const dlg = document.getElementById("modal-ticket");
+  const cuerpo = dlg.querySelector(".modal-body");
+  async function abrir(id) {
+    cuerpo.innerHTML = '<p class="sub">Cargando…</p>';
+    dlg.showModal();
+    try {
+      const res = await fetch("/auxiliares/atenciones/" + id + "/ticket/");
+      cuerpo.innerHTML = res.ok
+        ? await res.text()
+        : '<p class="error">No se pudo cargar el detalle.</p>';
+    } catch (e) {
+      cuerpo.innerHTML = '<p class="error">No se pudo cargar el detalle.</p>';
+    }
+    const ver = cuerpo.querySelector("#ticket-view");
+    const edit = cuerpo.querySelector("#ticket-edit");
+    if (!ver || !edit) return;
+    const editar = ver.querySelector("[data-editar]");
+    if (editar) {
+      editar.addEventListener("click", () => { ver.hidden = true; edit.hidden = false; });
+    }
+    const cancelar = edit.querySelector("[data-cancelar]");
+    if (cancelar) {
+      cancelar.addEventListener("click", () => { edit.hidden = true; ver.hidden = false; });
+    }
+  }
+  document.querySelectorAll("[data-ver]").forEach((b) => {
+    b.addEventListener("click", () => abrir(b.dataset.ver));
+  });
+  dlg.querySelector(".modal-close").addEventListener("click", () => dlg.close());
+  dlg.addEventListener("click", (e) => { if (e.target === dlg) dlg.close(); });
+})();
+</script>
+{% endblock %}

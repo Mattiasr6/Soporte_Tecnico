@@ -1,0 +1,128 @@
+{% extends "atenciones/base.html" %}
+{% block titulo %}Reportes de laboratorios — Soporte Técnico{% endblock %}
+{% block contenido %}
+<div class="page-wide rep">
+  {% if error %}
+  <div class="page-head">
+    <div>
+      <h1>Reporte — Laboratorios</h1>
+      <p class="sub">El período no se pudo calcular.</p>
+    </div>
+  </div>
+  <section class="bloque">
+    <p class="rep-error">No se pudo cargar el reporte. Reintentá.</p>
+    <a class="btn" href="{{ request.get_full_path }}">Reintentar</a>
+  </section>
+  {% else %}
+  <div class="page-head">
+    <div>
+      <h1>Reporte — Laboratorios</h1>
+      <p class="sub">Equipo de Soporte Técnico</p>
+    </div>
+    <div>
+      <a class="btn no-print" href="{{ csv_url }}">Descargar CSV</a>
+      <button type="button" class="btn no-print" onclick="window.print()">Imprimir / Guardar PDF</button>
+    </div>
+  </div>
+  <form method="get" class="filtros no-print rep-selector">
+    <div class="filtros-fila">
+      <div>
+        <label for="lab-id">Laboratorio</label>
+        <select id="lab-id" name="laboratorio_id">
+          <option value="">Todos</option>
+          {% for lab in activas %}<option value="{{ lab.id }}"{% if filtros.laboratorio_id == lab.id|stringformat:"s" %} selected{% endif %}>{{ lab.codigo }}</option>{% endfor %}
+        </select>
+      </div>
+      <div>
+        <label for="lab-desde">Desde</label>
+        <input type="month" id="lab-desde" name="desde" value="{{ filtros.desde }}">
+      </div>
+      <div>
+        <label for="lab-hasta">Hasta</label>
+        <input type="month" id="lab-hasta" name="hasta" value="{{ filtros.hasta }}">
+      </div>
+      <div>
+        <label for="lab-turno">Turno</label>
+        <select id="lab-turno" name="turno">
+          <option value="">Todos</option>
+          {% for t in turnos %}<option value="{{ t }}"{% if filtros.turno == t %} selected{% endif %}>{{ t|capfirst }}</option>{% endfor %}
+        </select>
+      </div>
+      <button type="submit" class="btn">Ver</button>
+    </div>
+  </form>
+  <div class="kpis rep-kpis">
+    <div class="kpi">
+      <span>Total de atenciones</span>
+      <b>{{ stats.total }}</b>
+    </div>
+  </div>
+  <h2>Por laboratorio</h2>
+  <table class="tabla">
+    <thead><tr><th>Laboratorio</th><th>Total</th></tr></thead>
+    <tbody>
+      {% for r in stats.por_lab %}
+      <tr><td>{{ r.laboratorio }}</td><td>{{ r.total }}</td></tr>
+      {% empty %}
+      <tr><td colspan="2">Sin registros.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <h2>Por categoría</h2>
+  <table class="tabla">
+    <thead><tr><th>Categoría</th><th>Total</th></tr></thead>
+    <tbody>
+      {% for r in stats.por_categoria %}
+      <tr><td>{{ r.categoria }}</td><td>{{ r.total }}</td></tr>
+      {% empty %}
+      <tr><td colspan="2">Sin registros.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <h2>Por turno</h2>
+  <table class="tabla">
+    <thead><tr><th>Turno</th><th>Total</th></tr></thead>
+    <tbody>
+      {% for r in stats.por_turno %}
+      <tr><td>{{ r.turno|capfirst }}</td><td>{{ r.total }}</td></tr>
+      {% empty %}
+      <tr><td colspan="2">Sin registros con turno.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <h2>Fuera de turno por turno</h2>
+  <table class="tabla">
+    <thead><tr><th>Turno</th><th>Total</th><th>Fuera de turno</th></tr></thead>
+    <tbody>
+      {% for r in stats.fuera_por_turno %}
+      <tr><td>{{ r.turno|capfirst }}</td><td>{{ r.total }}</td><td>{{ r.fuera }}</td></tr>
+      {% empty %}
+      <tr><td colspan="3">Sin registros con turno.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <h2>Fuera de turno por auxiliar</h2>
+  <table class="tabla">
+    <thead><tr><th>Auxiliar</th><th>Turno</th><th>Fuera de turno</th></tr></thead>
+    <tbody>
+      {% for r in stats.fuera_por_auxiliar %}
+      <tr><td>{{ r.auxiliar }}</td><td>{{ r.turno|capfirst }}</td><td>{{ r.fuera }}</td></tr>
+      {% empty %}
+      <tr><td colspan="3">Sin fuera de turno.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <h2>Por mes</h2>
+  <table class="tabla">
+    <thead><tr><th>Año</th><th>Mes</th><th>Total</th></tr></thead>
+    <tbody>
+      {% for r in stats.por_mes %}
+      <tr><td>{{ r.anio }}</td><td>{{ r.mes }}</td><td>{{ r.total }}</td></tr>
+      {% empty %}
+      <tr><td colspan="3">Sin registros.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+</div>
+{% endblock %}

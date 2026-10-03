@@ -1,0 +1,35 @@
+{% extends "atenciones/base.html" %}
+{% block titulo %}Sugerencias — Soporte Técnico{% endblock %}
+{% block contenido %}
+<div class="page-wide">
+  <div class="page-head">
+    <div>
+      <h1>Buzón de sugerencias</h1>
+      <p class="sub">Tus ideas para mejorar el sistema. Las ve todo el equipo.</p>
+    </div>
+  </div>
+
+  {% if flash %}<p class="flash {{ flash.tipo }}">{{ flash.texto }}</p>{% endif %}
+  {% if error %}<p class="flash error">{{ error }}</p>{% endif %}
+
+  <form method="post" action="{% url 'sugerencias' %}" class="jerq-form">
+    {% csrf_token %}
+    <label for="sugerencia-texto">Tu sugerencia</label>
+    <textarea id="sugerencia-texto" name="texto" rows="4" maxlength="1000" required
+              placeholder="Escribí tu sugerencia…"></textarea>
+    <p class="sub">Máximo 1000 caracteres.</p>
+    <button class="btn" type="submit">Enviar</button>
+  </form>
+
+  <h2>Últimas sugerencias</h2>
+  {% for s in sugerencias %}
+  <div class="reciente">
+    <p><strong>{{ s.autor }}</strong> · {{ s.fecha|date:"d/m/Y H:i" }}
+      <span class="estado estado-{{ s.estado }}">{{ s.estado|capfirst }}</span></p>
+    <p>{{ s.texto }}</p>
+  </div>
+  {% empty %}
+  <p class="sub">Todavía no hay sugerencias.</p>
+  {% endfor %}
+</div>
+{% endblock %}

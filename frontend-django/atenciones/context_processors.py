@@ -36,12 +36,21 @@ def sesion(request):
         "login": "login",
         "atenciones_lista": "lista",
         "atenciones_nueva": "nueva",
+        "lab_lista": "laboratorios",
+        "lab_nueva": "lab_nueva",
+        "lab_editar": "laboratorios",
+        "lab_eliminar": "laboratorios",
+        "lab_reportes": "lab_reportes",
+        "lab_dashboard": "lab_dashboard",
+        "lab_export_csv": "laboratorios",
         "auxiliares": "auxiliares",
+        "auxiliares_horarios": "auxiliares_horarios",
         "dashboard": "dashboard",
         "reportes": "reportes",
         "jerarquia": "jerarquia",
         "perfil": "perfil",
         "notas": "notas",
+        "sugerencias": "sugerencias",
         "horarios": "horarios",
         "usuarios": "usuarios",
         "asistente": "asistente",
@@ -50,7 +59,12 @@ def sesion(request):
     rol = (usuario or {}).get("role", "")
     can_dashboard = rol == "Jefe" or bool((usuario or {}).get("can_view_dashboard"))
     es_auxiliar = rol == "Auxiliar"
-    sistema = "AUXILIARES" if (es_auxiliar or pagina == "auxiliares") else "SOPORTE"
+    if pagina in ("auxiliares", "auxiliares_horarios", "laboratorios", "lab_dashboard"):
+        sistema = "AUXILIARES"
+    elif pagina == "sugerencias" and request.session.get("sistema_panel") in ("SOPORTE", "AUXILIARES"):
+        sistema = request.session["sistema_panel"]
+    else:
+        sistema = "AUXILIARES" if es_auxiliar else "SOPORTE"
     return {
         "usuario": usuario,
         "nav_page": pagina,

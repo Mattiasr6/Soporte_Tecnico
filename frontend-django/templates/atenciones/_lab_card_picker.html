@@ -1,0 +1,39 @@
+{# Card-picker for laboratorios: radio per active lab, disabled button for inactive. #}
+<style>
+  .lab-picker .pill:focus-within { outline: 2px solid currentColor; outline-offset: 2px; }
+  .lab-picker .pill input:focus-visible { outline: none; }
+  .lab-picker .pill[aria-pressed="true"] { font-weight: 700; }
+</style>
+<fieldset class="lab-picker">
+  <legend>Laboratorio</legend>
+  <div class="pills">
+    {% for lab in activas %}
+    <label class="pill" aria-pressed="false">
+      <input type="radio" name="laboratorio_id" value="{{ lab.id }}" required{% if edit_item.laboratorio_id == lab.id %} checked{% endif %}>
+      {{ lab.codigo }}
+    </label>
+    {% endfor %}
+    {% for lab in inactivas %}
+    <button type="button" class="pill" disabled aria-disabled="true" title="{{ lab.codigo }} (inactivo)">{{ lab.codigo }} (inactivo)</button>
+    {% endfor %}
+  </div>
+  {% if not activas %}<p class="sub">Sin laboratorios activos.</p>{% endif %}
+</fieldset>
+<script>
+(function () {
+  var root = document.currentScript.previousElementSibling;
+  if (!root) return;
+  var labels = root.querySelectorAll("label.pill");
+  function sync() {
+    labels.forEach(function (l) {
+      var r = l.querySelector("input[type=radio]");
+      l.setAttribute("aria-pressed", r && r.checked ? "true" : "false");
+    });
+  }
+  labels.forEach(function (l) {
+    var r = l.querySelector("input[type=radio]");
+    if (r) r.addEventListener("change", sync);
+  });
+  sync();
+})();
+</script>

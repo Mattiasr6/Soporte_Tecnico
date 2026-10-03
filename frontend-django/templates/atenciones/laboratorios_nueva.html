@@ -1,0 +1,98 @@
+{% extends "atenciones/base.html" %}
+{% block titulo %}Nueva atención de laboratorio — Soporte Técnico{% endblock %}
+{% block contenido %}
+<div class="page-wide">
+  <h1>Nueva atención de laboratorio</h1>
+  <p class="sub">Laboratorio → Categoría → Descripción</p>
+  {% if error %}<p class="error">{{ error }}</p>{% endif %}
+  {% if edit_idx is not None %}<p class="sub">Editando el item #{{ edit_idx|add:1 }} de la lista. <button type="submit" form="form-cancel" class="link-btn">Cancelar edición</button></p>{% endif %}
+  <form method="post" id="form-lab">
+    {% csrf_token %}
+    {% include "atenciones/_lab_card_picker.html" %}
+    <label for="cat-select">Categoría</label>
+    <select id="cat-select" name="categoria" required>
+      <option value="">— Elegí categoría —</option>
+      {% for c in categorias %}
+      <option value="{{ c.nombre }}"{% if edit_item.categoria == c.nombre %} selected{% endif %} data-guia="{{ c.descripcion|default:'' }}">{{ c.nombre }}</option>
+      {% endfor %}
+    </select>
+    <p id="cat-guia" class="sub" hidden style="margin-top:6px; line-height:1.4"></p>
+    <script>(function(){var s=document.getElementById('cat-select'),g=document.getElementById('cat-guia');function upd(){var o=s.options[s.selectedIndex];var t=o?o.getAttribute('data-guia'):'';if(t){g.textContent='Ej: '+t;g.hidden=false;}else{g.hidden=true;}}s.addEventListener('change',upd);upd();})();</script>
+    {% if not categorias %}<p class="sub">Sin categorías activas.</p>{% endif %}
+    <label style="margin-top:22px">Medio de solicitud</label>
+    <div role="radiogroup" aria-label="Medio de solicitud" class="seg-medios">
+      {% for m in medios %}
+      <label class="pill seg{% if edit_item.medio_solicitud == m or not edit_item.medio_solicitud and m == "Presencial" %} on{% endif %}"><input type="radio" name="medio_solicitud" value="{{ m }}"{% if edit_item.medio_solicitud == m or not edit_item.medio_solicitud and m == "Presencial" %} checked{% endif %}> <iconify-icon icon="{% if m == "Presencial" %}mdi:account-group-outline{% else %}mdi:whatsapp{% endif %}" aria-hidden="true"></iconify-icon> {{ m }}</label>
+      {% endfor %}
+    </div>
+    <style>.seg-medios .pill{cursor:pointer;transition:all .15s ease;border:2px solid transparent;}.seg-medios .pill:hover{transform:translateY(-1px);box-shadow:0 3px 8px rgba(0,0,0,.15);}.seg-medios .pill.on{border-color:var(--color-accent,#00754a);background-color:#e6f4ea;font-weight:700;}.seg-medios input{accent-color:var(--color-accent,#00754a);}.seg-medios iconify-icon{font-size:16px;vertical-align:-3px;margin-right:2px;}</style>
+    <script>(function(){document.querySelectorAll('.seg-medios .pill').forEach(function(l){var r=l.querySelector('input');function s(){document.querySelectorAll('.seg-medios .pill').forEach(function(x){x.classList.remove('on');});l.classList.add('on');}if(r)r.addEventListener('change',s);});})();</script>
+    <label for="id_turno">Turno</label>
+    <select id="id_turno" name="turno">
+      <option value="">— Sin turno —</option>
+      {% for t in turnos %}
+      <option value="{{ t }}"{% if edit_item.turno == t %} selected{% endif %}>{{ t|capfirst }}</option>
+      {% endfor %}
+    </select>
+    <label for="id_aux">Auxiliar</label>
+    <input type="text" id="id_aux" name="auxiliar_nombre" list="aux-sugerencias" value="{{ edit_item.auxiliar_nombre|default:"" }}" placeholder="Elegí turno y escribí para filtrar" autocomplete="off">
+    <datalist id="aux-sugerencias"></datalist>
+    <p id="aux-fuera" class="sub" hidden style="color:var(--color-gold, #8a6d1b)">Fuera de su turno — quedará marcada así.</p>
+    <script id="sug-data" type="application/json">{{ sugerencias_json|safe }}</script>
+    <script>(function(){var sug=JSON.parse(document.getElementById('sug-data').textContent||'{}');var turno=document.getElementById('id_turno');var input=document.getElementById('id_aux');var list=document.getElementById('aux-sugerencias');var aviso=document.getElementById('aux-fuera');var todos=[];Object.keys(sug).forEach(function(k){(sug[k]||[]).forEach(function(n){if(todos.indexOf(n)<0)todos.push(n);});});function norm(s){return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');}function upd(){var t=turno.value;var delTurno=t&&sug[t]?sug[t]:[];var resto=todos.filter(function(n){return delTurno.indexOf(n)<0;});var nombres=delTurno.concat(resto);list.innerHTML=[...new Set(nombres)].map(function(n){return '<option value="'+n.replace(/"/g,'&quot;')+'">';}).join('');check();}function check(){var t=turno.value;var v=input.value.trim();var enTurno=t&&sug[t]&&sug[t].some(function(n){return norm(n)===norm(v);});aviso.hidden=!(t&&v&&!enTurno);}turno.addEventListener('change',upd);input.addEventListener('input',check);upd();})();</script>
+    <label for="id_desc">Descripción</label>
+    <textarea id="id_desc" name="descripcion" rows="3" required>{{ edit_item.descripcion|default:"" }}</textarea>
+    <label for="id_sol">Solución</label>
+    <textarea id="id_sol" name="solucion" rows="3" required>{{ edit_item.solucion|default:"" }}</textarea>
+    <div class="opcionales">
+      <label class="tick"><input type="checkbox" id="tick_obs"{% if edit_item.observaciones %} checked{% endif %}> Agregar observaciones</label>
+      <div id="wrap_obs"{% if not edit_item.observaciones %} hidden{% endif %}>
+        <input type="text" id="id_obs" name="observaciones" value="{{ edit_item.observaciones|default:"" }}">
+      </div>
+    </div>
+    <script>(function(){var tick=document.getElementById('tick_obs'),wrap=document.getElementById('wrap_obs');if(!tick||!wrap)return;function sync(){wrap.hidden=!tick.checked;wrap.querySelectorAll('input').forEach(function(i){i.disabled=!tick.checked;});}tick.addEventListener('change',sync);sync();})();</script>
+    <label for="id_fec">Fecha (editable)</label>
+    <input type="date" id="id_fec" name="fecha_registro" value="{{ edit_item.fecha_registro|default:hoy }}">
+    <button type="submit" name="action" value="agregar" class="btn">{% if edit_idx is not None %}Guardar cambios{% else %}Agregar a la lista{% endif %}</button>
+  </form>
+  {% if edit_idx is not None %}
+  <form method="post" id="form-cancel">
+    {% csrf_token %}
+    <button type="submit" name="action" value="cancelar_edicion" hidden></button>
+  </form>
+  {% endif %}
+  <h2>Lista ({{ batch|length }})</h2>
+  {% for item in batch %}
+  <form method="post" class="batch-item">
+    {% csrf_token %}
+    <span>{{ item.fecha_registro }} · {{ item.medio_solicitud|default:"Presencial" }} · {% if item.turno %}{{ item.turno }} · {% endif %}{{ item.descripcion|truncatechars:60 }}</span>
+    <span class="batch-actions">
+      <button type="submit" name="action" value="editar" title="Editar">Editar</button>
+      <button type="submit" name="action" value="quitar" title="Quitar">×</button>
+    </span>
+    <input type="hidden" name="idx" value="{{ forloop.counter0 }}">
+  </form>
+  {% empty %}
+  <p class="sub">Todavía no agregaste ninguna atención.</p>
+  {% endfor %}
+  {% if batch %}
+  <form method="post" id="form-enviar">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="enviar">
+    <button type="submit" name="action" value="enviar" class="btn" data-submit-guard>{% if batch|length == 1 %}Registrar la atención{% else %}Registrar las {{ batch|length }} atenciones{% endif %}</button>
+  </form>
+  {% endif %}
+</div>
+<script>
+(function () {
+  var form = document.getElementById("form-enviar");
+  if (!form) return;
+  var btn = form.querySelector("[data-submit-guard]");
+  form.addEventListener("submit", function () {
+    if (form.dataset.sent) return false;
+    form.dataset.sent = "1";
+    if (btn) btn.disabled = true;
+  });
+})();
+</script>
+{% endblock %}

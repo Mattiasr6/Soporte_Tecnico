@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import views
+from . import views, views_lab
 
 urlpatterns = [
     path("", views.inicio_vista, name="inicio"),
@@ -49,9 +49,11 @@ urlpatterns = [
     path("horarios/copiar/", views.horarios_copiar_vista, name="horarios_copiar"),
     path("perfil/", views.perfil_vista, name="perfil"),
     path("perfil/guardar/", views.perfil_guardar_vista, name="perfil_guardar"),
+    path("sugerencias/", views.sugerencias_vista, name="sugerencias"),
     path("notas/", views.notas_vista, name="notas"),
     path("notas/guardar/", views.notas_guardar_vista, name="notas_guardar"),
     path("auxiliares/", views.auxiliares_vista, name="auxiliares"),
+    path("auxiliares/horarios/", views.auxiliares_horarios_vista, name="auxiliares_horarios"),
     path("wilmercito/", views.wilmercito_vista, name="wilmercito"),
     path(
         "wilmercito/calificar/",
@@ -74,5 +76,29 @@ urlpatterns = [
         "asistente/propuesta/",
         views.propuesta_resolver_vista,
         name="propuesta_resolver",
+    ),
+    path("auxiliares/atenciones/", views_lab.lab_lista_vista, name="lab_lista"),
+    path("auxiliares/atenciones/nueva/", views_lab.lab_nueva_vista, name="lab_nueva"),
+    path(
+        "auxiliares/atenciones/<int:atencion_id>/editar/",
+        views_lab.lab_editar_vista,
+        name="lab_editar",
+    ),
+    path(
+        "auxiliares/atenciones/<int:atencion_id>/eliminar/",
+        views_lab.lab_eliminar_vista,
+        name="lab_eliminar",
+    ),
+    path(
+        "auxiliares/atenciones/<int:atencion_id>/ticket/",
+        views_lab.lab_ticket_vista,
+        name="lab_ticket",
+    ),
+    path("auxiliares/dashboard/", views_lab.lab_dashboard_vista, name="lab_dashboard"),
+    path("auxiliares/reportes/", views_lab.lab_reportes_vista, name="lab_reportes"),
+    path(
+        "auxiliares/export.csv",
+        views_lab.lab_export_csv_vista,
+        name="lab_export_csv",
     ),
 ]
