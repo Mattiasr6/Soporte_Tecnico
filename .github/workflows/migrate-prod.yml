@@ -1,0 +1,65 @@
+name: Migrate prod (manual)
+
+on:
+  workflow_dispatch:
+
+# Solo corre si vos lo disparás a mano + lo aprobás (environment prod).
+# Un run a la vez contra prod.
+concurrency:
+  group: prod
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    runs-on: [self-hosted, prod, soporte]
+    environment: prod
+    defaults:
+      run:
+        shell: bash
+    env:
+      PROD_DIR: /home/mattias/Proyectos/Soporte_Tecnico/backend-fastapi
+      BACKUP_DIR: /home/mattias/backups-actions
+      PGHOST: localhost
+      PGPORT: "5433"
+
+    steps:
+      - name: Backup pre-migrate (si falla, frena todo)
+        run: |
+          set -euo pipefail
+          mkdir -p "$BACKUP_DIR"
+          cd "$PROD_DIR"
+          set -a; source .env; set +a
+          export PGUSER="$(python3 -c "import re,os;print(re.match(r'.*://([^:]+):',os.environ['DATABASE_URL']).group(1))")"
+          export PGPASSWORD="$(python3 -c "import re,os;print(re.match(r'.*://[^:]+:([^@]+)@',os.environ['DATABASE_URL']).group(1))")"
+          F="$BACKUP_DIR/soporte_$(date +%Y%m%d_%H%M%S).dump"
+          pg_dump -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d soporte -Fc -f "$F"
+          N=$(pg_restore --list "$F" | grep -c "^[0-9]")
+          [ "$N" -gt 0 ]
+          echo "BACKUP=$F" >> "$GITHUB_ENV"
+          echo "Backup OK: $F ($N entradas)"
+
+      - name: Estado pre
+        run: |
+          set -euo pipefail
+          cd "$PROD_DIR"
+          set -a; source .env; set +a
+          export PGUSER="$(python3 -c "import re,os;print(re.match(r'.*://([^:]+):',os.environ['DATABASE_URL']).group(1))")"
+          export PGPASSWORD="$(python3 -c "import re,os;print(re.match(r'.*://[^:]+:([^@]+)@',os.environ['DATABASE_URL']).group(1))")"
+          .venv/bin/alembic current
+          psql -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d soporte -c 'SELECT count(*) AS atenciones FROM "Atenciones";'
+
+      - name: Migrate
+        run: |
+          set -euo pipefail
+          cd "$PROD_DIR"
+          set -a; source .env; set +a
+          .venv/bin/alembic upgrade head
+
+      - name: Verificación post
+        run: |
+          set -euo pipefail
+          cd "$PROD_DIR"
+          set -a; source .env; set +a
+          export PGUSER="$(python3 -c "import re,os;print(re.match(r'.*://([^:]+):',os.environ['DATABASE_URL']).group(1))")"
+          export PGPASSWORD="$(python3 -c "import re,os;print(re.match(r'.*://[^:]+:([^@]+)@',os.environ['DATABASE_URL']).group(1))")"
+          psql -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d soporte -c 'SELECT version_num FROM alembic_version;' -c 'SELECT count(*) AS atenciones FROM "Atenciones";'
