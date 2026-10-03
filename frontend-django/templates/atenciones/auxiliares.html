@@ -8,7 +8,7 @@
   <p><a class="btn ghost" href="{% url 'auxiliares_horarios' %}">Ver horarios por turno →</a></p>
   <h2>Nómina ({{ equipo|length }})</h2>
   {% if es_jefe %}
-  <form method="post" class="filtros-fila">
+  <form method="post" class="filtros-fila" style="margin-bottom:22px">
     {% csrf_token %}
     <input type="text" name="nombre" placeholder="Nombre del auxiliar" required aria-label="Nombre del auxiliar">
     <button type="submit" name="action" value="aux_agregar" class="btn">Agregar</button>
