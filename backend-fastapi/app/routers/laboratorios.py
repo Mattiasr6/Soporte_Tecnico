@@ -66,6 +66,25 @@ def _horario_del_mes(db: DbSession, usuario_id: int) -> Horario | None:
     ).first()
 
 
+def _norm_nb(s: str) -> str:
+    import unicodedata
+
+    t = unicodedata.normalize("NFD", s.strip().casefold())
+    return "".join(c for c in t if unicodedata.category(c) != "Mn")
+
+
+def _fuera_de_turno_lab(auxiliar_nombre: str, turno: str | None) -> bool:
+    """Fuera de turno por pertenencia, no por hora: el nombre no está en el turno."""
+    if not turno or not (auxiliar_nombre or "").strip():
+        return False
+    try:
+        bloque = _horarios().get(turno, {})
+        miembros = bloque.get("auxiliares", []) if isinstance(bloque, dict) else []
+    except Exception:
+        return False
+    return _norm_nb(auxiliar_nombre) not in {_norm_nb(str(n)) for n in miembros}
+
+
 def _fuera_de_turno(db: DbSession, user: Usuario) -> bool:
     horario = _horario_del_mes(db, user.id)
     if horario is None:
@@ -462,17 +481,19 @@ def create_lab_atencion(dto: LabAtencionCreate, db: DbSession, user: CurrentUser
     )
     if dup is not None:
         raise conflict("Atencion duplicada en los ultimos 60 segundos")
+    aux_nombre = dto.auxiliar_nombre.strip() or user.display_name
+    turno_val = _validar_turno(dto.turno)
     row = LabAtencion(
         usuario_id=user.id,
         laboratorio_id=lab.id,
         categoria_id=cat.id,
-        auxiliar_nombre=dto.auxiliar_nombre.strip() or user.display_name,
-        turno=_validar_turno(dto.turno),
+        auxiliar_nombre=aux_nombre,
+        turno=turno_val,
         medio_solicitud=_validar_medio(dto.medio_solicitud),
         descripcion=descripcion,
         solucion=solucion,
         observaciones=dto.observaciones,
-        fuera_de_turno=_fuera_de_turno(db, user),
+        fuera_de_turno=_fuera_de_turno_lab(aux_nombre, turno_val),
         fecha_registro=dto.fecha_registro or now.date(),
         created_at=now,
     )
