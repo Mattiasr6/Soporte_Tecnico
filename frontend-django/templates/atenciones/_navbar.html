@@ -97,10 +97,6 @@
           <iconify-icon icon="mdi:calendar-clock-outline" aria-hidden="true"></iconify-icon>
           <span class="side-link-label">Horarios</span>
         </a>
-        <a class="side-link{% if nav_page == 'lab_registros' %} active{% endif %}" href="{% url 'lab_registros' %}" {% if nav_page == 'lab_registros' %}aria-current="page"{% endif %} data-nav-page="lab_registros">
-          <iconify-icon icon="mdi:clipboard-list-outline" aria-hidden="true"></iconify-icon>
-          <span class="side-link-label">Registros</span>
-        </a>
         <a class="side-link{% if nav_page == 'sugerencias' %} active{% endif %}" href="{% url 'sugerencias' %}?panel=AUXILIARES" {% if nav_page == 'sugerencias' %}aria-current="page"{% endif %} data-nav-page="sugerencias">
           <iconify-icon icon="mdi:comment-quote-outline" aria-hidden="true"></iconify-icon>
           <span class="side-link-label">Sugerencias</span>

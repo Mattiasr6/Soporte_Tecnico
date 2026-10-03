@@ -30,6 +30,17 @@
   </div>
   {% endif %}
   <h2>Atenciones</h2>
+  <form method="get" class="filtros no-print">
+    <div class="filtros-fila">
+      <div>
+        <label for="lista-lab">Ambiente</label>
+        <select id="lista-lab" name="laboratorio_id" onchange="this.form.submit()">
+          <option value="">Todos</option>
+          {% for lab in activas %}<option value="{{ lab.id }}"{% if lab_sel == lab.id|stringformat:"s" %} selected{% endif %}>{{ lab.codigo }}</option>{% endfor %}
+        </select>
+      </div>
+    </div>
+  </form>
   <div class="tabla-scroll atencion-tabla">
   <table class="tabla">
     <thead>
