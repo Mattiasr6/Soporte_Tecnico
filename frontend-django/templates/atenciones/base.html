@@ -24,7 +24,7 @@
 <body data-page="{{ nav_page|default:'' }}">
 {% if usuario %}{% include "atenciones/_navbar.html" %}{% endif %}
 <main class="content{% if usuario %} with-nav{% endif %}">{% block contenido %}{% endblock %}</main>
-{% if usuario %}{% include "atenciones/_wilmercito.html" %}{% endif %}
+{% comment %}Wilmercito oculto en prod por decisión operativa{% if usuario %}{% include "atenciones/_wilmercito.html" %}{% endif %}{% endcomment %}
 <script src="/static/js/navbar.js?v={{ asset_version }}" defer></script>
 <script src="/static/js/jerarquia.js?v={{ asset_version }}" defer></script>
 <script src="/static/js/accesibilidad.js?v={{ asset_version }}" defer></script>
