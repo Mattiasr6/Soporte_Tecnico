@@ -19,12 +19,14 @@
     <p id="cat-guia" class="sub" hidden style="margin-top:6px; line-height:1.4"></p>
     <script>(function(){var s=document.getElementById('cat-select'),g=document.getElementById('cat-guia');function upd(){var o=s.options[s.selectedIndex];var t=o?o.getAttribute('data-guia'):'';if(t){g.textContent='Ej: '+t;g.hidden=false;}else{g.hidden=true;}}s.addEventListener('change',upd);upd();})();</script>
     {% if not categorias %}<p class="sub">Sin categorías activas.</p>{% endif %}
-    <span>Medio de solicitud</span>
-    <div role="radiogroup" aria-label="Medio de solicitud">
+    <span style="display:block;margin-top:22px">Medio de solicitud</span>
+    <div role="radiogroup" aria-label="Medio de solicitud" class="seg-medios">
       {% for m in medios %}
-      <label class="pill"><input type="radio" name="medio_solicitud" value="{{ m }}"{% if edit_item.medio_solicitud == m or not edit_item.medio_solicitud and m == "Presencial" %} checked{% endif %}> {{ m }}</label>
+      <label class="pill seg{% if edit_item.medio_solicitud == m or not edit_item.medio_solicitud and m == "Presencial" %} on{% endif %}"><input type="radio" name="medio_solicitud" value="{{ m }}"{% if edit_item.medio_solicitud == m or not edit_item.medio_solicitud and m == "Presencial" %} checked{% endif %}> <iconify-icon icon="{% if m == "Presencial" %}mdi:account-group-outline{% else %}mdi:whatsapp{% endif %}" aria-hidden="true"></iconify-icon> {{ m }}</label>
       {% endfor %}
     </div>
+    <style>.seg-medios .pill{cursor:pointer;transition:all .15s ease;border:2px solid transparent;}.seg-medios .pill:hover{transform:translateY(-1px);box-shadow:0 3px 8px rgba(0,0,0,.15);}.seg-medios .pill.on{border-color:var(--color-accent,#00754a);background-color:#e6f4ea;font-weight:700;}.seg-medios input{accent-color:var(--color-accent,#00754a);}</style>
+    <script>(function(){document.querySelectorAll('.seg-medios .pill').forEach(function(l){var r=l.querySelector('input');function s(){document.querySelectorAll('.seg-medios .pill').forEach(function(x){x.classList.remove('on');});l.classList.add('on');}if(r)r.addEventListener('change',s);});})();</script>
     <label for="id_turno">Turno</label>
     <select id="id_turno" name="turno">
       <option value="">— Sin turno —</option>
@@ -42,8 +44,13 @@
     <textarea id="id_desc" name="descripcion" rows="3" required>{{ edit_item.descripcion|default:"" }}</textarea>
     <label for="id_sol">Solución</label>
     <textarea id="id_sol" name="solucion" rows="3" required>{{ edit_item.solucion|default:"" }}</textarea>
-    <label for="id_obs">Observaciones (opcional)</label>
-    <input type="text" id="id_obs" name="observaciones" value="{{ edit_item.observaciones|default:"" }}">
+    <div class="opcionales">
+      <label class="tick"><input type="checkbox" id="tick_obs"{% if edit_item.observaciones %} checked{% endif %}> Agregar observaciones</label>
+      <div id="wrap_obs"{% if not edit_item.observaciones %} hidden{% endif %}>
+        <input type="text" id="id_obs" name="observaciones" value="{{ edit_item.observaciones|default:"" }}">
+      </div>
+    </div>
+    <script>(function(){var tick=document.getElementById('tick_obs'),wrap=document.getElementById('wrap_obs');if(!tick||!wrap)return;function sync(){wrap.hidden=!tick.checked;wrap.querySelectorAll('input').forEach(function(i){i.disabled=!tick.checked;});}tick.addEventListener('change',sync);sync();})();</script>
     <label for="id_fec">Fecha (editable)</label>
     <input type="date" id="id_fec" name="fecha_registro" value="{{ edit_item.fecha_registro|default:hoy }}">
     <button type="submit" name="action" value="agregar" class="btn">{% if edit_idx is not None %}Guardar cambios{% else %}Agregar a la lista{% endif %}</button>
