@@ -12,6 +12,18 @@
     <div class="chart" id="cob-horas" style="height:190px"></div>
     <p class="sub" id="cob-resumen"></p>
   </section>
+  <style>
+    #pool .pill, .drop-list .pill { cursor: grab; transition: transform .12s ease, box-shadow .12s ease, background-color .12s ease; user-select: none; }
+    #pool .pill:hover, .drop-list .pill:hover { transform: translateY(-2px); box-shadow: 0 3px 8px rgba(0,0,0,.18); }
+    #pool .pill:active, .drop-list .pill:active { cursor: grabbing; }
+    .pill.arrastrando { opacity: .45; transform: scale(.96); }
+    fieldset.dropzone { transition: border-color .15s ease, background-color .15s ease, box-shadow .15s ease; border: 2px dashed transparent; border-radius: 12px; }
+    fieldset.dropzone.sobre { border-color: var(--color-accent, #00754a); background-color: #e6f4ea; box-shadow: 0 0 0 3px rgba(0,117,74,.18); }
+    #pool.sobre { outline: 2px dashed var(--color-accent, #00754a); outline-offset: 4px; border-radius: 8px; }
+    .drop-count.bump { animation: bump .3s ease; display: inline-block; }
+    @keyframes bump { 40% { transform: scale(1.5); color: var(--color-accent, #00754a); } }
+    .drop-list:empty::after { content: "Arrastrá auxiliares acá"; color: var(--color-muted, #888); font-size: 12px; }
+  </style>
   <form method="post" id="form-horarios">
     {% csrf_token %}
     <h2>Sin asignar (<span id="pool-count"></span>)</h2>
@@ -35,11 +47,14 @@
     function refresh(ta){
       var zone=ta.closest('fieldset');var list=zone.querySelector('.drop-list');
       list.innerHTML='';names(ta).forEach(function(n){list.appendChild(chip(n));});
-      zone.querySelector('.drop-count').textContent=names(ta).length;
+      var badge=zone.querySelector('.drop-count');badge.textContent=names(ta).length;
+      badge.classList.remove('bump');void badge.offsetWidth;badge.classList.add('bump');
     }
+    var arrastrado=null;
     function chip(n){
-      var s=document.createElement('span');s.className='pill';s.draggable=true;s.textContent=n;
-      s.addEventListener('dragstart',function(e){e.dataTransfer.setData('text/plain',n);e.dataTransfer.effectAllowed='move';});
+      var s=document.createElement('span');s.className='pill';s.draggable=true;s.textContent=n;s.title='Arrastrame a un turno';
+      s.addEventListener('dragstart',function(e){e.dataTransfer.setData('text/plain',n);e.dataTransfer.effectAllowed='move';arrastrado=s;setTimeout(function(){s.classList.add('arrastrando');},0);});
+      s.addEventListener('dragend',function(){s.classList.remove('arrastrando');arrastrado=null;document.querySelectorAll('.sobre').forEach(function(z){z.classList.remove('sobre');});});
       return s;
     }
     function quitarDeTurnos(n){
@@ -53,13 +68,17 @@
       document.getElementById('pool-count').textContent=pool.querySelectorAll('.pill').length;
     }
     document.querySelectorAll('.dropzone').forEach(function(z){
-      z.addEventListener('dragover',function(e){e.preventDefault();});
-      z.addEventListener('drop',function(e){e.preventDefault();var n=e.dataTransfer.getData('text/plain');if(!n)return;
+      z.addEventListener('dragenter',function(e){e.preventDefault();z.classList.add('sobre');});
+      z.addEventListener('dragover',function(e){e.preventDefault();z.classList.add('sobre');});
+      z.addEventListener('dragleave',function(e){if(!z.contains(e.relatedTarget))z.classList.remove('sobre');});
+      z.addEventListener('drop',function(e){e.preventDefault();z.classList.remove('sobre');var n=e.dataTransfer.getData('text/plain');if(!n)return;
         quitarDeTurnos(n);
         var ta=z.querySelector('textarea');var cur=names(ta);cur.push(n);ta.value=cur.join('\n')+'\n';refresh(ta);syncPool();if(window.__cobertura)window.__cobertura();});
     });
-    pool.addEventListener('dragover',function(e){e.preventDefault();});
-    pool.addEventListener('drop',function(e){e.preventDefault();var n=e.dataTransfer.getData('text/plain');if(!n)return;
+    pool.addEventListener('dragenter',function(e){e.preventDefault();pool.classList.add('sobre');});
+    pool.addEventListener('dragover',function(e){e.preventDefault();pool.classList.add('sobre');});
+    pool.addEventListener('dragleave',function(e){if(!pool.contains(e.relatedTarget))pool.classList.remove('sobre');});
+    pool.addEventListener('drop',function(e){e.preventDefault();pool.classList.remove('sobre');var n=e.dataTransfer.getData('text/plain');if(!n)return;
       quitarDeTurnos(n);syncPool();if(window.__cobertura)window.__cobertura();});
     document.querySelectorAll('fieldset.dropzone textarea').forEach(refresh);
     syncPool();
