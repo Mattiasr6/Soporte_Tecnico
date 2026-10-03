@@ -24,6 +24,7 @@ database/scripts/
 *.db-wal
 deploy/systemd/
 docs/diagramas/
+docs/pdf/
 docs/wireframes/
 .DS_Store
 .env*.local
