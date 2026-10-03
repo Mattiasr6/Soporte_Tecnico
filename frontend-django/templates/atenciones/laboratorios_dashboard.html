@@ -55,16 +55,6 @@
   <div class="chart" id="lab-evolucion"></div>
   <h2>Por laboratorio</h2>
   <div class="chart" id="lab-por-lab"></div>
-  <table class="tabla">
-    <thead><tr><th>Laboratorio</th><th>Total</th><th>Categoría top</th><th>Turno top</th></tr></thead>
-    <tbody>
-      {% for r in por_lab_tabla %}
-      <tr><td>{{ r.laboratorio }}</td><td>{{ r.total }}</td><td>{{ r.top_categoria }}</td><td>{{ r.top_turno|capfirst }}</td></tr>
-      {% empty %}
-      <tr><td colspan="4">Sin registros en el mes.</td></tr>
-      {% endfor %}
-    </tbody>
-  </table>
   <h2>Por categoría</h2>
   <div class="chart" id="lab-por-categoria"></div>
   <h2>Por turno</h2>
