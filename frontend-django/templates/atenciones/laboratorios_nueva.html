@@ -19,13 +19,13 @@
     <p id="cat-guia" class="sub" hidden style="margin-top:6px; line-height:1.4"></p>
     <script>(function(){var s=document.getElementById('cat-select'),g=document.getElementById('cat-guia');function upd(){var o=s.options[s.selectedIndex];var t=o?o.getAttribute('data-guia'):'';if(t){g.textContent='Ej: '+t;g.hidden=false;}else{g.hidden=true;}}s.addEventListener('change',upd);upd();})();</script>
     {% if not categorias %}<p class="sub">Sin categorías activas.</p>{% endif %}
-    <span style="display:block;margin-top:22px">Medio de solicitud</span>
+    <label style="margin-top:22px">Medio de solicitud</label>
     <div role="radiogroup" aria-label="Medio de solicitud" class="seg-medios">
       {% for m in medios %}
       <label class="pill seg{% if edit_item.medio_solicitud == m or not edit_item.medio_solicitud and m == "Presencial" %} on{% endif %}"><input type="radio" name="medio_solicitud" value="{{ m }}"{% if edit_item.medio_solicitud == m or not edit_item.medio_solicitud and m == "Presencial" %} checked{% endif %}> <iconify-icon icon="{% if m == "Presencial" %}mdi:account-group-outline{% else %}mdi:whatsapp{% endif %}" aria-hidden="true"></iconify-icon> {{ m }}</label>
       {% endfor %}
     </div>
-    <style>.seg-medios .pill{cursor:pointer;transition:all .15s ease;border:2px solid transparent;display:inline-flex;align-items:center;gap:6px;}.seg-medios .pill:hover{transform:translateY(-1px);box-shadow:0 3px 8px rgba(0,0,0,.15);}.seg-medios .pill.on{border-color:var(--color-accent,#00754a);background-color:#e6f4ea;font-weight:700;}.seg-medios input{accent-color:var(--color-accent,#00754a);}.seg-medios iconify-icon{font-size:16px;line-height:1;}</style>
+    <style>.seg-medios .pill{cursor:pointer;transition:all .15s ease;border:2px solid transparent;}.seg-medios .pill:hover{transform:translateY(-1px);box-shadow:0 3px 8px rgba(0,0,0,.15);}.seg-medios .pill.on{border-color:var(--color-accent,#00754a);background-color:#e6f4ea;font-weight:700;}.seg-medios input{accent-color:var(--color-accent,#00754a);}.seg-medios iconify-icon{font-size:16px;vertical-align:-3px;margin-right:2px;}</style>
     <script>(function(){document.querySelectorAll('.seg-medios .pill').forEach(function(l){var r=l.querySelector('input');function s(){document.querySelectorAll('.seg-medios .pill').forEach(function(x){x.classList.remove('on');});l.classList.add('on');}if(r)r.addEventListener('change',s);});})();</script>
     <label for="id_turno">Turno</label>
     <select id="id_turno" name="turno">
