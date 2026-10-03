@@ -89,6 +89,14 @@
           <iconify-icon icon="mdi:view-dashboard-outline" aria-hidden="true"></iconify-icon>
           <span class="side-link-label">Dashboard labs</span>
         </a>
+        <a class="side-link{% if nav_page == 'lab_nueva' %} active{% endif %}" href="{% url 'lab_nueva' %}" {% if nav_page == 'lab_nueva' %}aria-current="page"{% endif %} data-nav-page="lab_nueva">
+          <iconify-icon icon="mdi:plus-circle-outline" aria-hidden="true"></iconify-icon>
+          <span class="side-link-label">Nueva atención</span>
+        </a>
+        <a class="side-link{% if nav_page == 'lab_reportes' %} active{% endif %}" href="{% url 'lab_reportes' %}" {% if nav_page == 'lab_reportes' %}aria-current="page"{% endif %} data-nav-page="lab_reportes">
+          <iconify-icon icon="mdi:file-chart-outline" aria-hidden="true"></iconify-icon>
+          <span class="side-link-label">Reportes</span>
+        </a>
         <a class="side-link{% if nav_page == 'auxiliares' %} active{% endif %}" href="{% url 'auxiliares' %}" {% if nav_page == 'auxiliares' %}aria-current="page"{% endif %} data-nav-page="auxiliares">
           <iconify-icon icon="mdi:account-supervisor-outline" aria-hidden="true"></iconify-icon>
           <span class="side-link-label">Auxiliares</span>
