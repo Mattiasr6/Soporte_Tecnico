@@ -67,6 +67,22 @@
     </tbody>
   </table>
   </div>
+  <ul class="atencion-cards">
+    {% for a in atenciones %}
+    <li class="atencion-card">
+      <div class="ficha-fila"><span>Fecha</span><b>{{ a.fecha_registro }}</b></div>
+      <div class="ficha-fila"><span>Laboratorio</span><b>{{ a.laboratorio }}</b></div>
+      <div class="ficha-fila"><span>Categoría</span><b>{{ a.categoria }}</b></div>
+      <div class="ficha-fila"><span>Auxiliar</span><b>{{ a.auxiliar_nombre }}</b></div>
+      <div class="ficha-fila"><span>Turno</span><b>{{ a.turno|default:"—" }}</b></div>
+      <button type="button" class="ver-btn" data-ver="{{ a.id }}" title="Ver detalle" aria-label="Ver detalle de la atención {{ a.id }}">
+        <iconify-icon icon="mdi:eye-outline" aria-hidden="true"></iconify-icon>
+      </button>
+    </li>
+    {% empty %}
+    <li class="atencion-card"><p class="sub">Sin registros.</p></li>
+    {% endfor %}
+  </ul>
   <p class="foot">Mostrando {{ atenciones|length }} de {{ total }} registros</p>
 </div>
 <dialog id="modal-ticket" class="modal">
