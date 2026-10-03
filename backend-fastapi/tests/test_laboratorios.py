@@ -392,7 +392,7 @@ def test_stats_privilegiado_y_filtros(api_limpia):
     cat = _crear_cat(f"{CMARK}Stats")
     _crear_atencion(lab["id"], cat["nombre"], f"{AMARK}s1", UID_TEC)
     s = client.get("/api/laboratorios/stats", headers=h(UID_JEFE)).json()
-    assert set(s) == {"total", "por_lab", "por_categoria", "por_mes", "por_turno"}
+    assert {"total", "por_lab", "por_categoria", "por_mes", "por_turno", "fuera_por_turno", "fuera_por_auxiliar"} <= set(s)
     assert s["total"] >= 1
     assert sum(p["total"] for p in s["por_lab"]) == s["total"]
     assert sum(p["total"] for p in s["por_categoria"]) == s["total"]

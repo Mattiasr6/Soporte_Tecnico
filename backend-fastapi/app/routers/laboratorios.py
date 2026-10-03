@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query, Response
-from sqlalchemy import extract, func, select
+from sqlalchemy import Integer, extract, func, select
 
 from app.core.errors import bad_request, conflict, forbidden, not_found, unauthorized
 from app.core.security import CurrentUser, is_privileged
@@ -34,8 +34,10 @@ from app.schemas.laboratorio import (
     LaboratorioOut,
     LaboratorioUpdate,
     LabStatsOut,
+    PorAuxiliarFuera,
     PorLab,
     PorTurno,
+    PorTurnoFuera,
     TurnoHorario,
 )
 from app.services.horarios import esta_fuera_de_horario
@@ -654,12 +656,41 @@ def get_lab_stats(
             .order_by(func.count().desc())
         ).all()
     ]
+    fuera_por_turno = [
+        PorTurnoFuera(turno=r[0], total=r[1], fuera=r[2])
+        for r in db.execute(
+            select(
+                LabAtencion.turno,
+                func.count(),
+                func.sum(func.cast(LabAtencion.fuera_de_turno, Integer)),
+            )
+            .where(*f, LabAtencion.turno.is_not(None))
+            .group_by(LabAtencion.turno)
+            .order_by(func.count().desc())
+        ).all()
+    ]
+    fuera_por_auxiliar = [
+        PorAuxiliarFuera(auxiliar=r[0] or "—", turno=r[1] or "—", fuera=r[2])
+        for r in db.execute(
+            select(
+                LabAtencion.auxiliar_nombre,
+                LabAtencion.turno,
+                func.count(),
+            )
+            .where(*f, LabAtencion.fuera_de_turno.is_(True))
+            .group_by(LabAtencion.auxiliar_nombre, LabAtencion.turno)
+            .order_by(func.count().desc())
+            .limit(10)
+        ).all()
+    ]
     return LabStatsOut(
         total=total,
         por_lab=por_lab,
         por_categoria=por_categoria,
         por_mes=por_mes,
         por_turno=por_turno,
+        fuera_por_turno=fuera_por_turno,
+        fuera_por_auxiliar=fuera_por_auxiliar,
     )
 
 

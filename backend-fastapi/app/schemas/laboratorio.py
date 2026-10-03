@@ -123,12 +123,26 @@ class PorTurno(BaseModel):
     total: int
 
 
+class PorTurnoFuera(BaseModel):
+    turno: str
+    total: int
+    fuera: int
+
+
+class PorAuxiliarFuera(BaseModel):
+    auxiliar: str
+    turno: str
+    fuera: int
+
+
 class LabStatsOut(BaseModel):
     total: int
     por_lab: list[PorLab]
     por_categoria: list[PorCategoria]
     por_mes: list[PorMes]
     por_turno: list[PorTurno] = []
+    fuera_por_turno: list[PorTurnoFuera] = []
+    fuera_por_auxiliar: list[PorAuxiliarFuera] = []
 
 
 class AuxiliarEntry(BaseModel):

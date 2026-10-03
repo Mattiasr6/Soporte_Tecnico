@@ -90,6 +90,28 @@
       {% endfor %}
     </tbody>
   </table>
+  <h2>Fuera de turno por turno</h2>
+  <table class="tabla">
+    <thead><tr><th>Turno</th><th>Total</th><th>Fuera de turno</th></tr></thead>
+    <tbody>
+      {% for r in stats.fuera_por_turno %}
+      <tr><td>{{ r.turno|capfirst }}</td><td>{{ r.total }}</td><td>{{ r.fuera }}</td></tr>
+      {% empty %}
+      <tr><td colspan="3">Sin registros con turno.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <h2>Fuera de turno por auxiliar</h2>
+  <table class="tabla">
+    <thead><tr><th>Auxiliar</th><th>Turno</th><th>Fuera de turno</th></tr></thead>
+    <tbody>
+      {% for r in stats.fuera_por_auxiliar %}
+      <tr><td>{{ r.auxiliar }}</td><td>{{ r.turno|capfirst }}</td><td>{{ r.fuera }}</td></tr>
+      {% empty %}
+      <tr><td colspan="3">Sin fuera de turno.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
   <h2>Por mes</h2>
   <table class="tabla">
     <thead><tr><th>Año</th><th>Mes</th><th>Total</th></tr></thead>
