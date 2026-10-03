@@ -42,6 +42,7 @@ def sesion(request):
         "lab_eliminar": "laboratorios",
         "lab_reportes": "laboratorios",
         "lab_dashboard": "lab_dashboard",
+        "lab_registros": "lab_registros",
         "lab_export_csv": "laboratorios",
         "auxiliares": "auxiliares",
         "auxiliares_horarios": "auxiliares_horarios",
@@ -59,7 +60,7 @@ def sesion(request):
     rol = (usuario or {}).get("role", "")
     can_dashboard = rol == "Jefe" or bool((usuario or {}).get("can_view_dashboard"))
     es_auxiliar = rol == "Auxiliar"
-    if pagina in ("auxiliares", "auxiliares_horarios", "laboratorios", "lab_dashboard"):
+    if pagina in ("auxiliares", "auxiliares_horarios", "laboratorios", "lab_dashboard", "lab_registros"):
         sistema = "AUXILIARES"
     elif pagina == "sugerencias" and request.session.get("sistema_panel") in ("SOPORTE", "AUXILIARES"):
         sistema = request.session["sistema_panel"]

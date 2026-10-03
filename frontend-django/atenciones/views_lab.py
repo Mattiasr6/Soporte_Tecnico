@@ -416,6 +416,44 @@ def _payload_lab_dashboard(
 
 
 @con_login
+def lab_registros_vista(request: HttpRequest) -> HttpResponse:
+    token = str(request.session["jwt"])
+    lab_id = request.GET.get("laboratorio_id", "").strip()
+    try:
+        params = {"laboratorio_id": lab_id} if lab_id else None
+        atenciones = api_get("/api/laboratorios/atenciones", token, params)
+        cards = api_get("/api/laboratorios/cards", token)
+    except ApiError as e:
+        if e.status in (401, 403):
+            raise
+        return render(
+            request,
+            "atenciones/auxiliares_registros.html",
+            {"error": True, "atenciones": [], "labs": []},
+            status=502,
+        )
+    filas = (
+        [a for a in atenciones if isinstance(a, dict)]
+        if isinstance(atenciones, list)
+        else []
+    )
+    labs = []
+    if isinstance(cards, dict):
+        labs = (cards.get("activas") or []) + (cards.get("inactivas") or [])
+    return render(
+        request,
+        "atenciones/auxiliares_registros.html",
+        {
+            "error": False,
+            "atenciones": filas[:100],
+            "total": len(filas),
+            "labs": [l for l in labs if isinstance(l, dict)],
+            "lab_sel": lab_id,
+        },
+    )
+
+
+@con_login
 def lab_dashboard_vista(request: HttpRequest) -> HttpResponse:
     if not _puede_reportes(request):
         return redirect("lab_lista")
