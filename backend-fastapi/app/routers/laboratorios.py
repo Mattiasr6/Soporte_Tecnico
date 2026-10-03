@@ -483,13 +483,20 @@ def create_lab_atencion(dto: LabAtencionCreate, db: DbSession, user: CurrentUser
 
 
 @router.get("/atenciones", response_model=list[LabAtencionOut])
-def get_lab_atenciones(db: DbSession, user: CurrentUser, usuario_id: int | None = None):
+def get_lab_atenciones(
+    db: DbSession,
+    user: CurrentUser,
+    usuario_id: int | None = None,
+    laboratorio_id: int | None = None,
+):
     q = select(LabAtencion)
     if is_privileged(user):
         if usuario_id is not None:
             q = q.where(LabAtencion.usuario_id == usuario_id)
     else:
         q = q.where(LabAtencion.usuario_id == user.id)
+    if laboratorio_id is not None:
+        q = q.where(LabAtencion.laboratorio_id == laboratorio_id)
     rows = db.scalars(
         q.order_by(LabAtencion.fecha_registro.desc(), LabAtencion.id.desc())
     ).all()
