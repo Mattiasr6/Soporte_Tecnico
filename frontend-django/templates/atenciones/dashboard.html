@@ -22,6 +22,7 @@
       </div>
       <button type="submit" class="btn">Aplicar</button>
     </div>
+    <p class="sub" id="filtro-error" hidden style="color:#c0392b"></p>
   </form>
 
   <div class="chips" id="chips"></div>
@@ -43,7 +44,7 @@
   </section>
 
   <section class="bloque">
-    <header><h2>Flujo: medio → categoría → grupo padre</h2><small>de dónde llega el trabajo y cómo se clasifica</small></header>
+    <header><h2>Flujo del trabajo</h2><small>de dónde llega y cómo se clasifica</small></header>
     <div class="chart chart-sankey" id="chart-sankey"></div>
   </section>
 
@@ -80,7 +81,7 @@
   </section>
 
   <section class="bloque">
-    <header><h2>Heatmap categoría × mes</h2><small>densidad de casos</small></header>
+      <header><h2>Densidad por categoría y mes</h2><small>meses con más casos</small></header>
     <div class="chart" id="chart-categoria-mes"></div>
   </section>
 

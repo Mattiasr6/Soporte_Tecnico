@@ -6,6 +6,7 @@
 
   var VERDE = "#006241", VERDE2 = "#00754a", DORADO = "#cba258", ROJO = "#d6311f";
   var GRIS = "#6b7280", TEXTO = "#1e3932", CLARO = "#faf6ee";
+  var MOVIL = window.innerWidth < 640;
   var RAMAS = {
     1: ["#12312b", "#1e3932", "#2f5b50", "#4a7c6a", "#6d9b89", "#95bbab"],
     2: ["#7a5d26", "#a8843c", "#cba258", "#dcbb7c", "#e9d2a2", "#f4e6c8"],
@@ -165,12 +166,16 @@
       visualMap: { min: 0, max: c.max || 1, orient: "horizontal", left: "center", bottom: 0,
                    inRange: { color: [CLARO, "#cba258", VERDE] }, textStyle: { color: GRIS, fontSize: 10 } },
       calendar: {
-        range: [c.inicio, c.fin], left: 40, right: 20, top: 30, bottom: 44,
-        cellSize: ["auto", 15],
+        range: [c.inicio, c.fin], left: MOVIL ? 16 : 40, right: MOVIL ? 8 : 20,
+        top: MOVIL ? 12 : 30, bottom: 44,
+        orient: MOVIL ? "vertical" : "horizontal",
+        cellSize: [MOVIL ? 13 : "auto", MOVIL ? 13 : 15],
         itemStyle: { color: CLARO, borderColor: "#ffffff", borderWidth: 2 },
-        dayLabel: { color: GRIS, fontSize: 10, firstDay: 1 },
-        monthLabel: { color: TEXTO, fontSize: 10 },
-        yearLabel: { color: TEXTO, fontSize: 11 },
+        dayLabel: { color: GRIS, fontSize: MOVIL ? 9 : 10, firstDay: 1,
+                    nameMap: ["D", "L", "M", "M", "J", "V", "S"] },
+        monthLabel: { color: TEXTO, fontSize: MOVIL ? 9 : 10,
+                      nameMap: ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"] },
+        yearLabel: { show: !MOVIL, color: TEXTO, fontSize: 11 },
         splitLine: { lineStyle: { color: "#e7e7e7" } },
       },
       series: [{ type: "heatmap", coordinateSystem: "calendar", data: c.datos }],
@@ -189,11 +194,11 @@
                    return p.name;
                  } },
       series: [{
-        type: "sankey", left: 10, right: 130, top: 16, bottom: 16,
-        nodeWidth: 14, nodeGap: 8, nodeAlign: "justify",
+        type: "sankey", left: 10, right: MOVIL ? 64 : 130, top: 16, bottom: 16,
+        nodeWidth: MOVIL ? 10 : 14, nodeGap: MOVIL ? 6 : 8, nodeAlign: "justify",
         emphasis: { focus: "adjacency" },
         lineStyle: { color: "gradient", opacity: 0.42, curveness: 0.5 },
-        label: { color: TEXTO, fontSize: 11 },
+        label: { color: TEXTO, fontSize: MOVIL ? 9 : 11 },
         data: s.nodos.map(function (n, i) {
           return { name: n.name, itemStyle: { color: i % 3 === 0 ? VERDE : (i % 3 === 1 ? DORADO : "#3f7d7a") } };
         }),
@@ -236,19 +241,22 @@
     var maxX = Math.max.apply(null, sc.datos.map(function (d) { return d[0]; })) || 1;
     var maxY = Math.max.apply(null, sc.datos.map(function (d) { return d[1]; })) || 1;
     montar("chart-scatter", {
-      grid: { left: 0, right: 30, top: 24, bottom: 10, containLabel: true },
+      grid: { left: 10, right: 30, top: 24, bottom: 34, containLabel: true },
       tooltip: { formatter: function (p) {
         return "<b>" + p.data[2] + "</b><br/>" + p.data[0] + " casos · " + p.data[1] + " fuera de turno (" + p.data[3] + "%)";
       } },
-      xAxis: { type: "value", name: "casos", nameTextStyle: { color: GRIS, fontSize: 10 },
+      xAxis: { type: "value", name: "casos", nameLocation: "middle", nameGap: 30,
+               nameTextStyle: { color: GRIS, fontSize: 10 },
                axisLabel: { color: GRIS, fontSize: 10 } },
-      yAxis: { type: "value", name: "fuera de turno", nameTextStyle: { color: GRIS, fontSize: 10 },
+      yAxis: { type: "value", name: "fuera de turno", nameLocation: "middle", nameGap: 44,
+               nameTextStyle: { color: GRIS, fontSize: 10 },
                axisLabel: { color: GRIS, fontSize: 10 } },
       series: [{
         type: "scatter", data: sc.datos, symbolSize: 16,
         itemStyle: { color: VERDE2, borderColor: "#ffffff", borderWidth: 2 },
         label: { show: true, position: "top", fontSize: 10, color: TEXTO,
                  formatter: function (p) { return p.data[2].split(" ")[0]; } },
+        labelLayout: { hideOverlap: true },
         markLine: {
           silent: true, symbol: "none",
           lineStyle: { color: DORADO, type: "dashed" },
@@ -311,16 +319,17 @@
 
     if (c.categoria_mes.celdas.length) {
       var oh = base();
-      oh.grid.right = 66; oh.grid.bottom = 26;
+      oh.grid.right = MOVIL ? 44 : 66; oh.grid.bottom = MOVIL ? 44 : 26;
       oh.tooltip = { position: "top" };
-      oh.xAxis = { type: "category", data: c.categoria_mes.meses, splitArea: { show: true }, axisLabel: { color: GRIS, fontSize: 10 } };
+      oh.xAxis = { type: "category", data: c.categoria_mes.meses, splitArea: { show: true },
+                   axisLabel: { color: GRIS, fontSize: MOVIL ? 9 : 10, rotate: MOVIL ? 45 : 0 } };
       oh.yAxis = { type: "category", data: c.categoria_mes.categorias, splitArea: { show: true },
-                   axisLabel: { color: TEXTO, fontSize: 10 } };
+                   axisLabel: { color: TEXTO, fontSize: MOVIL ? 9 : 10 } };
       oh.visualMap = { min: 0, max: c.categoria_mes.max || 1, calculable: true, orient: "vertical",
-                       right: 4, top: "middle", itemHeight: 110,
+                       right: 4, top: "middle", itemHeight: MOVIL ? 70 : 110, itemWidth: MOVIL ? 12 : 20,
                        inRange: { color: [CLARO, DORADO, VERDE] }, textStyle: { color: GRIS, fontSize: 10 } };
       oh.series = [{ type: "heatmap", data: c.categoria_mes.celdas,
-                     label: { show: true, fontSize: 10, color: TEXTO } }];
+                     label: { show: true, fontSize: MOVIL ? 8 : 10, color: TEXTO } }];
       montar("chart-categoria-mes", oh);
     } else {
       vacio("chart-categoria-mes");
@@ -386,7 +395,20 @@
       .then(function (d) {
         if (!d) return;
         P = d;
-        render();
+  var formFiltros = document.getElementById("form-filtros");
+  if (formFiltros) {
+    formFiltros.addEventListener("submit", function (e) {
+      var d = document.getElementById("f_desde").value;
+      var h = document.getElementById("f_hasta").value;
+      var err = document.getElementById("filtro-error");
+      if (d && h && d > h) {
+        e.preventDefault();
+        if (err) { err.textContent = "El mes Desde no puede ser posterior al mes Hasta."; err.hidden = false; }
+      } else if (err) { err.hidden = true; }
+    });
+  }
+
+  render();
       })
       .catch(function () {});
   }

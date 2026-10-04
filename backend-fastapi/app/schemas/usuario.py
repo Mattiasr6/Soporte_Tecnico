@@ -26,6 +26,14 @@ class ActivoIn(BaseModel):
     activo: bool
 
 
+class RolIn(BaseModel):
+    role: str
+
+
+class PasswordResetIn(BaseModel):
+    password: str
+
+
 class EspecialidadIn(BaseModel):
     especialidad: str | None = None
 

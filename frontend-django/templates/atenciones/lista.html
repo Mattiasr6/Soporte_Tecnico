@@ -7,12 +7,18 @@
       <h1>Atenciones</h1>
       <p class="sub">{{ total }} registros</p>
     </div>
+    <div class="page-head-acciones">
     <a class="btn" href="{% url 'atenciones_nueva' %}">Nueva atención</a>
+    <a class="btn-claro" href="{% url 'atenciones_lista' %}">Limpiar filtros</a>
+    </div>
   </div>
   {% if flash %}<p class="flash {{ flash.tipo }}">{{ flash.texto }}</p>{% endif %}
   <form method="get" class="filtros">
     <input type="text" name="q" value="{{ q }}" placeholder="Buscar...">
-    <input type="text" name="categoria" value="{{ categoria }}" placeholder="Categoría">
+    <select name="categoria">
+      <option value="">Todas las categorías</option>
+      {% for c in categorias %}<option value="{{ c }}"{% if c == categoria %} selected{% endif %}>{{ c }}</option>{% endfor %}
+    </select>
     <input type="month" name="mes" value="{{ mes }}">
     {% if can_dashboard %}
     <select name="tecnico">
@@ -20,7 +26,7 @@
       {% for t in tecnicos %}<option value="{{ t.id }}"{% if t.id == tecnico %} selected{% endif %}>{{ t.nombre }}</option>{% endfor %}
     </select>
     {% endif %}
-    <button type="submit">Filtrar</button>
+    <button type="submit" class="btn">Filtrar</button>
   </form>
   <div class="tabla-scroll atencion-tabla">
   <table class="tabla">
@@ -66,7 +72,7 @@
   <p class="foot">Mostrando {{ atenciones|length }} de {{ total }} registros</p>
   {% if hay_mas %}
   <p class="ver-mas">
-    <a class="btn" href="?q={{ q|urlencode }}&categoria={{ categoria|urlencode }}&mes={{ mes|urlencode }}&limite={{ siguiente_limite }}">Ver más</a>
+      <a class="btn" href="?q={{ q|urlencode }}&categoria={{ categoria|urlencode }}&mes={{ mes|urlencode }}&tecnico={{ tecnico|default:'' }}&limite={{ siguiente_limite }}">Ver más</a>
     <span class="sub">quedan {{ restantes }}</span>
   </p>
   {% endif %}

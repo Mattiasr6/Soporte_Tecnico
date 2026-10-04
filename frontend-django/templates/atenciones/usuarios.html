@@ -20,32 +20,46 @@
 
     {% if activos or inactivos %}
     <div class="tabla-scroll">
-    <table class="tabla">
+    <table class="tabla tabla-usuarios">
       <thead>
         <tr><th>Nombre</th><th>Rol</th><th>Estado</th><th>Acción</th></tr>
       </thead>
       <tbody>
         {% for u in activos %}
         <tr>
-          <td>{{ u.display_name }}</td>
-          <td>{{ u.role }}</td>
-          <td>activo</td>
-          <td>
+          <td data-th="Nombre"><strong>{{ u.display_name }}</strong></td>
+          <td data-th="Rol">
+            {% if u.id != mi_id %}
+            <form method="post" action="{% url 'usuarios_accion' %}" class="fila-form">
+              {% csrf_token %}
+              <input type="hidden" name="accion" value="rol">
+              <input type="hidden" name="id" value="{{ u.id }}">
+              <select name="role" onchange="this.form.submit()">
+                {% for r in roles %}<option value="{{ r }}"{% if r == u.role %} selected{% endif %}>{{ r }}</option>{% endfor %}
+              </select>
+            </form>
+            {% else %}{{ u.role }}{% endif %}
+          </td>
+          <td data-th="Estado">activo</td>
+          <td data-th="Acción">
             <form method="post" action="{% url 'usuarios_accion' %}">
               {% csrf_token %}
               <input type="hidden" name="accion" value="desactivar">
               <input type="hidden" name="id" value="{{ u.id }}">
               <button class="btn ghost" type="submit">Dar de baja</button>
             </form>
+            {% if u.id != mi_id %}
+            <button class="btn ghost" type="button" data-clave-id="{{ u.id }}" data-clave-nombre="{{ u.display_name }}">Poner clave</button>
+            {% endif %}
           </td>
         </tr>
         {% endfor %}
         {% for u in inactivos %}
         <tr>
-          <td>{{ u.display_name }}</td>
-          <td>{{ u.role }}</td>
-          <td><span class="jerq-off">inactivo</span></td>
-          <td>
+          <td data-th="Nombre"><strong>{{ u.display_name }}</strong></td>
+          <td data-th="Rol">{{ u.role }}</td>
+          <td data-th="Estado"><span class="jerq-off">inactivo</span></td>
+          <td data-th="Acción">
             <form method="post" action="{% url 'usuarios_accion' %}">
               {% csrf_token %}
               <input type="hidden" name="accion" value="activar">
@@ -88,8 +102,45 @@
       <li><b>Dar de baja no borra</b>: el usuario sale del equipo activo y no puede entrar, pero sus atenciones siguen a su nombre en listados y estadísticas.</li>
       <li>Un usuario dado de baja <b>pierde la sesión abierta</b>: su token deja de valer.</li>
       <li>Sin contraseña asignada no puede entrar ni aunque esté activo.</li>
-      <li>No podés dar de baja tu propio usuario.</li>
-    </ul>
+    <li>No podés dar de baja tu propio usuario.</li>
+  </ul>
   </section>
+
+  <dialog id="modal-clave" class="modal">
+    <div class="modal-body">
+      <h2>Nueva contraseña</h2>
+      <p class="sub" id="modal-clave-nombre"></p>
+      <form method="post" action="{% url 'usuarios_accion' %}" class="jerq-form">
+        {% csrf_token %}
+        <input type="hidden" name="accion" value="reset">
+        <input type="hidden" name="id" id="modal-clave-id" value="">
+        <label for="modal-clave-pass">Contraseña nueva</label>
+        <input type="password" id="modal-clave-pass" name="password" placeholder="Mínimo 8 caracteres" minlength="8" required>
+        <button class="btn" type="submit">Guardar</button>
+      </form>
+    </div>
+    <button type="button" class="modal-close" aria-label="Cerrar">
+      <iconify-icon icon="mdi:close" aria-hidden="true"></iconify-icon>
+    </button>
+  </dialog>
 </div>
+
+<script>
+(function () {
+  var dlg = document.getElementById("modal-clave");
+  if (!dlg) return;
+  var nombre = document.getElementById("modal-clave-nombre");
+  var hid = document.getElementById("modal-clave-id");
+  var pass = document.getElementById("modal-clave-pass");
+  document.querySelectorAll("[data-clave-id]").forEach(function (b) {
+    b.addEventListener("click", function () {
+      hid.value = b.getAttribute("data-clave-id");
+      nombre.textContent = b.getAttribute("data-clave-nombre");
+      pass.value = "";
+      dlg.showModal();
+    });
+  });
+  dlg.querySelector(".modal-close").addEventListener("click", function () { dlg.close(); });
+})();
+</script>
 {% endblock %}

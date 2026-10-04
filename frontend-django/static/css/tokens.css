@@ -97,24 +97,37 @@ body {
   display: flex;
   gap: 10px;
   margin: 16px 0;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+.filtros input,
+.filtros select,
+.filtros button {
+  box-sizing: border-box;
+  min-width: 0;
 }
 .filtros input {
   border: 2px solid var(--color-border-strong);
   border-radius: var(--radius-control);
-  padding: 8px 10px;
+  padding: 7px 10px;
   font-size: 13px;
 }
 .page-wide .filtros select,
 .page-wide .mini-select {
-  width: 200px;
+  width: 170px;
   max-width: 100%;
+  padding: 7px 10px;
+  font-size: 13px;
+  border: 2px solid var(--color-border-strong);
+  border-radius: var(--radius-control);
 }
 .filtros button {
   background: var(--color-accent-deep);
   color: #fff;
   border: 0;
   border-radius: var(--radius-control);
-  padding: 8px 16px;
+  padding: 10px 22px;
+  font-size: 15px;
   cursor: pointer;
 }
 .tabla {
@@ -362,9 +375,35 @@ body {
 .jerq-form input[type="password"],
 .jerq-form select {
   width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
   padding: 8px 10px;
   border: 1.5px solid var(--color-border-strong);
   border-radius: var(--radius-control);
+}
+.form-acciones {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 14px;
+  flex-wrap: wrap;
+}
+.fila-form {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 2px 0;
+}
+.fila-form select,
+.fila-form input[type="password"] {
+  padding: 5px 8px;
+  font-size: 13px;
+  border: 1.5px solid var(--color-border-strong);
+  border-radius: var(--radius-control);
+  box-sizing: border-box;
+}
+.fila-form input[type="password"] {
+  width: 130px;
 }
 .jerq-form .pill {
   display: inline-flex;
@@ -504,7 +543,11 @@ html.a11y-contraste-alto .foot {
 }
 html.a11y-contraste-alto .btn,
 html.a11y-contraste-alto .chip {
-  background: #000000;
+  background: #00573f;
+  color: #ffffff;
+  border: 2px solid #000000;
+}
+html.a11y-contraste-alto .sidebar small {
   color: #ffffff;
 }
 html.a11y-contraste-alto input,
@@ -611,6 +654,15 @@ html.a11y-contraste-alto textarea {
   gap: 8px;
   margin: 8px 0;
 }
+.pills-line {
+  display: inline-flex;
+  margin: 0 0 0 8px;
+  vertical-align: middle;
+}
+.vista-line {
+  font-size: 12px;
+  color: var(--color-accent);
+}
 .pill {
   border: 1.5px solid var(--color-border);
   border-radius: 9999px;
@@ -647,6 +699,18 @@ html.a11y-contraste-alto textarea {
   font-size: 16px;
   cursor: pointer;
   margin-top: 16px;
+}
+.btn-claro {
+  display: inline-block;
+  background: transparent;
+  color: var(--color-accent-deep);
+  border: 1.5px solid var(--color-accent-deep);
+  border-radius: var(--radius-control);
+  padding: 10px 22px;
+  font-size: 16px;
+  cursor: pointer;
+  text-decoration: none;
+  text-align: center;
 }
 .page-wide h2 {
   color: var(--color-house);
@@ -1219,8 +1283,14 @@ html.a11y-contraste-alto textarea {
   .presencia,
   .dos-col,
   .dash-top,
-  .tres-col {
+  .tres-col,
+  .grid2,
+  .ticket-grid {
     grid-template-columns: 1fr;
+  }
+  .page {
+    margin: 12px 10px;
+    padding: 24px 18px 32px;
   }
   #chart-drill {
     height: 340px;
@@ -1429,6 +1499,59 @@ html.a11y-contraste-alto textarea {
     padding: 12px 0;
     font-size: 14px;
   }
+  .tabla-usuarios thead {
+    display: none;
+  }
+  .tabla-usuarios,
+  .tabla-usuarios tbody,
+  .tabla-usuarios tr,
+  .tabla-usuarios td {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+  }
+  .tabla-usuarios tr {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-card);
+    padding: 12px 14px;
+    margin-bottom: 12px;
+  }
+  .tabla-usuarios tbody td {
+    border: 0;
+    padding: 7px 0;
+  }
+  .tabla-usuarios td[data-th]::before {
+    content: attr(data-th);
+    display: block;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--color-accent);
+    margin-bottom: 4px;
+  }
+  .tabla-usuarios tbody td:first-child {
+    font-size: 15px;
+    padding-bottom: 4px;
+  }
+  .tabla-usuarios tbody td:first-child::before {
+    display: none;
+  }
+  .tabla-usuarios tbody td:last-child {
+    padding-bottom: 0;
+  }
+  .tabla-usuarios .fila-form {
+    display: flex;
+    gap: 8px;
+  }
+  .tabla-usuarios .fila-form select {
+    flex: 1;
+    min-height: 44px;
+  }
+  .tabla-usuarios td .btn {
+    min-height: 44px;
+    margin-top: 8px;
+  }
 }
 .rep-kpis {
   grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
@@ -1542,7 +1665,8 @@ html.a11y-contraste-alto textarea {
   .nav-mobile-toggle,
   .scrim,
   .no-print,
-  .filtros,
+  .wilmercito-btn,
+  .wilmercito-panel,
   .btn,
   .link-btn {
     display: none !important;

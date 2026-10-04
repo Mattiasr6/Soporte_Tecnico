@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{% block titulo %}Soporte Técnico{% endblock %}</title>
-<link rel="icon" href="data:,">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23006241'/%3E%3Ccircle cx='32' cy='32' r='14' fill='none' stroke='white' stroke-width='7'/%3E%3Ccircle cx='32' cy='32' r='4' fill='white'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="/static/css/tokens.css?v={{ asset_version }}">
 <link rel="stylesheet" href="/static/css/navbar.css?v={{ asset_version }}">
 <link rel="stylesheet" href="/static/css/wilmercito.css?v={{ asset_version }}">
@@ -24,7 +24,7 @@
 <body data-page="{{ nav_page|default:'' }}">
 {% if usuario %}{% include "atenciones/_navbar.html" %}{% endif %}
 <main class="content{% if usuario %} with-nav{% endif %}">{% block contenido %}{% endblock %}</main>
-{% comment %}Wilmercito oculto en prod por decisión operativa{% if usuario %}{% include "atenciones/_wilmercito.html" %}{% endif %}{% endcomment %}
+{% if usuario %}{% include "atenciones/_wilmercito.html" %}{% endif %}
 <script src="/static/js/navbar.js?v={{ asset_version }}" defer></script>
 <script src="/static/js/jerarquia.js?v={{ asset_version }}" defer></script>
 <script src="/static/js/accesibilidad.js?v={{ asset_version }}" defer></script>

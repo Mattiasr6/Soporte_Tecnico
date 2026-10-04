@@ -29,8 +29,8 @@
         <input type="month" id="rep-mes" name="mes" value="{{ payload.periodo.mes }}">
       </div>
       <div>
-        <label>Vista</label>
-        <div class="pills">
+        <span class="vista-line">Vista:</span>
+        <div class="pills pills-line">
           <label class="pill"><input type="radio" name="vista" value="mes"{% if payload.periodo.vista == 'mes' %} checked{% endif %}> Mes</label>
           <label class="pill"><input type="radio" name="vista" value="anio"{% if payload.periodo.vista == 'anio' %} checked{% endif %}> Acumulado del año</label>
         </div>
@@ -70,7 +70,7 @@
     <div class="kpi">
       <span>Promedio por día</span>
       <b>{{ payload.kpis.promedio_dia|floatformat:1 }}</b>
-      <small class="kpi-nota">{{ payload.kpis.dias_periodo }} días calendario</small>
+      <small class="kpi-nota">{{ payload.kpis.dias_periodo }} días hábiles (lun–sáb)</small>
     </div>
     <div class="kpi">
       <span>Áreas distintas</span>
@@ -148,11 +148,6 @@
     {% endif %}
   </section>
   {% endif %}
-
-  <footer class="rep-footer">
-    <p><b>Metodología</b></p>
-    <p>Fuente: {{ payload.metodologia.fuente }} · Período: {{ payload.metodologia.periodo }} · Generado: {{ payload.metodologia.generado_en }} · {{ payload.metodologia.corte }}</p>
-  </footer>
 
   {{ payload|json_script:"payload" }}
   {% endif %}

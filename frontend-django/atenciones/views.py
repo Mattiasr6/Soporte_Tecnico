@@ -210,6 +210,7 @@ def lista_vista(request: HttpRequest) -> HttpResponse:
             "usuario": usuario,
             "q": request.GET.get("q", ""),
             "categoria": categoria,
+            "categorias": CATEGORIAS,
             "mes": mes,
             "tecnico": tecnico,
             "tecnicos": _tecnicos_para_filtrar(token) if _puede_dashboard(request) else [],
@@ -223,6 +224,8 @@ def nueva_vista(request: HttpRequest) -> HttpResponse:
     if _es_auxiliar(request):
         return redirect("auxiliares")
     token = request.session["jwt"]
+    usuario = request.session.get("usuario") or {}
+    mi_id = usuario.get("id")
     error = ""
     batch = request.session.get("batch", [])
     edit_idx = request.session.get("edit_idx")
@@ -233,43 +236,18 @@ def nueva_vista(request: HttpRequest) -> HttpResponse:
     if request.method == "POST":
         action = request.POST.get("action")
         if action == "agregar":
-            area_id = request.POST.get("area_id") or None
-            grupo_id = _int_o_none(request.POST.get("grupo_id"))
-            descripcion = request.POST.get("descripcion", "").strip()
-            solucion = request.POST.get("solucion", "").strip()
-            categoria = request.POST.get("categoria", "").strip()
-            if not area_id and not grupo_id:
-                error = "Elige un área o dependencia."
-            elif not descripcion or not solucion or not categoria:
-                error = "Faltan descripción, solución o categoría."
+            item, error = _item_nueva_desde_post(request.POST, mi_id)
+            if error:
+                pass
+            elif edit_idx is not None:
+                batch[edit_idx] = item
+                request.session.pop("edit_idx", None)
+                edit_idx = None
+                edit_item = None
             else:
-                colab = request.POST.get("colaborador_id") or None
-                item = {
-                    "area_solicitante": "",
-                    "grupo_padre_id": _int_o_none(request.POST.get("grupo_padre_id")),
-                    "grupo_id": grupo_id,
-                    "area_id": int(area_id) if area_id else None,
-                    "medio_solicitud": request.POST.get("medio_solicitud", "Interno"),
-                    "usuario_solicitante": request.POST.get(
-                        "usuario_solicitante", "ADM"
-                    ),
-                    "categoria": categoria,
-                    "descripcion": descripcion,
-                    "solucion": solucion,
-                    "observaciones": request.POST.get("observaciones") or None,
-                    "enlace_apoyo": request.POST.get("enlace_apoyo") or None,
-                    "colaborador_id": int(colab) if colab else None,
-                    "fecha_registro": request.POST.get("fecha_registro") or _hoy_iso(),
-                }
-                if edit_idx is not None:
-                    batch[edit_idx] = item
-                    request.session.pop("edit_idx", None)
-                    edit_idx = None
-                    edit_item = None
-                else:
-                    batch.append(item)
-                request.session["batch"] = batch
-                return redirect("atenciones_nueva")
+                batch.append(item)
+            request.session["batch"] = batch
+            return redirect("atenciones_nueva")
         elif action == "editar":
             try:
                 idx = int(request.POST.get("idx", "-1"))
@@ -293,11 +271,17 @@ def nueva_vista(request: HttpRequest) -> HttpResponse:
             request.session["batch"] = batch
             return redirect("atenciones_nueva")
         elif action == "enviar":
-            if not batch:
-                error = "Batch vacío."
+            a_enviar = batch
+            if not a_enviar and edit_idx is None:
+                directo, error = _item_nueva_desde_post(request.POST, mi_id)
+                if directo is not None:
+                    a_enviar = [directo]
+            if not a_enviar:
+                if not error:
+                    error = "Batch vacío."
             else:
                 try:
-                    api_post("/api/atenciones/batch", token, {"atenciones": batch})
+                    api_post("/api/atenciones/batch", token, {"atenciones": a_enviar})
                 except ApiError as e:
                     error = str(e.detail) if e.detail else "No se pudo enviar"
                 else:
@@ -326,7 +310,11 @@ def nueva_vista(request: HttpRequest) -> HttpResponse:
         {
             "arbol_json": _json.dumps(arbol),
             "conteos_json": _json.dumps(conteos),
-            "usuarios": [u for u in usuarios if isinstance(u, dict)],
+            "usuarios": [
+                u
+                for u in usuarios
+                if isinstance(u, dict) and u.get("id") != mi_id
+            ],
             "recientes": [a for a in recientes if isinstance(a, dict)][:10],
             "batch": batch,
             "categorias": CATEGORIAS,
@@ -338,6 +326,39 @@ def nueva_vista(request: HttpRequest) -> HttpResponse:
             "edit_idx": edit_idx,
         },
     )
+
+
+def _item_nueva_desde_post(
+    post: dict[str, object], mi_id: object
+) -> tuple[dict[str, object] | None, str]:
+    area_id = post.get("area_id") or None
+    grupo_id = _int_o_none(post.get("grupo_id"))
+    descripcion = str(post.get("descripcion") or "").strip()
+    solucion = str(post.get("solucion") or "").strip()
+    categoria = str(post.get("categoria") or "").strip()
+    if not area_id and not grupo_id:
+        return None, "Elige un área o dependencia."
+    if not descripcion or not solucion or not categoria:
+        return None, "Faltan descripción, solución o categoría."
+    colab = post.get("colaborador_id") or None
+    colab_id = _int_o_none(colab) if colab else None
+    if colab_id is not None and mi_id is not None and colab_id == mi_id:
+        return None, "No podés ser tu propio colaborador."
+    return {
+        "area_solicitante": "",
+        "grupo_padre_id": _int_o_none(post.get("grupo_padre_id")),
+        "grupo_id": grupo_id,
+        "area_id": int(str(area_id)) if area_id else None,
+        "medio_solicitud": str(post.get("medio_solicitud") or "Interno"),
+        "usuario_solicitante": str(post.get("usuario_solicitante") or "ADM"),
+        "categoria": categoria,
+        "descripcion": descripcion,
+        "solucion": solucion,
+        "observaciones": post.get("observaciones") or None,
+        "enlace_apoyo": post.get("enlace_apoyo") or None,
+        "colaborador_id": colab_id,
+        "fecha_registro": str(post.get("fecha_registro") or _hoy_iso()),
+    }, ""
 
 
 def _int_o_none(valor: object) -> int | None:
@@ -942,6 +963,23 @@ def _dias_del_mes(anio: int, mes: int) -> int:
     return calendar.monthrange(anio, mes)[1]
 
 
+def _dias_habiles(anio: int, mes: int | None) -> int:
+    """Días lun–sáb del mes (o del año si mes es None). Sin domingos."""
+    if mes is None:
+        inicio = _dt.date(anio, 1, 1)
+        fin = _dt.date(anio, 12, 31)
+    else:
+        inicio = _dt.date(anio, mes, 1)
+        fin = _dt.date(anio, mes, _dias_del_mes(anio, mes))
+    n = 0
+    d = inicio
+    while d <= fin:
+        if d.weekday() < 6:
+            n += 1
+        d += _dt.timedelta(days=1)
+    return n
+
+
 def _params_mes(anio: int, mes: int) -> dict[str, str]:
     return {
         "desde_dia": "1",
@@ -1171,11 +1209,7 @@ def reportes_vista(request: HttpRequest) -> HttpResponse:
         _log.info("REP-005 sin atenciones en el periodo")
     if previo is not None and int(previo.get("total") or 0) == 0 and total > 0:
         _log.info("REP-006 mes previo sin registros, delta s/d")
-    dias = (
-        (_dt.date(anio, mes, _dias_del_mes(anio, mes)) - _dt.date(anio, 1, 1)).days + 1
-        if vista == "anio"
-        else _dias_del_mes(anio, mes)
-    )
+    dias = _dias_habiles(anio, None if vista == "anio" else mes)
     categorias = _orden_desc(list(principal.get("por_categoria") or []), "categoria")
     destacados: list[dict[str, object]] = []
     destacados_error = False
@@ -1504,6 +1538,7 @@ def usuarios_vista(request: HttpRequest) -> HttpResponse:
         "/api/usuarios", str(request.session["jwt"]), {"incluir_inactivos": "true"}
     )
     lista = usuarios if isinstance(usuarios, list) else []
+    sesion = request.session.get("usuario") or {}
     return render(
         request,
         "atenciones/usuarios.html",
@@ -1511,6 +1546,7 @@ def usuarios_vista(request: HttpRequest) -> HttpResponse:
             "activos": [u for u in lista if u.get("activo")],
             "inactivos": [u for u in lista if not u.get("activo")],
             "roles": ["Tecnico", "Jefe", "Auxiliar"],
+            "mi_id": sesion.get("id"),
             "flash": request.session.pop("flash", None),
             "detalle": request.GET.get("detalle", ""),
         },
@@ -1544,6 +1580,20 @@ def usuarios_accion_vista(request: HttpRequest) -> HttpResponse:
                 {"activo": accion == "activar"},
             )
             texto = "Activado." if accion == "activar" else "Desactivado."
+        elif accion == "rol":
+            api_patch(
+                f"/api/usuarios/{ident}/rol",
+                token,
+                {"role": request.POST.get("role", "")},
+            )
+            texto = "Rol actualizado."
+        elif accion == "reset":
+            api_post(
+                f"/api/usuarios/{ident}/reset-password",
+                token,
+                {"password": request.POST.get("password", "")},
+            )
+            texto = "Contraseña reiniciada."
         else:
             texto = "Acción desconocida."
     except ApiError as e:
@@ -2047,7 +2097,6 @@ def sugerencias_vista(request: HttpRequest) -> HttpResponse:
         "sugerencias": sugerencias if isinstance(sugerencias, list) else [],
         "error": error,
         "flash": request.session.pop("flash", None),
-        "texto_inicial": request.GET.get("texto", "")[:1000],
     }
     guardado = request.session.get("sistema_panel", "")
     if guardado in ("SOPORTE", "AUXILIARES"):
