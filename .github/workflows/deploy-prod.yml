@@ -1,0 +1,77 @@
+name: Deploy prod (manual)
+
+# Dev -> main -> prod: rebuild + migrate + recreate con backup previo.
+# Solo manual + tu aprobación (environment prod). Un deploy a la vez.
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: prod
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: [self-hosted, prod, soporte]
+    environment: prod
+    defaults:
+      run:
+        shell: bash
+    env:
+      PROD_DIR: /home/mattias/Proyectos/Soporte_Tecnico/deploy/podman
+      BACKUP_DIR: /home/mattias/backups-actions
+      PGHOST: localhost
+      PGPORT: "5433"
+
+    steps:
+      - name: Sincronizar repo (el compose buildea desde acá)
+        run: |
+          set -euo pipefail
+          cd /home/mattias/Proyectos/Soporte_Tecnico
+          git fetch origin -q
+          git reset --hard origin/main
+          git log --oneline -1
+
+      - name: Backup pre-deploy (si falla, frena todo)
+        run: |
+          set -euo pipefail
+          mkdir -p "$BACKUP_DIR"
+          set -a; source "$PROD_DIR/.env.prod"; set +a
+          export PGUSER="$POSTGRES_USER" PGPASSWORD="$POSTGRES_PASSWORD"
+          F="$BACKUP_DIR/soporte_$(date +%Y%m%d_%H%M%S).dump"
+          pg_dump -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d soporte -Fc -f "$F"
+          N=$(pg_restore --list "$F" | grep -c "^[0-9]")
+          [ "$N" -gt 0 ]
+          echo "Backup OK: $F ($N entradas)"
+
+      - name: Build imágenes
+        run: |
+          set -euo pipefail
+          cd "$PROD_DIR"
+          set -a; source .env.prod; set +a
+          podman-compose -f prod.compose.yml build api web
+
+      - name: Migrate (dentro de la red del compose)
+        run: |
+          set -euo pipefail
+          cd "$PROD_DIR"
+          set -a; source .env.prod; set +a
+          podman-compose -f prod.compose.yml up -d db
+          podman-compose -f prod.compose.yml run --rm api python -m alembic upgrade head
+
+      - name: Recreate servicios
+        run: |
+          set -euo pipefail
+          cd "$PROD_DIR"
+          set -a; source .env.prod; set +a
+          podman-compose -f prod.compose.yml up -d --force-recreate api web pgbackup
+
+      - name: Verificación post
+        run: |
+          set -euo pipefail
+          sleep 10
+          curl -sf --max-time 15 http://127.0.0.1:5002/health
+          curl -sf --max-time 15 http://127.0.0.1:8001/ -o /dev/null
+          set -a; source "$PROD_DIR/.env.prod"; set +a
+          export PGUSER="$POSTGRES_USER" PGPASSWORD="$POSTGRES_PASSWORD"
+          psql -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d soporte -tAc 'SELECT version_num FROM alembic_version;'
+          psql -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d soporte -tAc 'SELECT count(*) FROM "Atenciones";'
