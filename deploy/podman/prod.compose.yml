@@ -18,7 +18,7 @@ services:
       - "5433:5432" # igual que hoy: la API usa localhost:5433 sin cambiar .env
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -p 5433"]
       interval: 10s
       retries: 5
 
