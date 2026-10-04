@@ -30,6 +30,9 @@ services:
     env_file: [.env.prod]
     environment:
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@localhost:5433/${POSTGRES_DB:-soporte}
+    volumes:
+      # Nómina y horarios viven acá: sin volumen se pierden en cada deploy.
+      - appdata-prod:/app/data
     ports:
       - "127.0.0.1:5002:5002"
     depends_on:
@@ -82,4 +85,5 @@ services:
 volumes:
   pgdata-prod:
   pgbackups-prod:
+  appdata-prod:
   caddy-data:
