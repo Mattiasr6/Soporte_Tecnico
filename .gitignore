@@ -23,6 +23,8 @@ database/scripts/
 *.db-shm
 *.db-wal
 deploy/systemd/
+deploy/podman/.env.prod
+deploy/podman/.env.dev
 docs/diagramas/
 docs/pdf/
 docs/wireframes/
