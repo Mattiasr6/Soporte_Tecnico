@@ -284,6 +284,12 @@ body.nav-collapsed .soon-panel {
   flex-wrap: wrap;
   justify-content: flex-end;
 }
+@media (max-width: 899px) {
+  .page-head-acciones {
+    justify-content: flex-start;
+    width: 100%;
+  }
+}
 .content.with-nav {
   margin-left: 272px;
 }

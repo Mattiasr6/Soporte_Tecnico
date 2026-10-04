@@ -157,6 +157,45 @@ body {
   border-radius: 9999px;
   padding: 2px 10px;
   font-size: 12px;
+  white-space: nowrap;
+}
+.btn-icono {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 34px;
+  min-height: 34px;
+  padding: 2px 7px;
+  font-size: 15px;
+  line-height: 1;
+  background: var(--color-surface);
+  color: var(--color-house);
+  border: 1.5px solid var(--color-border-strong);
+  border-radius: var(--radius-control);
+  cursor: pointer;
+  vertical-align: middle;
+}
+td form {
+  vertical-align: middle;
+}
+.acciones-fila {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+.aux-extra {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+.aux-extra input {
+  flex: 1;
+}
+td .btn-icono + .btn-icono,
+td form + form .btn-icono {
+  margin-left: 6px;
 }
 .foot {
   color: var(--color-muted);
@@ -790,6 +829,12 @@ html.a11y-contraste-alto textarea {
   font-family: inherit;
   padding: 0;
 }
+.link-btn-block {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 6px 4px;
+}
 .flash {
   border-radius: var(--radius-control);
   padding: 10px 14px;
@@ -970,7 +1015,7 @@ html.a11y-contraste-alto textarea {
 .filtros-fila {
   display: grid;
   grid-template-columns: 190px 190px auto auto;
-  gap: 12px;
+  gap: 12px 20px;
   align-items: end;
   margin-top: 14px;
   justify-content: start;
@@ -1551,6 +1596,12 @@ html.a11y-contraste-alto textarea {
   .tabla-usuarios td .btn {
     min-height: 44px;
     margin-top: 8px;
+  }
+  .badge-turno {
+    display: inline-block;
+    margin-top: 4px;
+    font-size: 11px;
+    white-space: normal;
   }
 }
 .rep-kpis {

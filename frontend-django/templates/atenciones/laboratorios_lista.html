@@ -44,7 +44,7 @@
   <div class="tabla-scroll atencion-tabla">
   <table class="tabla">
     <thead>
-      <tr><th>Fecha</th><th>Laboratorio</th><th>Categoría</th><th>Auxiliar</th><th>Turno</th><th>Descripción</th><th></th></tr>
+      <tr><th>Fecha</th><th>Laboratorio</th><th>Categoría</th><th>Auxiliar</th><th>Turno</th><th>Descripción</th></tr>
     </thead>
     <tbody>
       {% for a in atenciones %}
@@ -53,12 +53,14 @@
         <td>{{ a.laboratorio }}</td>
         <td>{{ a.categoria }}</td>
         <td>{{ a.auxiliar_nombre }}</td>
-        <td>{{ a.descripcion|truncatechars:60 }}</td>
-        <td><button type="button" class="link-btn" data-ver="{{ a.id }}">Ver</button>
+        <td>{{ a.turno|default:"—"|capfirst }}</td>
+        <td><button type="button" class="link-btn link-btn-block" data-ver="{{ a.id }}">Ver</button>
+          {% if a.usuario_id == usuario.id or can_dashboard %}
           <form method="post" action="{% url 'lab_eliminar' a.id %}" style="display:inline">
             {% csrf_token %}
             <button type="submit" title="Eliminar" aria-label="Eliminar la atención {{ a.id }}" onclick="return confirm('¿Eliminar la atención #{{ a.id }}?')">×</button>
           </form>
+          {% endif %}
         </td>
       </tr>
       {% empty %}
