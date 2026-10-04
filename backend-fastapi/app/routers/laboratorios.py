@@ -82,7 +82,7 @@ def _fuera_de_turno_lab(auxiliar_nombre: str, turno: str | None) -> bool:
     try:
         bloque = _horarios().get(turno, {})
         miembros = bloque.get("auxiliares", []) if isinstance(bloque, dict) else []
-    except Exception:
+    except Exception:  # noqa: BLE001 - fuera de turno es fail-closed
         return False
     return _norm_nb(auxiliar_nombre) not in {_norm_nb(str(n)) for n in miembros}
 

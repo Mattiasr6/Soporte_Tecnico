@@ -8,7 +8,8 @@ injectable via run_review(..., caller=...) so tests never touch the GPU.
 """
 
 import os
-from typing import Callable, TypedDict
+from collections.abc import Callable
+from typing import TypedDict
 
 import httpx
 

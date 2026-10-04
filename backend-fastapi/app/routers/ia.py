@@ -2,6 +2,7 @@
 
 import os
 import re
+from datetime import UTC
 
 import httpx
 from fastapi import APIRouter
@@ -94,9 +95,8 @@ def _turno_ahora(db: DbSession) -> dict[str, object]:
 
     from sqlalchemy import select
 
-    from app.models.horario import Horario
     from app.models.usuario import Usuario
-    from app.routers.usuarios import _fuera_de_turno, _horarios_de_hoy
+    from app.routers.usuarios import _horarios_de_hoy
     from app.services.estados import estado_efectivo
 
     now = datetime.now(UTC)
@@ -125,13 +125,14 @@ def _turno_ahora(db: DbSession) -> dict[str, object]:
 
 
 def _comparativa_mes(db: DbSession) -> dict[str, object]:
-    from datetime import date, timedelta
+    from datetime import datetime, timedelta
 
     from sqlalchemy import func, select
 
     from app.models.atencion import Atencion
+    from app.services.horarios import LA_PAZ
 
-    hoy = date.today()
+    hoy = datetime.now(LA_PAZ).date()
     este = db.execute(
         select(func.count())
         .select_from(Atencion)
@@ -183,9 +184,11 @@ _CAT_SINONIMOS = [
 
 def _rango_mes(texto: str) -> tuple[object, object, str] | None:
     """Devuelve (inicio, fin, etiqueta) para 'este mes' o un mes nombrado."""
-    from datetime import date
+    from datetime import date, datetime
 
-    hoy = date.today()
+    from app.services.horarios import LA_PAZ
+
+    hoy = datetime.now(LA_PAZ).date()
     if _FILTRO_MES.search(texto):
         return hoy.replace(day=1), None, "este mes"
     m = _MES_NOMBRE.search(texto)
@@ -215,12 +218,13 @@ def _normalizar(nombre: str) -> str:
 
 
 def _estadisticas_tecnico(db: DbSession, nombre_q: str) -> dict[str, object]:
-    from datetime import date
+    from datetime import datetime
 
     from sqlalchemy import func, select
 
     from app.models.atencion import Atencion
     from app.models.usuario import Usuario
+    from app.services.horarios import LA_PAZ
 
     tokens = [t for t in _normalizar(nombre_q).split() if len(t) > 2]
     candidatos = db.execute(
@@ -247,7 +251,7 @@ def _estadisticas_tecnico(db: DbSession, nombre_q: str) -> dict[str, object]:
         .select_from(Atencion)
         .where(
             Atencion.usuario_id == match.id,
-            Atencion.fecha_registro >= date.today().replace(day=1),
+            Atencion.fecha_registro >= datetime.now(LA_PAZ).date().replace(day=1),
         )
     ).scalar() or 0
     top = db.execute(
@@ -472,7 +476,6 @@ def _buscar_usuario(db: DbSession, nombre: str):
 
 
 def _poderes2(db: DbSession, user: CurrentUser, texto: str) -> dict[str, object] | None:
-    import asyncio
 
     from fastapi import HTTPException
 
@@ -606,7 +609,7 @@ def _top_areas(db: DbSession) -> list[str]:
 def _flujo_crear(db: DbSession, user: CurrentUser, texto: str) -> dict[str, object] | None:
     """Creador guiado por pasos (stateless: el estado viaja en los chips)."""
     import json as _json
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     from app.models.propuesta_ia import PropuestaIA
 
@@ -627,7 +630,7 @@ def _flujo_crear(db: DbSession, user: CurrentUser, texto: str) -> dict[str, obje
                 }
             ),
             estado="pendiente",
-            created_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
         )
         db.add(p)
         db.commit()
@@ -789,7 +792,6 @@ def _opciones_atencion(aid: int) -> list[dict[str, str]]:
 
 
 def _informe(db: DbSession, texto: str) -> dict[str, object] | None:
-    from datetime import date
 
     from sqlalchemy import func, select
 
@@ -841,17 +843,18 @@ def _informe(db: DbSession, texto: str) -> dict[str, object] | None:
 
 
 def _estadisticas(db: DbSession) -> dict[str, object]:
-    from datetime import date
+    from datetime import datetime
 
     from sqlalchemy import func, select
 
     from app.models.atencion import Atencion
+    from app.services.horarios import LA_PAZ
 
     total = db.execute(select(func.count()).select_from(Atencion)).scalar() or 0
     mes = db.execute(
         select(func.count())
         .select_from(Atencion)
-        .where(Atencion.fecha_registro >= date.today().replace(day=1))
+        .where(Atencion.fecha_registro >= datetime.now(LA_PAZ).date().replace(day=1))
     ).scalar() or 0
     top = db.execute(
         select(Atencion.categoria, func.count().label("n"))
@@ -860,7 +863,7 @@ def _estadisticas(db: DbSession) -> dict[str, object]:
         .limit(3)
     ).all()
     detalle = ", ".join(f"{c}: {n}" for c, n in top)
-    primero = date.today().replace(day=1)
+    primero = datetime.now(LA_PAZ).date().replace(day=1)
     top_tec = db.execute(
         select(Atencion.usuario_id, func.count().label("n"))
         .where(Atencion.fecha_registro >= primero)
@@ -924,7 +927,7 @@ def estado(db: DbSession, user: CurrentUser):
     try:
         _, col = ia_retrieval._lazy()
         return {"indexadas": col.count(), "modelo": "ok"}
-    except Exception as e:  # dependencias IA aún no instaladas
+    except Exception as e:  # noqa: BLE001 - dependencias IA aún no instaladas
         return {"indexadas": 0, "modelo": f"no-disponible: {e.__class__.__name__}"}
 
 
@@ -985,7 +988,7 @@ def _llama_chat(system: str, user: str) -> str:
 @router.post("/preguntar")
 def preguntar(body: PreguntarIn, db: DbSession, user: CurrentUser):
     import time
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     from app.models.log_ia import LogIA
 
@@ -1000,11 +1003,11 @@ def preguntar(body: PreguntarIn, db: DbSession, user: CurrentUser):
                     fuente=str(r.get("fuente"))[:100] if r.get("fuente") else None,
                     rechazado=bool(r.get("rechazado", False)),
                     ms=int((time.perf_counter() - t0) * 1000),
-                    created_at=datetime.now(timezone.utc),
+                    created_at=datetime.now(UTC),
                 )
             )
             db.commit()
-        except Exception:
+        except Exception:  # noqa: BLE001 - log de uso best-effort, nunca rompe la respuesta
             db.rollback()
     return r
 
@@ -1171,7 +1174,7 @@ class CalificarIn(BaseModel):
 
 @router.post("/calificar")
 def calificar(body: CalificarIn, db: DbSession, user: CurrentUser):
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     db.add(
         FeedbackIA(
@@ -1181,7 +1184,7 @@ def calificar(body: CalificarIn, db: DbSession, user: CurrentUser):
             fuente=body.fuente,
             puntaje=body.puntaje,
             promovido=False,
-            created_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
         )
     )
     db.commit()
@@ -1269,7 +1272,7 @@ def evaluar(db: DbSession, user: CurrentUser):
                     "ok": bien,
                 }
             )
-        except Exception:
+        except Exception:  # noqa: BLE001 - evaluación best-effort por pregunta
             filas.append({"pregunta": q, "ms": 0, "fuente": "error", "ok": False})
     ok = sum(1 for f in filas if f["ok"])
     return {"n": len(filas), "ok": ok, "filas": filas}
@@ -1278,7 +1281,7 @@ def evaluar(db: DbSession, user: CurrentUser):
 @router.get("/resumen")
 def resumen(db: DbSession, user: CurrentUser):
     """Huella de salud para el panel Asistente (jefe)."""
-    from datetime import datetime, timedelta, timezone
+    from datetime import datetime, timedelta
 
     from sqlalchemy import func, select
 
@@ -1287,7 +1290,7 @@ def resumen(db: DbSession, user: CurrentUser):
 
     _exigir_jefe_ia(user)
     _, col = ia_retrieval._lazy()
-    hora = datetime.now(timezone.utc) - timedelta(hours=1)
+    hora = datetime.now(UTC) - timedelta(hours=1)
     preguntas_hora = db.execute(
         select(func.count()).select_from(LogIA).where(LogIA.created_at >= hora)
     ).scalar() or 0
@@ -1329,7 +1332,7 @@ class PropuestaIn(BaseModel):
 @router.post("/propuestas")
 def propuesta_crear(body: PropuestaIn, db: DbSession, user: CurrentUser):
     import json as _json
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     from app.models.propuesta_ia import PropuestaIA
 
@@ -1342,7 +1345,7 @@ def propuesta_crear(body: PropuestaIn, db: DbSession, user: CurrentUser):
         tipo=body.tipo,
         payload=body.payload,
         estado="pendiente",
-        created_at=datetime.now(timezone.utc),
+        created_at=datetime.now(UTC),
     )
     db.add(p)
     db.commit()
@@ -1381,7 +1384,6 @@ def propuesta_listar(db: DbSession, user: CurrentUser):
 @router.post("/propuestas/{pid}/resolver")
 def propuesta_resolver(pid: int, db: DbSession, user: CurrentUser, aprobar: bool = True):
     import json as _json
-    from datetime import datetime, timezone
 
     from app.models.propuesta_ia import PropuestaIA
 

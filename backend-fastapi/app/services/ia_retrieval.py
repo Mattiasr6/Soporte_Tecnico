@@ -244,7 +244,7 @@ def buscar(texto: str, top_k: int = 3) -> list[dict[str, Any]]:
     ids: list[str] = res["ids"][0]
     docs: list[str] = res["documents"][0]
     metas: list[dict[str, Any]] = res["metadatas"][0]
-    dists = dict(zip(ids, res["distances"][0]))
+    dists = dict(zip(ids, res["distances"][0], strict=False))
     orden = _fusion_rrf(ids, _bm25_top(texto, [m["question"] for m in metas], ids))
     orden = _rerank_idx(texto, docs, orden)
     out = []
@@ -287,7 +287,7 @@ def _bm25_top(texto: str, preguntas: list[str], ids: list[str]) -> list[int]:
             _bm25 = BM25Okapi([_tokens(p) for p in preguntas])
         scores = _bm25.get_scores(_tokens(texto))
         return sorted(range(len(ids)), key=lambda i: scores[i], reverse=True)
-    except Exception:
+    except Exception:  # noqa: BLE001 - BM25 opcional: sin el, orden plano
         return list(range(len(ids)))
 
 
@@ -329,13 +329,13 @@ def _rerank(pregunta: str, docs: list[str]) -> list[int]:
             )
         scores = _reranker.predict([(pregunta, d) for d in docs])
         return sorted(range(len(docs)), key=lambda i: scores[i], reverse=True)
-    except Exception:
+    except Exception:  # noqa: BLE001 - reranker opcional: sin el, orden plano
         return list(range(len(docs)))
 
 
 def similares_a_ticket(pid: str, top_k: int = 3) -> list[dict[str, Any]]:
     """Casos parecidos a un ticket dado (por su propio vector, sin texto)."""
-    model, col = _lazy()
+    _model, col = _lazy()
     base = col.get(ids=[pid], include=["embeddings", "metadatas", "documents"])
     if not base["ids"]:
         return []
