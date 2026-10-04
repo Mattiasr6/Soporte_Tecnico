@@ -8,6 +8,9 @@ DEBUG = os.environ.get("DJANGO_DEBUG", "0") == "1"
 ALLOWED_HOSTS: list[str] = os.environ.get(
     "DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1,testserver"
 ).split(",")
+CSRF_TRUSTED_ORIGINS: list[str] = [
+    o for o in os.environ.get("DJANGO_CSRF_TRUSTED_ORIGINS", "").split(",") if o
+]
 
 FASTAPI_URL = os.environ.get("FASTAPI_URL", "http://localhost:5002").rstrip("/")
 
