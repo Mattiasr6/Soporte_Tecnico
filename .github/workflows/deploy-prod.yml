@@ -63,12 +63,15 @@ jobs:
 
       # down+up (no --force-recreate: deja los puertos rootless colgados).
       # La data vive en volúmenes, no se pierde.
+      # Se reinicia pasta antes: con recreates, no bindea puertos nuevos.
       - name: Recreate servicios
         run: |
           set -euo pipefail
           cd "$PROD_DIR"
           set -a; source .env.prod; set +a
           podman-compose -f prod.compose.yml down
+          pkill -f "[p]asta --config-net" || true
+          sleep 3
           podman-compose -f prod.compose.yml up -d
 
       - name: Verificación post
