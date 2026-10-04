@@ -27,4 +27,7 @@ jobs:
         run: ruff check .
 
       - name: Tests unitarios (sin DB real)
-        run: DATABASE_URL='postgresql+psycopg://x:x@localhost:5432/soporte_test' python -m pytest tests/test_ia_unit.py -q
+        env:
+          DATABASE_URL: postgresql+psycopg://x:x@localhost:5432/soporte_test
+          JWT_SECRET: ci-dummy
+        run: python -m pytest tests/test_ia_unit.py -q
