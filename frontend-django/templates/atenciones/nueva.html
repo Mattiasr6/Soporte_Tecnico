@@ -69,11 +69,14 @@
         </select>
       </div>
       <div>
-        <label for="id_fec">Fecha (editable)</label>
+        <label for="id_fec">Fecha</label>
         <input type="date" id="id_fec" name="fecha_registro" value="{{ edit_item.fecha_registro|default:hoy }}">
       </div>
     </div>
-    <button type="submit" name="action" value="agregar" class="btn">{% if edit_idx is not None %}Guardar cambios{% else %}Agregar a la lista{% endif %}</button>
+    <div class="form-acciones">
+    <button type="submit" name="action" value="enviar" class="btn">{% if batch %}Registrar las {{ batch|length }} atenciones{% else %}Registrar la atención{% endif %}</button>
+    <button type="submit" name="action" value="agregar" class="{% if edit_idx is not None %}btn{% else %}link-btn{% endif %}">{% if edit_idx is not None %}Guardar cambios{% else %}Agregar a la lista{% endif %}</button>
+    </div>
   </form>
   {% if edit_idx is not None %}
   <form method="post" id="form-cancel">
@@ -96,13 +99,6 @@
   {% empty %}
   <p class="sub">Todavía no agregaste ninguna atención.</p>
   {% endfor %}
-  {% if batch %}
-  <form method="post">
-    {% csrf_token %}
-    <button type="submit" name="action" value="enviar" class="btn">{% if batch|length == 1 %}Registrar la atención{% else %}Registrar las {{ batch|length }} atenciones{% endif %}</button>
-  </form>
-  {% endif %}
-
   <h2>Atenciones recientes</h2>
   {% for a in recientes %}
   <div class="reciente">

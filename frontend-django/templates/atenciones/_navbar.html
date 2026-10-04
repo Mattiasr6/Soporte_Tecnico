@@ -8,10 +8,11 @@
       <div class="side-toprow">
         <a class="side-brand" href="{% url 'inicio' %}" aria-label="Ir al inicio">
           <span class="brand-mark">◉</span>
-          <span class="side-brand-copy"><b>Soporte Técnico</b><small>UPDS · Django</small></span>
+          <span class="side-brand-copy"><b>Soporte Técnico</b><small>UPDS</small></span>
         </a>
         <button class="side-collapse" type="button" data-navbar-collapse aria-label="Contraer menú" aria-expanded="true">
-          <iconify-icon icon="mdi:menu" aria-hidden="true"></iconify-icon>
+          <iconify-icon class="icon-menu" icon="mdi:menu" aria-hidden="true"></iconify-icon>
+          <iconify-icon class="icon-close" icon="mdi:close" aria-hidden="true"></iconify-icon>
         </button>
       </div>
       {% if can_dashboard and not es_auxiliar %}
@@ -76,9 +77,8 @@
       </a>
       <a class="side-link{% if nav_page == 'notas' %} active{% endif %}" href="{% url 'notas' %}" {% if nav_page == 'notas' %}aria-current="page"{% endif %} data-nav-page="notas">
         <iconify-icon icon="mdi:notebook-outline" aria-hidden="true"></iconify-icon>
-        <span class="side-link-label">Bloc de notas</span>
-      </a>
-      <div class="mock-note">Sistema y notas: solo visual por ahora (S10).</div>
+          <span class="side-link-label">Bloc de notas</span>
+        </a>
       </div>
       <div class="sistema-panel" data-sistema-panel="AUXILIARES"{% if sistema != 'AUXILIARES' %} hidden{% endif %}>
         <a class="side-link{% if nav_page == 'laboratorios' %} active{% endif %}" href="{% url 'lab_lista' %}" {% if nav_page == 'laboratorios' %}aria-current="page"{% endif %} data-nav-page="laboratorios">

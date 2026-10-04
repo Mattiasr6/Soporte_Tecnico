@@ -75,6 +75,9 @@
   padding: 6px;
   border-radius: 6px;
 }
+.side-collapse .icon-close {
+  display: none;
+}
 .context-toggle {
   display: flex;
   gap: 6px;
@@ -270,6 +273,17 @@ body.nav-collapsed .soon-panel {
   white-space: nowrap;
   margin-top: 0;
 }
+.page-head .btn-claro {
+  margin-top: 0;
+  white-space: nowrap;
+}
+.page-head-acciones {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
 .content.with-nav {
   margin-left: 272px;
 }
@@ -292,6 +306,11 @@ body.nav-collapsed .side-link small {
 body.nav-collapsed .side-link {
   justify-content: center;
 }
+body.nav-collapsed .side-footer {
+  flex-direction: column;
+  justify-content: center;
+  padding: 12px 6px;
+}
 @media (max-width: 899px) {
   .nav-mobile-toggle {
     display: block;
@@ -312,5 +331,34 @@ body.nav-collapsed .side-link {
   body.nav-collapsed .sidebar {
     width: 272px;
     min-width: 272px;
+  }
+  /* En móvil el colapsado de desktop no aplica: drawer siempre completo */
+  body.nav-collapsed .side-brand-copy,
+  body.nav-collapsed .side-user-main,
+  body.nav-collapsed .context-toggle {
+    display: flex;
+  }
+  body.nav-collapsed .side-link-label,
+  body.nav-collapsed .side-link small {
+    display: initial;
+  }
+  body.nav-collapsed .nav-section,
+  body.nav-collapsed .mock-note,
+  body.nav-collapsed .soon-panel {
+    display: block;
+  }
+  body.nav-collapsed .side-link {
+    justify-content: flex-start;
+  }
+  body.nav-open .nav-mobile-toggle {
+    display: none !important;
+    visibility: hidden;
+    pointer-events: none;
+  }
+  .side-collapse .icon-menu {
+    display: none;
+  }
+  .side-collapse .icon-close {
+    display: block;
   }
 }

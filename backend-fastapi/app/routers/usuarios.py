@@ -18,6 +18,8 @@ from app.schemas.usuario import (
     EstadoIn,
     NotasIn,
     NotasOut,
+    PasswordResetIn,
+    RolIn,
     SesionIn,
     UsuarioCreateIn,
     UsuarioOut,
@@ -201,6 +203,47 @@ def cambiar_activo(usuario_id: int, dto: ActivoIn, db: DbSession, user: CurrentU
         estado_actual=target.estado_actual,
         activo=target.activo,
     )
+
+
+@router.patch("/{usuario_id}/rol", response_model=UsuarioOut)
+def cambiar_rol(usuario_id: int, dto: RolIn, db: DbSession, user: CurrentUser):
+    if not is_privileged(user):
+        raise forbidden("Solo Jefe puede gestionar usuarios")
+    if usuario_id == user.id:
+        raise bad_request("No puedes cambiar tu propio rol")
+    if dto.role not in ROLES_VALIDOS:
+        raise bad_request("Rol inválido. Use: Tecnico, Jefe, Auxiliar")
+    target = db.get(Usuario, usuario_id)
+    if target is None:
+        raise not_found("Usuario no encontrado")
+    target.role = dto.role
+    target.updated_at = datetime.now(UTC)
+    db.commit()
+    db.refresh(target)
+    return UsuarioOut(
+        id=target.id,
+        display_name=target.display_name,
+        especialidad=target.especialidad,
+        role=target.role,
+        estado_actual=target.estado_actual,
+        activo=target.activo,
+    )
+
+
+@router.post("/{usuario_id}/reset-password", status_code=204)
+def reset_password(usuario_id: int, dto: PasswordResetIn, db: DbSession, user: CurrentUser):
+    if not is_privileged(user):
+        raise forbidden("Solo Jefe puede gestionar usuarios")
+    if len(dto.password) < MINIMO_PASSWORD:
+        raise bad_request(
+            f"La contraseña necesita al menos {MINIMO_PASSWORD} caracteres"
+        )
+    target = db.get(Usuario, usuario_id)
+    if target is None:
+        raise not_found("Usuario no encontrado")
+    target.password_hash = bcrypt.hashpw(dto.password.encode(), bcrypt.gensalt()).decode()
+    target.updated_at = datetime.now(UTC)
+    db.commit()
 
 
 @router.patch("/{usuario_id}/especialidad", status_code=204)
