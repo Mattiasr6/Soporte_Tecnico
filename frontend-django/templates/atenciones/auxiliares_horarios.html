@@ -211,17 +211,17 @@
         });
       });
       chT.setOption({
-        grid:{left:0,right:64,top:8,bottom:22,containLabel:true},
+        grid:{left:0,right:MOVIL?10:64,top:8,bottom:22,containLabel:true},
         textStyle:{color:TEXTO,fontSize:FS},
         tooltip:{trigger:'item',formatter:function(p){var d=p.data;return d.nombre+": <b>"+d.ini+"–"+d.fin+"</b> · "+d.n+" aux.";}},
-        xAxis:{type:'value',min:0,max:24,interval:2,axisLabel:{color:GRIS,fontSize:FSX,formatter:'{value}h'}},
+        xAxis:{type:'value',min:5,max:24,interval:MOVIL?4:2,axisLabel:{color:GRIS,fontSize:FSX,formatter:'{value}h'}},
         yAxis:{type:'category',data:inv.map(function(t){return NOMBRE[t]||t;}),axisLabel:{color:TEXTO,fontSize:FS}},
         series:[{type:'custom',data:datos,renderItem:function(params,api){
           var d=datos[params.dataIndex];
           var a=api.coord([d.desde,d.turno]),b=api.coord([d.hasta,d.turno]);
           var alt=api.size([0,1])[1]*0.52;
           return {type:'rect',shape:{x:a[0],y:a[1]-alt/2,width:Math.max(b[0]-a[0],1),height:alt},style:{fill:VERDE}};
-        },label:{show:true,position:'right',color:TEXTO,fontSize:11,formatter:function(p){return p.data.etiqueta;}}}]
+        },label:{show:!MOVIL,position:'right',color:TEXTO,fontSize:11,formatter:function(p){return p.data.etiqueta;}}}]
       },true);
       var cob=[];
       for(var h=0;h<24;h++){var c={n:0,turnos:[]};ORDEN.forEach(function(t){var d=P[t];if(!d)return;if(cubre(segmentos(aDec(d.ini),aDec(d.fin)),h)){c.n+=d.n;c.turnos.push((NOMBRE[t]||t)+" ("+d.n+")");}});cob.push(c);}
@@ -229,9 +229,9 @@
         grid:{left:0,right:8,top:8,bottom:22,containLabel:true},
         textStyle:{color:TEXTO,fontSize:FS},
         tooltip:{trigger:'axis',axisPointer:{type:'shadow'},formatter:function(ps){var h=+ps[0].name,c=cob[h];var s="<b>"+ps[0].name+"h</b>: "+c.n+" aux.";if(c.turnos.length)s+="<br/>"+c.turnos.join("<br/>");return s;}},
-        xAxis:{type:'category',data:cob.map(function(_,h){return hh(h);}),axisLabel:{color:GRIS,fontSize:FSX,interval:MOVIL?2:1}},
+        xAxis:{type:'category',data:cob.map(function(_,h){return h;}).filter(function(h){return h>=5;}).map(function(h){return hh(h);}),axisLabel:{color:GRIS,fontSize:FSX,interval:MOVIL?3:1}},
         yAxis:{type:'value',min:0,axisLabel:{color:GRIS,fontSize:10},splitLine:{lineStyle:{color:"#e7ece9"}}},
-        series:[{type:'bar',barWidth:'70%',data:cob.map(function(c){return {value:c.n,itemStyle:{color:c.n<2?ROJO:VERDE}};}),label:{show:true,position:'top',color:TEXTO,fontSize:9}}]
+        series:[{type:'bar',barWidth:'70%',data:cob.map(function(c,h){return {h:h,value:c.n,itemStyle:{color:c.n<2?ROJO:VERDE}};}).filter(function(o){return o.h>=5;}),label:{show:!MOVIL,position:'top',color:TEXTO,fontSize:9}}]
       },true);
       if(elR){
         var brechas=[],pico={n:-1,h:0};

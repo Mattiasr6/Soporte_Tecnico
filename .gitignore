@@ -7,6 +7,8 @@ backend-fastapi/chroma_db/
 backend-fastapi/.env
 backend-fastapi/.venv
 backend-fastapi/.venv/
+# Nómina y horarios reales: datos sensibles, viven en volumen/backups, jamás en git
+backend-fastapi/data/*.json
 # Backend (.NET / C#)
 backups/*.dump
 backups/*.sql

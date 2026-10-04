@@ -22,6 +22,7 @@ from app.schemas.atencion import PorCategoria, PorMes
 from app.schemas.laboratorio import (
     AuxiliarCreate,
     AuxiliarEntry,
+    EncargadoIn,
     EquipoOut,
     EquipoReplace,
     LabAtencionCreate,
@@ -55,6 +56,17 @@ CSV_HEADER = "id,laboratorio,categoria,auxiliar,turno,medio,descripcion,fecha_re
 def _solo_jefe(user: Usuario) -> None:
     if not is_privileged(user):
         raise forbidden("Solo un jefe puede gestionar laboratorios")
+
+
+def _lectura_amplia(user: Usuario) -> bool:
+    """Jefe o Encargado: lectura de equipo completo, sin escritura."""
+    return is_privileged(user) or user.role == "Encargado"
+
+
+def _gestiona_equipo(user: Usuario) -> None:
+    """Jefe o Encargado: nómina y horarios. El resto sigue siendo de Jefe."""
+    if not is_privileged(user) and user.role != "Encargado":
+        raise forbidden("Solo Jefe o Encargado puede gestionar el equipo")
 
 
 def _horario_del_mes(db: DbSession, usuario_id: int) -> Horario | None:
@@ -218,6 +230,7 @@ def _equipo() -> list[dict[str, Any]]:
                 {
                     "nombre": str(item["nombre"]).strip(),
                     "activo": bool(item.get("activo", True)),
+                    "encargado": bool(item.get("encargado", False)),
                 }
             )
     return out
@@ -270,7 +283,7 @@ def get_equipo(db: DbSession, user: CurrentUser, turno: str | None = None) -> Eq
 
 @router.post("/equipo", response_model=AuxiliarEntry)
 def add_auxiliar(dto: AuxiliarCreate, db: DbSession, user: CurrentUser):
-    _solo_jefe(user)
+    _gestiona_equipo(user)
     del db
     nombre = dto.nombre.strip()
     if not nombre:
@@ -278,14 +291,14 @@ def add_auxiliar(dto: AuxiliarCreate, db: DbSession, user: CurrentUser):
     miembros = _equipo()
     if any(m["nombre"].lower() == nombre.lower() for m in miembros):
         raise bad_request(f"Auxiliar '{nombre}' ya existe")
-    miembros.append({"nombre": nombre, "activo": True})
+    miembros.append({"nombre": nombre, "activo": True, "encargado": False})
     _write_json(_EQUIPO_FILE, {"auxiliares": miembros})
-    return AuxiliarEntry(nombre=nombre, activo=True)
+    return AuxiliarEntry(nombre=nombre, activo=True, encargado=False)
 
 
 @router.put("/equipo", response_model=EquipoOut)
 def replace_equipo(dto: EquipoReplace, db: DbSession, user: CurrentUser):
-    _solo_jefe(user)
+    _gestiona_equipo(user)
     del db
     vistos: set[str] = set()
     miembros = []
@@ -296,7 +309,25 @@ def replace_equipo(dto: EquipoReplace, db: DbSession, user: CurrentUser):
         if nombre.lower() in vistos:
             raise bad_request(f"Auxiliar '{nombre}' duplicado")
         vistos.add(nombre.lower())
-        miembros.append({"nombre": nombre, "activo": item.activo})
+        miembros.append(
+            {"nombre": nombre, "activo": item.activo, "encargado": item.encargado}
+        )
+    _write_json(_EQUIPO_FILE, {"auxiliares": miembros})
+    return EquipoOut(auxiliares=[AuxiliarEntry(**m) for m in miembros])
+
+
+@router.post("/equipo/encargado", response_model=EquipoOut)
+def set_encargado(dto: EncargadoIn, db: DbSession, user: CurrentUser):
+    _gestiona_equipo(user)
+    del db
+    nombre = dto.nombre.strip()
+    miembros = _equipo()
+    for m in miembros:
+        if m["nombre"].lower() == nombre.lower():
+            m["encargado"] = dto.encargado
+            break
+    else:
+        raise not_found(f"Auxiliar '{nombre}' no existe")
     _write_json(_EQUIPO_FILE, {"auxiliares": miembros})
     return EquipoOut(auxiliares=[AuxiliarEntry(**m) for m in miembros])
 
@@ -317,7 +348,7 @@ def get_horarios_conteo(db: DbSession, user: CurrentUser) -> dict[str, int]:
 def put_horarios(
     payload: dict[str, TurnoHorario], db: DbSession, user: CurrentUser
 ) -> dict[str, dict[str, Any]]:
-    _solo_jefe(user)
+    _gestiona_equipo(user)
     del db
     if set(payload) != set(TURNOS):
         raise bad_request(f"Se esperan los turnos: {', '.join(TURNOS)}")
@@ -473,8 +504,10 @@ def create_lab_atencion(dto: LabAtencionCreate, db: DbSession, user: CurrentUser
         raise bad_request("Descripcion y solucion son obligatorias")
     aux_nombre = dto.auxiliar_nombre.strip() or user.display_name
     nomina = {_norm_nb(m["nombre"]) for m in _equipo()}
-    if _norm_nb(aux_nombre) not in nomina:
-        raise bad_request(f"Auxiliar '{dto.auxiliar_nombre.strip()}' no esta en la nomina")
+    partes = [p.strip() for p in aux_nombre.split("+") if p.strip()] or [aux_nombre]
+    for p in partes:
+        if _norm_nb(p) not in nomina:
+            raise bad_request(f"Auxiliar '{p}' no esta en la nomina")
     now = datetime.now(UTC)
     dup = db.scalar(
         select(LabAtencion).where(
@@ -498,7 +531,7 @@ def create_lab_atencion(dto: LabAtencionCreate, db: DbSession, user: CurrentUser
         descripcion=descripcion,
         solucion=solucion,
         observaciones=dto.observaciones,
-        fuera_de_turno=_fuera_de_turno_lab(aux_nombre, turno_val),
+        fuera_de_turno=any(_fuera_de_turno_lab(p, turno_val) for p in partes),
         fecha_registro=dto.fecha_registro or now.date(),
         created_at=now,
     )
@@ -516,7 +549,7 @@ def get_lab_atenciones(
     laboratorio_id: int | None = None,
 ):
     q = select(LabAtencion)
-    if is_privileged(user):
+    if _lectura_amplia(user):
         if usuario_id is not None:
             q = q.where(LabAtencion.usuario_id == usuario_id)
     else:
@@ -539,7 +572,8 @@ def get_lab_atencion(atencion_id: int, db: DbSession, user: CurrentUser):
     row = db.get(LabAtencion, atencion_id)
     if row is None:
         raise not_found("Atencion no encontrada")
-    _dueño_o_jefe(row, user)
+    if row.usuario_id != user.id and not _lectura_amplia(user):
+        raise forbidden("Solo el dueño, un encargado o un jefe puede ver la atencion")
     return _serializar(db, [row])[0]
 
 
@@ -600,7 +634,7 @@ def get_lab_stats(
     hasta_ym: str | None = None,
     turno: str | None = None,
 ):
-    if not is_privileged(user):
+    if not _lectura_amplia(user):
         raise unauthorized("Sin permiso")
     f = _filtros(laboratorio_id, desde_ym, hasta_ym, turno)
     total = db.scalar(select(func.count()).select_from(LabAtencion).where(*f)) or 0
@@ -703,7 +737,7 @@ def export_lab_csv(
     hasta_ym: str | None = None,
     turno: str | None = None,
 ):
-    if not is_privileged(user):
+    if not _lectura_amplia(user):
         raise unauthorized("Sin permiso")
     f = _filtros(laboratorio_id, desde_ym, hasta_ym, turno)
     rows = db.scalars(

@@ -59,7 +59,11 @@ def sesion(request):
     rol = (usuario or {}).get("role", "")
     can_dashboard = rol == "Jefe" or bool((usuario or {}).get("can_view_dashboard"))
     es_auxiliar = rol == "Auxiliar"
-    if pagina in ("auxiliares", "auxiliares_horarios", "laboratorios", "lab_dashboard"):
+    es_encargado = rol == "Encargado"
+    # OJO: matchear sobre url_name (lab_lista, lab_nueva...), NO sobre pagina
+    # mapeada ("laboratorios" no empieza con lab_ y rompe el sistema).
+    _es_lab = (url_name or "").startswith("lab_")
+    if pagina in ("auxiliares", "auxiliares_horarios") or _es_lab:
         sistema = "AUXILIARES"
     elif pagina == "sugerencias" and request.session.get("sistema_panel") in ("SOPORTE", "AUXILIARES"):
         sistema = request.session["sistema_panel"]
@@ -70,6 +74,7 @@ def sesion(request):
         "nav_page": pagina,
         "can_dashboard": can_dashboard,
         "es_auxiliar": es_auxiliar,
+        "es_encargado": es_encargado,
         "sistema": sistema,
         "asset_version": asset_version(),
     }

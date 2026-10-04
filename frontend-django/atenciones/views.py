@@ -50,7 +50,9 @@ def _rol(request: HttpRequest) -> str:
 
 
 def _es_auxiliar(request: HttpRequest) -> bool:
-    return _rol(request) == "Auxiliar"
+    # Auxiliar y Encargado viven en el panel AUXILIARES. El Encargado solo
+    # suma dashboard/reportes de labs (ver _es_encargado en views_lab).
+    return _rol(request) in ("Auxiliar", "Encargado")
 
 
 def _puede_dashboard(request: HttpRequest) -> bool:
@@ -377,7 +379,7 @@ def auxiliares_vista(request: HttpRequest) -> HttpResponse:
     if not (_es_auxiliar(request) or _puede_dashboard(request)):
         return redirect("atenciones_lista")
     token = str(request.session["jwt"])
-    es_jefe = _puede_dashboard(request)
+    es_jefe = _puede_dashboard(request) or _rol(request) == "Encargado"
     error = ""
     if request.method == "POST" and es_jefe:
         action = request.POST.get("action", "")
@@ -397,11 +399,24 @@ def auxiliares_vista(request: HttpRequest) -> HttpResponse:
                     else []
                 )
                 resto = [
-                    {"nombre": m.get("nombre", ""), "activo": m.get("activo", True)}
+                    {
+                        "nombre": m.get("nombre", ""),
+                        "activo": m.get("activo", True),
+                        "encargado": m.get("encargado", False),
+                    }
                     for m in miembros
                     if str(m.get("nombre", "")).strip().lower() != nombre
                 ]
                 api_put("/api/laboratorios/equipo", token, {"auxiliares": resto})
+            elif action == "aux_encargado":
+                api_post(
+                    "/api/laboratorios/equipo/encargado",
+                    token,
+                    {
+                        "nombre": request.POST.get("nombre", ""),
+                        "encargado": request.POST.get("encargado", "") == "1",
+                    },
+                )
             else:
                 error = "Acción desconocida."
         except ApiError as e:
@@ -462,7 +477,7 @@ def auxiliares_horarios_vista(request: HttpRequest) -> HttpResponse:
     if not (_es_auxiliar(request) or _puede_dashboard(request)):
         return redirect("atenciones_lista")
     token = str(request.session["jwt"])
-    es_jefe = _puede_dashboard(request)
+    es_jefe = _puede_dashboard(request) or _rol(request) == "Encargado"
     error = ""
     if request.method == "POST" and es_jefe:
         try:
@@ -1545,7 +1560,7 @@ def usuarios_vista(request: HttpRequest) -> HttpResponse:
         {
             "activos": [u for u in lista if u.get("activo")],
             "inactivos": [u for u in lista if not u.get("activo")],
-            "roles": ["Tecnico", "Jefe", "Auxiliar"],
+            "roles": ["Tecnico", "Jefe", "Auxiliar", "Encargado"],
             "mi_id": sesion.get("id"),
             "flash": request.session.pop("flash", None),
             "detalle": request.GET.get("detalle", ""),

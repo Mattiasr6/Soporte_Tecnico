@@ -19,15 +19,24 @@
     <tbody>
       {% for m in equipo %}
       <tr>
-        <td>{{ m.nombre }}</td>
+        <td>{{ m.nombre }}{% if m.encargado %} <span class="badge-turno">★ Encargado</span>{% endif %}</td>
         <td>{% if m.activo %}Activo{% else %}Inactivo{% endif %}</td>
         {% if es_jefe %}
         <td>
+          <span class="acciones-fila">
           <form method="post" style="display:inline">
             {% csrf_token %}
             <input type="hidden" name="nombre" value="{{ m.nombre }}">
-            <button type="submit" name="action" value="aux_quitar" title="Quitar" onclick="return confirm('¿Quitar a {{ m.nombre }} de la nómina?')">×</button>
+            <input type="hidden" name="action" value="aux_encargado">
+            <input type="hidden" name="encargado" value="{% if m.encargado %}0{% else %}1{% endif %}">
+            <button type="submit" class="btn-icono" title="{% if m.encargado %}Quitar encargado{% else %}Marcar encargado{% endif %}">{% if m.encargado %}☆{% else %}★{% endif %}</button>
           </form>
+          <form method="post" style="display:inline">
+            {% csrf_token %}
+            <input type="hidden" name="nombre" value="{{ m.nombre }}">
+            <button type="submit" name="action" value="aux_quitar" class="btn-icono" title="Quitar" onclick="return confirm('¿Quitar a {{ m.nombre }} de la nómina?')">×</button>
+          </form>
+          </span>
         </td>
         {% endif %}
       </tr>

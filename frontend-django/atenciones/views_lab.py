@@ -31,6 +31,11 @@ def _puede_reportes(request: HttpRequest) -> bool:
     return _rol(request) == "Jefe" or bool(usuario.get("can_view_dashboard"))
 
 
+def _es_encargado(request: HttpRequest) -> bool:
+    usuario = request.session.get("usuario") or {}
+    return str(usuario.get("role", "")) == "Encargado"
+
+
 def _hoy_iso() -> str:
     return _dt.datetime.now(_dt.UTC).date().isoformat()
 
@@ -103,6 +108,18 @@ def _medio_o_default(valor: object) -> str:
     return texto if texto in MEDIOS else "Presencial"
 
 
+def _combinar_auxiliares(primero: object, extras: object) -> str:
+    vistos: list[str] = []
+    candidatos = [primero] + (
+        list(extras) if isinstance(extras, (list, tuple)) else [extras]
+    )
+    for c in candidatos:
+        nombre = str(c or "").strip()
+        if nombre and nombre.lower() not in [v.lower() for v in vistos]:
+            vistos.append(nombre)
+    return " + ".join(vistos)
+
+
 @con_login
 def lab_lista_vista(request: HttpRequest) -> HttpResponse:
     token = str(request.session["jwt"])
@@ -125,6 +142,43 @@ def lab_lista_vista(request: HttpRequest) -> HttpResponse:
     )
 
 
+def _item_lab_desde_post(post: dict[str, object]) -> tuple[dict[str, object] | None, str]:
+    lab_id = str(post.get("laboratorio_id", "")).strip()
+    categoria = str(post.get("categoria", "")).strip()
+    descripcion = str(post.get("descripcion", "")).strip()
+    solucion = str(post.get("solucion", "")).strip()
+    if not lab_id:
+        return None, "Elige un laboratorio."
+    if not categoria:
+        return None, "Elige una categoría."
+    if not descripcion or not solucion:
+        return None, "Faltan descripción o solución."
+    try:
+        lab_id_int = int(lab_id)
+    except ValueError:
+        return None, "Laboratorio inválido."
+    _getlist = getattr(post, "getlist", None)
+    extras = (
+        _getlist("auxiliar_extra")
+        if callable(_getlist)
+        else post.get("auxiliar_extra", [])
+    )
+    return {
+        "laboratorio_id": lab_id_int,
+        "categoria": categoria,
+        "auxiliar_nombre": _combinar_auxiliares(
+            post.get("auxiliar_nombre", ""),
+            extras,
+        ),
+        "turno": _turno_o_none(post.get("turno")),
+        "medio_solicitud": _medio_o_default(post.get("medio_solicitud")),
+        "descripcion": descripcion,
+        "solucion": solucion,
+        "observaciones": post.get("observaciones") or None,
+        "fecha_registro": str(post.get("fecha_registro") or _hoy_iso()),
+    }, ""
+
+
 @con_login
 def lab_nueva_vista(request: HttpRequest) -> HttpResponse:
     token = str(request.session["jwt"])
@@ -137,44 +191,19 @@ def lab_nueva_vista(request: HttpRequest) -> HttpResponse:
     if request.method == "POST":
         action = request.POST.get("action")
         if action == "agregar":
-            lab_id = request.POST.get("laboratorio_id", "").strip()
-            categoria = request.POST.get("categoria", "").strip()
-            descripcion = request.POST.get("descripcion", "").strip()
-            solucion = request.POST.get("solucion", "").strip()
-            if not lab_id:
-                error = "Elige un laboratorio."
-            elif not categoria:
-                error = "Elige una categoría."
-            elif not descripcion or not solucion:
-                error = "Faltan descripción o solución."
-            else:
-                try:
-                    lab_id_int = int(lab_id)
-                except ValueError:
-                    error = "Laboratorio inválido."
+            item, error = _item_lab_desde_post(request.POST)
+            if not error and item is not None:
+                if edit_idx is not None:
+                    batch[edit_idx] = item
+                    request.session.pop("lab_edit_idx", None)
+                    edit_idx = None
                 else:
-                    item = {
-                        "laboratorio_id": lab_id_int,
-                        "categoria": categoria,
-                        "auxiliar_nombre": request.POST.get("auxiliar_nombre", "").strip(),
-                        "turno": _turno_o_none(request.POST.get("turno")),
-                        "medio_solicitud": _medio_o_default(
-                            request.POST.get("medio_solicitud")
-                        ),
-                        "descripcion": descripcion,
-                        "solucion": solucion,
-                        "observaciones": request.POST.get("observaciones") or None,
-                        "fecha_registro": request.POST.get("fecha_registro")
-                        or _hoy_iso(),
-                    }
-                    if edit_idx is not None:
-                        batch[edit_idx] = item
-                        request.session.pop("lab_edit_idx", None)
-                        edit_idx = None
-                    else:
-                        batch.append(item)
-                    request.session["lab_batch"] = batch
-                    return redirect("lab_nueva")
+                    batch.append(item)
+                request.session["lab_batch"] = batch
+                return redirect("lab_nueva")
+            if edit_idx is not None and not error:
+                request.session["lab_batch"] = batch
+                return redirect("lab_nueva")
         elif action == "editar":
             try:
                 idx = int(request.POST.get("idx", "-1"))
@@ -197,10 +226,16 @@ def lab_nueva_vista(request: HttpRequest) -> HttpResponse:
             request.session["lab_batch"] = batch
             return redirect("lab_nueva")
         elif action == "enviar":
-            if not batch:
-                error = "Lista vacía."
+            a_enviar = batch
+            if not a_enviar and edit_idx is None:
+                directo, error = _item_lab_desde_post(request.POST)
+                if directo is not None:
+                    a_enviar = [directo]
+            if not a_enviar:
+                if not error:
+                    error = "Lista vacía."
             else:
-                for item in batch:
+                for item in a_enviar:
                     try:
                         api_post("/api/laboratorios/atenciones", token, item)
                     except ApiError as e:
@@ -209,11 +244,21 @@ def lab_nueva_vista(request: HttpRequest) -> HttpResponse:
                 else:
                     request.session["lab_batch"] = []
                     request.session.pop("lab_edit_idx", None)
-                    _flash(request, "ok", f"{len(batch)} atención(es) de laboratorio registrada(s)")
+                    _flash(request, "ok", f"{len(a_enviar)} atención(es) de laboratorio registrada(s)")
                     return redirect("lab_lista")
         else:
             error = error or "No se recibió la acción. Recargá y reintentá."
     cards = _cards(token)
+    edit_item = batch[edit_idx] if edit_idx is not None else None
+    aux1, aux_extras = "", []
+    if isinstance(edit_item, dict):
+        _partes = [
+            p.strip()
+            for p in str(edit_item.get("auxiliar_nombre", "")).split("+")
+        ]
+        _partes = [p for p in _partes if p]
+        aux1 = _partes[0] if _partes else ""
+        aux_extras = _partes[1:]
     return render(
         request,
         "atenciones/laboratorios_nueva.html",
@@ -224,7 +269,9 @@ def lab_nueva_vista(request: HttpRequest) -> HttpResponse:
             "batch": batch,
             "error": error,
             "hoy": _hoy_iso(),
-            "edit_item": batch[edit_idx] if edit_idx is not None else None,
+            "edit_item": edit_item,
+            "aux1": aux1,
+            "aux_extras": aux_extras,
             "edit_idx": edit_idx,
             "turnos": TURNOS,
             "medios": MEDIOS,
@@ -324,7 +371,7 @@ def _params_lab(request: HttpRequest) -> dict[str, str]:
 
 @con_login
 def lab_reportes_vista(request: HttpRequest) -> HttpResponse:
-    if not _puede_reportes(request):
+    if not (_puede_reportes(request) or _es_encargado(request)):
         return redirect("lab_lista")
     token = str(request.session["jwt"])
     params = _params_lab(request)
@@ -420,7 +467,7 @@ def _payload_lab_dashboard(
 
 @con_login
 def lab_dashboard_vista(request: HttpRequest) -> HttpResponse:
-    if not _puede_reportes(request):
+    if not (_puede_reportes(request) or _es_encargado(request)):
         return redirect("lab_lista")
     token = str(request.session["jwt"])
     mes = request.GET.get("mes", "").strip()
@@ -514,7 +561,7 @@ def lab_dashboard_vista(request: HttpRequest) -> HttpResponse:
 
 @con_login
 def lab_export_csv_vista(request: HttpRequest) -> HttpResponse:
-    if not _puede_reportes(request):
+    if not (_puede_reportes(request) or _es_encargado(request)):
         return redirect("lab_lista")
     token = str(request.session["jwt"])
     res = requests.get(

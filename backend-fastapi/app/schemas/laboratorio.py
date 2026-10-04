@@ -148,6 +148,7 @@ class LabStatsOut(BaseModel):
 class AuxiliarEntry(BaseModel):
     nombre: str
     activo: bool = True
+    encargado: bool = False
 
 
 class AuxiliarCreate(BaseModel):
@@ -160,6 +161,11 @@ class EquipoOut(BaseModel):
 
 class EquipoReplace(BaseModel):
     auxiliares: list[AuxiliarEntry] = []
+
+
+class EncargadoIn(BaseModel):
+    nombre: str
+    encargado: bool = True
 
 
 class TurnoHorario(BaseModel):

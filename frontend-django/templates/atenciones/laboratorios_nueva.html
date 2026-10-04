@@ -34,9 +34,42 @@
       <option value="{{ t }}"{% if edit_item.turno == t %} selected{% endif %}>{{ t|capfirst }}</option>
       {% endfor %}
     </select>
-    <label for="id_aux">Auxiliar</label>
-    <input type="text" id="id_aux" name="auxiliar_nombre" list="aux-sugerencias" value="{{ edit_item.auxiliar_nombre|default:"" }}" placeholder="Elegí turno y escribí para filtrar" autocomplete="off">
+    <label for="id_aux">Auxiliar(es)</label>
+    <input type="text" id="id_aux" name="auxiliar_nombre" list="aux-sugerencias" value="{{ aux1 }}" placeholder="Elegí turno y escribí para filtrar" autocomplete="off">
     <datalist id="aux-sugerencias"></datalist>
+    <div id="aux-extras">
+      {% for a in aux_extras %}<div class="aux-extra"><input type="text" name="auxiliar_extra" list="aux-sugerencias" value="{{ a }}" autocomplete="off"><button type="button" class="link-btn aux-quitar">Quitar</button></div>{% endfor %}
+    </div>
+    <p><button type="button" class="link-btn" id="aux-agregar">+ Agregar otro auxiliar</button></p>
+    <script>(function(){
+      var cont=document.getElementById('aux-extras');
+      var btn=document.getElementById('aux-agregar');
+      if(!cont||!btn)return;
+      function actuales(){
+        var vals=[];
+        document.querySelectorAll('input[name="auxiliar_nombre"],input[name="auxiliar_extra"]').forEach(function(i){
+          var v=i.value.trim().toLowerCase();if(v)vals.push(v);
+        });
+        return vals;
+      }
+      btn.addEventListener('click',function(){
+        var div=document.createElement('div');div.className='aux-extra';
+        var inp=document.createElement('input');
+        inp.type='text';inp.name='auxiliar_extra';inp.setAttribute('list','aux-sugerencias');
+        inp.placeholder='Otro auxiliar';inp.autocomplete='off';
+        inp.addEventListener('change',function(){
+          var v=inp.value.trim().toLowerCase();
+          if(v&&actuales().filter(function(x){return x===v;}).length>1){inp.value='';inp.placeholder='Ya está en la lista';}
+        });
+        var q=document.createElement('button');q.type='button';q.className='link-btn aux-quitar';q.textContent='Quitar';
+        q.addEventListener('click',function(){div.remove();});
+        div.appendChild(inp);div.appendChild(q);cont.appendChild(div);
+        inp.focus();
+      });
+      cont.addEventListener('click',function(e){
+        if(e.target&&e.target.classList.contains('aux-quitar'))e.target.closest('.aux-extra').remove();
+      });
+    })();</script>
     <p id="aux-fuera" class="sub" hidden style="color:var(--color-gold, #8a6d1b)">Fuera de su turno — quedará marcada así.</p>
     <script id="sug-data" type="application/json">{{ sugerencias_json|safe }}</script>
     <script>(function(){var sug=JSON.parse(document.getElementById('sug-data').textContent||'{}');var turno=document.getElementById('id_turno');var input=document.getElementById('id_aux');var list=document.getElementById('aux-sugerencias');var aviso=document.getElementById('aux-fuera');var todos=[];Object.keys(sug).forEach(function(k){(sug[k]||[]).forEach(function(n){if(todos.indexOf(n)<0)todos.push(n);});});function norm(s){return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');}function upd(){var t=turno.value;var delTurno=t&&sug[t]?sug[t]:[];var resto=todos.filter(function(n){return delTurno.indexOf(n)<0;});var nombres=delTurno.concat(resto);list.innerHTML=[...new Set(nombres)].map(function(n){return '<option value="'+n.replace(/"/g,'&quot;')+'">';}).join('');check();}function check(){var t=turno.value;var v=input.value.trim();var enTurno=t&&sug[t]&&sug[t].some(function(n){return norm(n)===norm(v);});aviso.hidden=!(t&&v&&!enTurno);}turno.addEventListener('change',upd);input.addEventListener('input',check);upd();})();</script>
@@ -51,9 +84,12 @@
       </div>
     </div>
     <script>(function(){var tick=document.getElementById('tick_obs'),wrap=document.getElementById('wrap_obs');if(!tick||!wrap)return;function sync(){wrap.hidden=!tick.checked;wrap.querySelectorAll('input').forEach(function(i){i.disabled=!tick.checked;});}tick.addEventListener('change',sync);sync();})();</script>
-    <label for="id_fec">Fecha (editable)</label>
+    <label for="id_fec">Fecha</label>
     <input type="date" id="id_fec" name="fecha_registro" value="{{ edit_item.fecha_registro|default:hoy }}">
-    <button type="submit" name="action" value="agregar" class="btn">{% if edit_idx is not None %}Guardar cambios{% else %}Agregar a la lista{% endif %}</button>
+    <div class="form-acciones">
+    <button type="submit" name="action" value="enviar" class="btn" data-submit-guard>{% if batch %}Registrar las {{ batch|length }} atenciones{% else %}Registrar la atención{% endif %}</button>
+    <button type="submit" name="action" value="agregar" class="{% if edit_idx is not None %}btn{% else %}link-btn{% endif %}">{% if edit_idx is not None %}Guardar cambios{% else %}Agregar a la lista{% endif %}</button>
+    </div>
   </form>
   {% if edit_idx is not None %}
   <form method="post" id="form-cancel">
@@ -75,13 +111,6 @@
   {% empty %}
   <p class="sub">Todavía no agregaste ninguna atención.</p>
   {% endfor %}
-  {% if batch %}
-  <form method="post" id="form-enviar">
-    {% csrf_token %}
-    <input type="hidden" name="action" value="enviar">
-    <button type="submit" name="action" value="enviar" class="btn" data-submit-guard>{% if batch|length == 1 %}Registrar la atención{% else %}Registrar las {{ batch|length }} atenciones{% endif %}</button>
-  </form>
-  {% endif %}
 </div>
 <script>
 (function () {
