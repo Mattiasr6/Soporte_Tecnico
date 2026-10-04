@@ -61,19 +61,23 @@ jobs:
           podman-compose -f prod.compose.yml up -d db
           podman-compose -f prod.compose.yml run --rm api python -m alembic upgrade head
 
+      # down+up (no --force-recreate: deja los puertos rootless colgados).
+      # La data vive en volúmenes, no se pierde.
       - name: Recreate servicios
         run: |
           set -euo pipefail
           cd "$PROD_DIR"
           set -a; source .env.prod; set +a
-          podman-compose -f prod.compose.yml up -d --force-recreate api web pgbackup
+          podman-compose -f prod.compose.yml down
+          podman-compose -f prod.compose.yml up -d
 
       - name: Verificación post
         run: |
           set -euo pipefail
-          sleep 10
+          sleep 15
           curl -sf --max-time 15 http://127.0.0.1:5002/health
           curl -sf --max-time 15 http://127.0.0.1:8001/ -o /dev/null
+          curl -sf --max-time 25 https://soporte.visita-samaipata.me/ -o /dev/null
           set -a; source "$PROD_DIR/.env.prod"; set +a
           export PGUSER="$POSTGRES_USER" PGPASSWORD="$POSTGRES_PASSWORD"
           psql -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d soporte -tAc 'SELECT version_num FROM alembic_version;'
