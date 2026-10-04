@@ -28,7 +28,7 @@ services:
     environment:
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-soporte_dev}
     volumes:
-      - ../../backend-fastapi:/app
+      - /home/mattias/Proyectos/Soporte_Tecnico2/backend-fastapi:/app
     ports:
       - "127.0.0.1:5012:5012"
     depends_on:
@@ -43,7 +43,7 @@ services:
     environment:
       FASTAPI_URL: http://api:5012
     volumes:
-      - ../../frontend-django:/app
+      - /home/mattias/Proyectos/Soporte_Tecnico2/frontend-django:/app
     ports:
       - "8011:8011"
     depends_on: [api]
