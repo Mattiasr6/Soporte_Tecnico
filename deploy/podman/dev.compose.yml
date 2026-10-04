@@ -5,7 +5,7 @@ name: soporte-dev
 
 services:
   db:
-    image: postgres:16-alpine
+    image: docker.io/postgres:16-alpine
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
