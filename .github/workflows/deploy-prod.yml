@@ -1,8 +1,11 @@
-name: Deploy prod (manual)
+name: Deploy prod
 
 # Dev -> main -> prod: rebuild + migrate + recreate con backup previo.
-# Solo manual + tu aprobación (environment prod). Un deploy a la vez.
+# Dispara solo con push a main, pero espera tu aprobación (environment prod).
+# Un deploy a la vez.
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
 
 concurrency:
