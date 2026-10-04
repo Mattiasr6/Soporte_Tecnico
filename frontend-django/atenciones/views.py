@@ -2047,6 +2047,7 @@ def sugerencias_vista(request: HttpRequest) -> HttpResponse:
         "sugerencias": sugerencias if isinstance(sugerencias, list) else [],
         "error": error,
         "flash": request.session.pop("flash", None),
+        "texto_inicial": request.GET.get("texto", "")[:1000],
     }
     guardado = request.session.get("sistema_panel", "")
     if guardado in ("SOPORTE", "AUXILIARES"):

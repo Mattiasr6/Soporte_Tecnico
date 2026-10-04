@@ -16,7 +16,7 @@
     {% csrf_token %}
     <label for="sugerencia-texto">Tu sugerencia</label>
     <textarea id="sugerencia-texto" name="texto" rows="4" maxlength="1000" required
-              placeholder="Escribí tu sugerencia…"></textarea>
+              placeholder="Escribí tu sugerencia…">{{ texto_inicial|default:"" }}</textarea>
     <p class="sub">Máximo 1000 caracteres.</p>
     <button class="btn" type="submit">Enviar</button>
   </form>
