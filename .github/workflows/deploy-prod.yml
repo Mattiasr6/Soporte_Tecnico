@@ -53,26 +53,20 @@ jobs:
           set -a; source .env.prod; set +a
           podman-compose -f prod.compose.yml build api web
 
-      - name: Migrate (dentro de la red del compose)
-        run: |
-          set -euo pipefail
-          cd "$PROD_DIR"
-          set -a; source .env.prod; set +a
-          podman-compose -f prod.compose.yml up -d db
-          podman-compose -f prod.compose.yml run --rm api python -m alembic upgrade head
-
-      # down+up (no --force-recreate: deja los puertos rootless colgados).
-      # La data vive en volúmenes, no se pierde.
-      # Se reinicia pasta antes: con recreates, no bindea puertos nuevos.
-      - name: Recreate servicios
+      # Prod usa red del host (puertos directos, sin pasta). La data vive en volúmenes.
+      - name: Subir stack
         run: |
           set -euo pipefail
           cd "$PROD_DIR"
           set -a; source .env.prod; set +a
           podman-compose -f prod.compose.yml down
-          pkill -f "[p]asta --config-net" || true
-          sleep 3
           podman-compose -f prod.compose.yml up -d
+
+      - name: Migrate (dentro del container api, ve localhost:5433 del host)
+        run: |
+          set -euo pipefail
+          sleep 10
+          podman exec soporte-prod_api_1 python -m alembic upgrade head
 
       - name: Verificación post
         run: |
