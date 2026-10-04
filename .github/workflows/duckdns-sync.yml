@@ -1,0 +1,32 @@
+name: DuckDNS sync
+
+# Mantiene sistemas-upds.duckdns.org apuntando a la IP real de este equipo.
+# Corre AQUÍ (self-hosted) porque la IP que importa es la de egreso local.
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: duckdns
+  cancel-in-progress: true
+
+jobs:
+  sync:
+    runs-on: [self-hosted, prod, soporte]
+    steps:
+      - name: Sync IP (solo si cambió)
+        env:
+          DUCKDNS_TOKEN: ${{ secrets.DUCKDNS_TOKEN }}
+        run: |
+          set -euo pipefail
+          DOMAIN="sistemas-upds"
+          CURRENT="$(curl -s --max-time 20 ifconfig.me)"
+          DNS_IP="$(getent hosts "$DOMAIN.duckdns.org" | awk '{print $1}')"
+          if [ "$CURRENT" = "$DNS_IP" ]; then
+            echo "Sin cambios ($CURRENT)"
+            exit 0
+          fi
+          RESP="$(curl -s --max-time 20 "https://www.duckdns.org/update?domains=$DOMAIN&token=$DUCKDNS_TOKEN&ip=$CURRENT")"
+          [ "$RESP" = "OK" ]
+          echo "Actualizado: $DNS_IP -> $CURRENT"
