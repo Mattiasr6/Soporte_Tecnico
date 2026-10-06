@@ -45,6 +45,7 @@ def sesion(request):
         "lab_export_csv": "laboratorios",
         "auxiliares": "auxiliares",
         "auxiliares_horarios": "auxiliares_horarios",
+        "auxiliares_sabados": "auxiliares_horarios",
         "dashboard": "dashboard",
         "reportes": "reportes",
         "jerarquia": "jerarquia",

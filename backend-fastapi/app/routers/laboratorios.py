@@ -383,6 +383,161 @@ def put_horarios(
     return nuevo
 
 
+# ponytail: sábados por fecha, cupo 2/1/1-2 (el 5to cierra ambientes en tarde)
+SABADO_TURNOS: tuple[str, ...] = ("mañana", "mediodia", "tarde")
+
+SABADO_DEFAULTS: dict[str, dict[str, str]] = {
+    "mañana": {"inicio": "08:00", "fin": "12:00"},
+    "mediodia": {"inicio": "12:00", "fin": "16:00"},
+    "tarde": {"inicio": "14:30", "fin": "18:30"},
+}
+
+SABADO_CUPO: dict[str, tuple[int, int]] = {
+    "mañana": (2, 2),
+    "mediodia": (1, 1),
+    "tarde": (1, 2),
+}
+
+_SABADOS_FILE = _DATA_DIR / "horarios_sabados.json"
+_FECHA_RE = re.compile(r"^(\d{4})-(\d{2})-(\d{2})$")
+
+
+def _sabados() -> dict[str, dict[str, dict[str, Any]]]:
+    data = _read_json(_SABADOS_FILE, {})
+    out: dict[str, dict[str, dict[str, Any]]] = {}
+    for fecha, val in data.items():
+        if not isinstance(val, dict):
+            continue
+        bloques: dict[str, dict[str, Any]] = {}
+        for turno in SABADO_TURNOS:
+            bloque = val.get(turno)
+            if not isinstance(bloque, dict):
+                continue
+            aux = bloque.get("auxiliares")
+            bloques[turno] = {
+                "inicio": str(bloque.get("inicio", "")),
+                "fin": str(bloque.get("fin", "")),
+                "auxiliares": [str(n).strip() for n in aux if str(n).strip()]
+                if isinstance(aux, list)
+                else [],
+            }
+        out[str(fecha)] = bloques
+    return out
+
+
+def _validar_fecha_sabado(fecha: str) -> str:
+    m = _FECHA_RE.match((fecha or "").strip())
+    es_sabado = False
+    if m:
+        try:
+            es_sabado = (
+                date(int(m.group(1)), int(m.group(2)), int(m.group(3))).weekday()
+                == 5
+            )
+        except ValueError:
+            es_sabado = False
+    if not es_sabado:
+        raise bad_request("La fecha debe ser un sábado (YYYY-MM-DD)")
+    assert m is not None
+    return f"{m.group(1)}-{m.group(2)}-{m.group(3)}"
+
+
+def _sabados_del_mes(anio: int, mes: int) -> list[str]:
+    if not 1 <= mes <= 12 or not 2000 <= anio <= 2100:
+        raise bad_request("Mes debe ser 1-12 y año 2000-2100")
+    _, ultimo = calendar.monthrange(anio, mes)
+    return [
+        date(anio, mes, d).isoformat()
+        for d in range(1, ultimo + 1)
+        if date(anio, mes, d).weekday() == 5
+    ]
+
+
+@router.get("/horarios-sabado")
+def get_horarios_sabado(
+    db: DbSession, user: CurrentUser, mes: int | None = None, anio: int | None = None
+) -> dict[str, Any]:
+    del db, user
+    now = datetime.now(UTC)
+    mes = now.month if mes is None else mes
+    anio = now.year if anio is None else anio
+    fechas = _sabados_del_mes(anio, mes)
+    guardados = _sabados()
+    conteo: dict[str, int] = {}
+    sabados = []
+    for f in fechas:
+        bloques = guardados.get(f)
+        sabados.append({"fecha": f, "bloques": bloques})
+        if not bloques:
+            continue
+        vistos: set[str] = set()
+        for turno in SABADO_TURNOS:
+            for n in (bloques.get(turno) or {}).get("auxiliares", []):
+                if n not in vistos:
+                    vistos.add(n)
+                    conteo[n] = conteo.get(n, 0) + 1
+    return {"sabados": sabados, "conteo": conteo, "defaults": SABADO_DEFAULTS}
+
+
+@router.put("/horarios-sabado/{fecha}")
+def put_horario_sabado(
+    fecha: str, payload: dict[str, TurnoHorario], db: DbSession, user: CurrentUser
+) -> dict[str, dict[str, Any]]:
+    _gestiona_equipo(user)
+    del db
+    import unicodedata
+
+    fecha = _validar_fecha_sabado(fecha)
+    if set(payload) != set(SABADO_TURNOS):
+        raise bad_request(f"Se esperan los turnos: {', '.join(SABADO_TURNOS)}")
+
+    def _norm(s: str) -> str:
+        t = unicodedata.normalize("NFD", s.strip().casefold())
+        return "".join(c for c in t if unicodedata.category(c) != "Mn")
+
+    nomina = {_norm(m["nombre"]) for m in _equipo()}
+    nuevo: dict[str, dict[str, Any]] = {}
+    for turno in SABADO_TURNOS:
+        bloque = payload[turno]
+        if not _HORA_RE.match(bloque.inicio) or not _HORA_RE.match(bloque.fin):
+            raise bad_request(f"Turno '{turno}': inicio/fin deben ser HH:MM")
+        nombres = [n.strip() for n in bloque.auxiliares]
+        if any(not n for n in nombres):
+            raise bad_request(f"Turno '{turno}': nombre vacio")
+        desconocidos = [n for n in nombres if _norm(n) not in nomina]
+        if desconocidos:
+            raise bad_request(
+                f"Turno '{turno}': no estan en la nomina: {', '.join(desconocidos)}"
+            )
+        if len({_norm(n) for n in nombres}) != len(nombres):
+            raise bad_request(f"Turno '{turno}': nombre duplicado")
+        minimo, maximo = SABADO_CUPO[turno]
+        if not minimo <= len(nombres) <= maximo:
+            raise bad_request("Cupo sábado: mañana 2, mediodía 1, tarde 1-2")
+        nuevo[turno] = {
+            "inicio": bloque.inicio,
+            "fin": bloque.fin,
+            "auxiliares": nombres,
+        }
+    todos = [n for turno in SABADO_TURNOS for n in nuevo[turno]["auxiliares"]]
+    if len({_norm(n) for n in todos}) != len(todos):
+        raise bad_request("Un auxiliar no puede estar en dos turnos el mismo sábado")
+    datos = _sabados()
+    datos[fecha] = nuevo
+    _write_json(_SABADOS_FILE, datos)
+    return nuevo
+
+
+@router.delete("/horarios-sabado/{fecha}", status_code=204)
+def delete_horario_sabado(fecha: str, db: DbSession, user: CurrentUser) -> None:
+    _gestiona_equipo(user)
+    del db
+    fecha = _validar_fecha_sabado(fecha)
+    datos = _sabados()
+    datos.pop(fecha, None)
+    _write_json(_SABADOS_FILE, datos)
+
+
 @router.get("/cards")
 def get_cards(db: DbSession, user: CurrentUser) -> dict[str, list[LaboratorioOut]]:
     labs = db.scalars(select(Laboratorio).order_by(Laboratorio.codigo)).all()

@@ -3,7 +3,7 @@
 {% block contenido %}
 <div class="page-wide">
   <h1>Horarios por turno</h1>
-  <p class="sub"><a href="{% url 'auxiliares' %}">← Volver a nómina</a></p>
+  <p class="sub"><a href="{% url 'auxiliares' %}">← Volver a nómina</a> · <a class="btn ghost" href="{% url 'auxiliares_sabados' %}">Sábados por fecha →</a></p>
   {% if error %}<p class="error">{{ error }}</p>{% endif %}
   {% if es_jefe %}
   <section aria-label="Cobertura de 24 horas">

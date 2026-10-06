@@ -541,6 +541,181 @@ def auxiliares_horarios_vista(request: HttpRequest) -> HttpResponse:
     )
 
 
+SABADO_TURNOS = ("mañana", "mediodia", "tarde")
+
+
+@con_login
+def auxiliares_sabados_vista(request: HttpRequest) -> HttpResponse:
+    if not (_es_auxiliar(request) or _puede_dashboard(request)):
+        return redirect("atenciones_lista")
+    token = str(request.session["jwt"])
+    es_jefe = _puede_dashboard(request) or _rol(request) == "Encargado"
+    mes = _int_o_none(request.GET.get("mes")) or _mes_actual()[0]
+    anio = _int_o_none(request.GET.get("anio")) or _mes_actual()[1]
+    error = ""
+    if request.method == "POST" and es_jefe:
+        fecha_limpia = (request.POST.get("limpiar") or "").strip()
+        try:
+            if fecha_limpia:
+                api_delete(f"/api/laboratorios/horarios-sabado/{fecha_limpia}", token)
+            else:
+                fechas = [f for f in request.POST.getlist("fechas") if f.strip()]
+                nombres = [n for n in request.POST.getlist("nombres") if n.strip()]
+                if not fechas or not nombres:
+                    raise ApiError(400, "Nada para guardar")
+                for fecha in fechas:
+                    carga: dict[str, object] = {}
+                    for turno in SABADO_TURNOS:
+                        lista = [
+                            nombre
+                            for i, nombre in enumerate(nombres)
+                            if (request.POST.get(f"cel_{fecha}_{i}") or "") == turno
+                        ]
+                        carga[turno] = {
+                            "inicio": request.POST.get(
+                                f"h_{fecha}_{turno}_ini", ""
+                            ).strip(),
+                            "fin": request.POST.get(f"h_{fecha}_{turno}_fin", "").strip(),
+                            "auxiliares": lista,
+                        }
+                    if any(
+                        isinstance(c, dict) and c.get("auxiliares")
+                        for c in carga.values()
+                    ):
+                        api_put(
+                            f"/api/laboratorios/horarios-sabado/{fecha}", token, carga
+                        )
+                    else:
+                        api_delete(
+                            f"/api/laboratorios/horarios-sabado/{fecha}", token
+                        )
+        except ApiError as e:
+            error = str(e.detail) if e.detail else "No se pudo guardar"
+        else:
+            return redirect(f"{reverse('auxiliares_sabados')}?mes={mes}&anio={anio}")
+    sabados: list[dict[str, object]] = []
+    conteo: dict[str, int] = {}
+    defaults: dict[str, dict[str, str]] = {}
+    try:
+        datos = api_get(
+            "/api/laboratorios/horarios-sabado",
+            token,
+            {"mes": str(mes), "anio": str(anio)},
+        )
+    except ApiError as e:
+        error = str(e.detail) if e.detail else "No se pudo cargar sábados"
+        datos = None
+    if isinstance(datos, dict):
+        if isinstance(datos.get("sabados"), list):
+            sabados = [s for s in datos["sabados"] if isinstance(s, dict)]
+        if isinstance(datos.get("conteo"), dict):
+            conteo = {str(k): int(v) for k, v in datos["conteo"].items()}
+        if isinstance(datos.get("defaults"), dict):
+            defaults = datos["defaults"]
+    equipo: list[dict[str, object]] = []
+    try:
+        datos_equipo = api_get("/api/laboratorios/equipo", token)
+    except ApiError:
+        datos_equipo = None
+    if isinstance(datos_equipo, dict) and isinstance(datos_equipo.get("auxiliares"), list):
+        equipo = [m for m in datos_equipo["auxiliares"] if isinstance(m, dict)]
+    # ponytail: equidad por nombre normalizado (tildes fuera, como el backend)
+    import unicodedata as _ud
+
+    def _norm(s: str) -> str:
+        t = _ud.normalize("NFD", s.strip().casefold())
+        return "".join(c for c in t if _ud.category(c) != "Mn")
+
+    previo, siguiente = _mes_vecino(mes, anio, -1), _mes_vecino(mes, anio, 1)
+    # ponytail: matriz como el Excel (filas=nombres, columnas=sábados)
+    fechas = [str(s.get("fecha", "")) for s in sabados if s.get("fecha")]
+    asign: dict[tuple[str, str], str] = {}
+    horas: dict[str, dict[str, tuple[str, str]]] = {}
+    for s in sabados:
+        fecha = str(s.get("fecha", ""))
+        bloques = s.get("bloques")
+        if not isinstance(bloques, dict):
+            bloques = {}
+        hh: dict[str, tuple[str, str]] = {}
+        for t in SABADO_TURNOS:
+            b = bloques.get(t)
+            if not isinstance(b, dict):
+                b = {}
+            d = defaults.get(t) if isinstance(defaults.get(t), dict) else {}
+            hh[t] = (
+                str(b.get("inicio") or d.get("inicio", "")),
+                str(b.get("fin") or d.get("fin", "")),
+            )
+            aux = b.get("auxiliares")
+            for n in aux if isinstance(aux, list) else []:
+                asign[(fecha, _norm(str(n)))] = t
+        horas[fecha] = hh
+    filas: list[dict[str, object]] = []
+    for m in equipo:
+        nombre = str(m.get("nombre", ""))
+        celdas = [
+            {"fecha": f, "turno": asign.get((f, _norm(nombre)), "")} for f in fechas
+        ]
+        filas.append(
+            {
+                "nombre": nombre,
+                "activo": bool(m.get("activo", True)),
+                "encargado": bool(m.get("encargado", False)),
+                "celdas": celdas,
+                "total": sum(1 for c in celdas if c["turno"]),
+            }
+        )
+    sin_sabado = sorted(
+        str(f["nombre"]) for f in filas if f["activo"] and not f["total"]
+    )
+    base = {
+        t: defaults.get(t) if isinstance(defaults.get(t), dict) else {}
+        for t in SABADO_TURNOS
+    }
+    std = {
+        t: (str(base[t].get("inicio", "")), str(base[t].get("fin", "")))
+        for t in SABADO_TURNOS
+    }
+    leyenda = " · ".join(
+        f"{s} {std[t][0]}–{std[t][1]}"
+        for s, t in (("Mñ", "mañana"), ("Md", "mediodia"), ("Ta", "tarde"))
+    )
+    columnas = []
+    for f in fechas:
+        columnas.append(
+            {
+                "fecha": f,
+                "corta": f[8:10] + "/" + f[5:7],
+                "custom": any(horas[f][t] != std[t] for t in SABADO_TURNOS),
+                "horas": [
+                    {"turno": t, "ini": horas[f][t][0], "fin": horas[f][t][1]}
+                    for t in SABADO_TURNOS
+                ],
+            }
+        )
+    return render(
+        request,
+        "atenciones/auxiliares_sabados.html",
+        {
+            "usuario": request.session["usuario"],
+            "es_jefe": es_jefe,
+            "fechas": fechas,
+            "columnas": columnas,
+            "leyenda": leyenda,
+            "filas": filas,
+            "sin_sabado": sin_sabado,
+            "mes": mes,
+            "anio": anio,
+            "mes_nombre": MESES[mes - 1],
+            "mes_previo": previo[0],
+            "anio_previo": previo[1],
+            "mes_siguiente": siguiente[0],
+            "anio_siguiente": siguiente[1],
+            "error": error,
+        },
+    )
+
+
 def _marcar_sesion(request: HttpRequest, conectado: bool) -> None:
     usuario = request.session.get("usuario")
     if not isinstance(usuario, dict) or usuario.get("role") == "Auxiliar":
