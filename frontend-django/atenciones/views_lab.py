@@ -11,7 +11,7 @@ from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
 from django.urls import reverse
 
-from .api import TIMEOUT, ApiError, api_delete, api_get, api_post, api_put
+from .api import TIMEOUT, ApiError, api_delete, api_get, api_patch, api_post, api_put
 from .auth import con_login
 
 _log = logging.getLogger(__name__)
@@ -224,6 +224,135 @@ def soy_vista(request: HttpRequest) -> HttpResponse:
             "error": error,
         },
     )
+
+
+def _quien_reporta(request: HttpRequest) -> str:
+    nombre = (request.session.get("auxiliar_nombre") or "").strip()
+    if nombre:
+        return nombre
+    usuario = request.session.get("usuario") or {}
+    return str(usuario.get("display_name", "")).strip()
+
+
+NOV_TABS = ("novedades", "objetos", "cierres")
+NOV_TIPO = {"novedades": "novedad", "objetos": "objeto", "cierres": "cierre"}
+
+
+def _detalle_res(res: object) -> object:
+    try:
+        data = res.json()  # type: ignore[union-attr]
+    except ValueError:
+        return res.text[:200]  # type: ignore[union-attr]
+    return data.get("detail", data) if isinstance(data, dict) else data
+
+
+@con_login
+def novedades_vista(request: HttpRequest) -> HttpResponse:
+    if _rol(request) in ("Auxiliar", "Encargado") and not (
+        request.session.get("auxiliar_nombre") or ""
+    ).strip():
+        return redirect(f"{reverse('auxiliares_soy')}?next={reverse('novedades')}")
+    tab = (request.GET.get("tab") or request.POST.get("tab") or "novedades").strip()
+    if tab not in NOV_TABS:
+        tab = "novedades"
+    token = str(request.session["jwt"])
+    error = ""
+    puede_validar = _puede_reportes(request) or bool(
+        request.session.get("auxiliar_encargado")
+    )
+    if request.method == "POST":
+        action = request.POST.get("action", "")
+        try:
+            if action == "crear":
+                nombre = _quien_reporta(request)
+                if not nombre:
+                    return redirect(
+                        f"{reverse('auxiliares_soy')}?next={reverse('novedades')}"
+                    )
+                data = {
+                    "tipo": NOV_TIPO[tab],
+                    "texto": (request.POST.get("texto") or "").strip(),
+                    "auxiliar_nombre": nombre,
+                    "turno": (request.POST.get("turno") or "").strip(),
+                    "laboratorio_id": (request.POST.get("laboratorio_id") or "").strip(),
+                }
+                data = {k: v for k, v in data.items() if v != ""}
+                files = None
+                f = request.FILES.get("foto")
+                if f is not None and (f.name or "").strip():
+                    files = {"foto": (f.name, f.read(), f.content_type)}
+                res = requests.post(
+                    settings.FASTAPI_URL + "/api/novedades",
+                    headers={"Authorization": f"Bearer {token}"},
+                    data=data,
+                    files=files,
+                    timeout=TIMEOUT,
+                )
+                if res.status_code in (401, 403):
+                    return redirect("login")
+                if res.status_code >= 400:
+                    raise ApiError(res.status_code, _detalle_res(res))
+            elif action in ("devolver", "validar", "rechazar"):
+                api_patch(
+                    f"/api/novedades/{int(request.POST.get('id', '0'))}",
+                    token,
+                    {"accion": action, "auxiliar_nombre": _quien_reporta(request)},
+                )
+            elif action == "purgar":
+                api_post("/api/novedades/purga", token, {})
+        except ApiError as e:
+            error = str(e.detail) if e.detail else "No se pudo procesar"
+        except (ValueError, requests.RequestException):
+            error = "No se pudo procesar"
+        else:
+            return redirect(f"{reverse('novedades')}?tab={tab}")
+    filas: list[dict[str, object]] = []
+    try:
+        datos = api_get("/api/novedades", token, {"tipo": NOV_TIPO[tab]})
+    except ApiError as e:
+        error = str(e.detail) if e.detail else "No se pudo cargar"
+    else:
+        if isinstance(datos, list):
+            filas = [d for d in datos if isinstance(d, dict)]
+    grupos: dict[str, list[dict[str, object]]] = {}
+    if tab == "objetos":
+        grupos = {"pendiente": [], "devuelto": [], "vencido": []}
+        for fila in filas:
+            grupos.setdefault(str(fila.get("estado", "pendiente")), []).append(fila)
+    cards = _cards(token)
+    return render(
+        request,
+        "atenciones/novedades.html",
+        {
+            "tab": tab,
+            "filas": filas,
+            "grupos": grupos,
+            "labs": cards["activas"],
+            "turnos": TURNOS,
+            "puede_validar": puede_validar,
+            "quien": _quien_reporta(request),
+            "error": error,
+            "flash": request.session.pop("flash", None),
+        },
+    )
+
+
+@con_login
+def novedad_foto_vista(request: HttpRequest, novedad_id: int) -> HttpResponse:
+    token = str(request.session["jwt"])
+    try:
+        res = requests.get(
+            f"{settings.FASTAPI_URL}/api/novedades/{novedad_id}/foto",
+            headers={"Authorization": f"Bearer {token}"},
+            timeout=TIMEOUT,
+        )
+    except requests.RequestException:
+        return HttpResponse(status=404)
+    if res.status_code in (401, 403):
+        return redirect("login")
+    if res.status_code >= 400:
+        return HttpResponse(status=404)
+    return HttpResponse(res.content, content_type=res.headers.get("Content-Type", "image/jpeg"))
 
 
 @con_login

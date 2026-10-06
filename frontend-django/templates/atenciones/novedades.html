@@ -1,0 +1,127 @@
+{% extends "atenciones/base.html" %}
+{% block titulo %}Novedades de turno — Soporte Técnico{% endblock %}
+{% block contenido %}
+<div class="page-wide">
+  <style>
+    .nov-tabs{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 14px}
+    .nov-tabs .btn{padding:6px 14px;font-size:13px;border-radius:999px}
+    .nov-card{border:1px solid #dfe7e2;border-radius:12px;padding:10px 12px;margin-bottom:10px;background:var(--color-surface,#fff)}
+    .nov-meta{font-size:12px;color:var(--color-muted,#888);margin-top:6px}
+    .nov-card img{max-width:220px;border-radius:8px;margin-top:8px;display:block}
+    .nov-kanban{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+    .nov-col{background:#f4f8f5;border-radius:12px;padding:10px;min-width:0}
+    .nov-col h3{margin:0 0 8px;font-size:13px}
+    .nov-est{display:inline-block;font-size:11px;font-weight:700;border-radius:999px;padding:1px 10px;margin-left:6px}
+    .est-pendiente{background:#fef6e0;color:#8a5a00}.est-devuelto{background:#e6f4ea;color:#00754a}
+    .est-vencido{background:#f3e8e8;color:#8b2e2e}.est-validado{background:#e6f4ea;color:#00754a}
+    .est-rechazado{background:#f3e8e8;color:#8b2e2e}.est-publicado{background:#e8f0fe;color:#3367d6}
+    .nov-actions{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+    .nov-actions .btn{padding:4px 12px;font-size:12px}
+    textarea.nov-texto{width:100%;min-height:64px;border-radius:8px;padding:8px}
+    @media (max-width:900px){.nov-kanban{grid-template-columns:minmax(0,1fr)}}
+  </style>
+  <h1>Novedades del turno</h1>
+  <p class="sub">Publicás como: <b>{{ quien|default:"—" }}</b> · <a href="{% url 'auxiliares_soy' %}">cambiar</a> · Lo que no está acá, no pasó.</p>
+  <nav class="nov-tabs" aria-label="Pestañas">
+    <a class="btn{% if tab != 'novedades' %} ghost{% endif %}" href="{% url 'novedades' %}?tab=novedades">Novedades</a>
+    <a class="btn{% if tab != 'objetos' %} ghost{% endif %}" href="{% url 'novedades' %}?tab=objetos">Objetos</a>
+    <a class="btn{% if tab != 'cierres' %} ghost{% endif %}" href="{% url 'novedades' %}?tab=cierres">Cierres</a>
+  </nav>
+  {% if error %}<p class="error">{{ error }}</p>{% endif %}
+  {% if flash %}<p class="flash">{{ flash.texto }}</p>{% endif %}
+
+  <form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+    <input type="hidden" name="tab" value="{{ tab }}">
+    <input type="hidden" name="action" value="crear">
+    <textarea class="nov-texto" name="texto" maxlength="2000" required placeholder="{% if tab == 'objetos' %}Ej: cargador olvidado en el laboratorio 8{% elif tab == 'cierres' %}Ej: turno concluido, llaves en su lugar{% else %}Avisá algo al siguiente turno{% endif %}"></textarea>
+    <p class="sub">
+      <label>Turno
+        <select name="turno"><option value="">—</option>
+        {% for t in turnos %}<option value="{{ t }}">{{ t|capfirst }}</option>{% endfor %}</select>
+      </label>
+      <label>Lab
+        <select name="laboratorio_id"><option value="">—</option>
+        {% for lab in labs %}<option value="{{ lab.id }}">{{ lab.nombre }}</option>{% endfor %}</select>
+      </label>
+      <label>Foto{% if tab == 'cierres' %} (obligatoria){% endif %}
+        <input type="file" name="foto" accept="image/jpeg,image/png,image/webp"{% if tab == 'cierres' %} required{% endif %}>
+      </label>
+      <button type="submit" class="btn">Publicar</button>
+    </p>
+  </form>
+
+  {% if tab == 'objetos' %}
+  <div class="nov-kanban">
+    <section class="nov-col">
+      <h3>Pendientes ({{ grupos.pendiente|length }})</h3>
+      {% for f in grupos.pendiente %}
+      <article class="nov-card">
+        <div>{{ f.texto }}</div>
+        {% if f.tiene_foto %}<img src="{% url 'novedad_foto' f.id %}" alt="Foto del reporte" loading="lazy">{% endif %}
+        <div class="nov-meta">{{ f.auxiliar_nombre }} · {{ f.fecha_registro }}{% if f.turno %} · {{ f.turno|capfirst }}{% endif %}{% if f.laboratorio %} · {{ f.laboratorio }}{% endif %}</div>
+        <form method="post" class="nov-actions">
+          {% csrf_token %}
+          <input type="hidden" name="tab" value="objetos">
+          <input type="hidden" name="action" value="devolver">
+          <input type="hidden" name="id" value="{{ f.id }}">
+          <button type="submit" class="btn ghost">Marcar devuelto</button>
+        </form>
+      </article>
+      {% empty %}
+      <p class="sub">Nada acá.</p>
+      {% endfor %}
+    </section>
+    <section class="nov-col">
+      <h3>Devueltos ({{ grupos.devuelto|length }})</h3>
+      {% for f in grupos.devuelto %}
+      <article class="nov-card">
+        <div>{{ f.texto }}</div>
+        <div class="nov-meta">{{ f.auxiliar_nombre }} · {{ f.fecha_registro }}</div>
+      </article>
+      {% empty %}
+      <p class="sub">Nada acá.</p>
+      {% endfor %}
+    </section>
+    <section class="nov-col">
+      <h3>Vencidos +90 días ({{ grupos.vencido|length }})</h3>
+      {% for f in grupos.vencido %}
+      <article class="nov-card">
+        <div>{{ f.texto }}</div>
+        <div class="nov-meta">{{ f.auxiliar_nombre }} · {{ f.fecha_registro }}</div>
+      </article>
+      {% empty %}
+      <p class="sub">Nada acá.</p>
+      {% endfor %}
+    </section>
+  </div>
+  {% if puede_validar %}
+  <form method="post" style="margin-top:12px">
+    {% csrf_token %}
+    <input type="hidden" name="tab" value="objetos">
+    <input type="hidden" name="action" value="purgar">
+    <button type="submit" class="btn ghost" onclick="return confirm('Borrar vencidos (+90 días) con sus fotos?')">Purgar vencidos</button>
+  </form>
+  {% endif %}
+  {% else %}
+    {% for f in filas %}
+    <article class="nov-card">
+      <div>{{ f.texto }}<span class="nov-est est-{{ f.estado }}">{{ f.estado }}</span></div>
+      {% if f.tiene_foto %}<img src="{% url 'novedad_foto' f.id %}" alt="Foto del reporte" loading="lazy">{% endif %}
+      <div class="nov-meta">{{ f.auxiliar_nombre }} · {{ f.fecha_registro }}{% if f.turno %} · {{ f.turno|capfirst }}{% endif %}{% if f.laboratorio %} · {{ f.laboratorio }}{% endif %}</div>
+      {% if tab == 'cierres' and f.estado == 'pendiente' and puede_validar %}
+      <form method="post" class="nov-actions">
+        {% csrf_token %}
+        <input type="hidden" name="tab" value="cierres">
+        <input type="hidden" name="id" value="{{ f.id }}">
+        <button type="submit" name="action" value="validar" class="btn">Validar</button>
+        <button type="submit" name="action" value="rechazar" class="btn ghost">Rechazar</button>
+      </form>
+      {% endif %}
+    </article>
+    {% empty %}
+    <p>Nada publicado todavía.</p>
+    {% endfor %}
+  {% endif %}
+</div>
+{% endblock %}

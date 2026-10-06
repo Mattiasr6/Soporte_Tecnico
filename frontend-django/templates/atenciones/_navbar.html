@@ -99,6 +99,10 @@
           <iconify-icon icon="mdi:plus-circle-outline" aria-hidden="true"></iconify-icon>
           <span class="side-link-label">Nueva atención</span>
         </a>
+        <a class="side-link{% if nav_page == 'novedades' %} active{% endif %}" href="{% url 'novedades' %}" {% if nav_page == 'novedades' %}aria-current="page"{% endif %} data-nav-page="novedades">
+          <iconify-icon icon="mdi:forum-outline" aria-hidden="true"></iconify-icon>
+          <span class="side-link-label">Novedades</span>
+        </a>
         <a class="side-link{% if nav_page == 'auxiliares_horarios' %} active{% endif %}" href="{% url 'auxiliares_horarios' %}" {% if nav_page == 'auxiliares_horarios' %}aria-current="page"{% endif %} data-nav-page="auxiliares_horarios">
           <iconify-icon icon="mdi:calendar-clock-outline" aria-hidden="true"></iconify-icon>
           <span class="side-link-label">Horarios</span>

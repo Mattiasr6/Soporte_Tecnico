@@ -16,6 +16,7 @@ from app.routers import (
     ia,
     jerarquia,
     laboratorios,
+    novedades,
     sugerencias,
     usuarios,
 )
@@ -32,6 +33,7 @@ app.include_router(usuarios.router)
 app.include_router(announcements.router)
 app.include_router(atenciones.router)
 app.include_router(laboratorios.router)
+app.include_router(novedades.router)
 
 
 @app.get("/health")

@@ -47,6 +47,8 @@ def sesion(request):
         "auxiliares_horarios": "auxiliares_horarios",
         "auxiliares_sabados": "auxiliares_horarios",
         "auxiliares_soy": "auxiliares",
+        "novedades": "novedades",
+        "novedad_foto": "novedades",
         "horarios_export_xlsx": "auxiliares_horarios",
         "horarios_export_pdf": "auxiliares_horarios",
         "dashboard": "dashboard",
@@ -67,7 +69,7 @@ def sesion(request):
     # OJO: matchear sobre url_name (lab_lista, lab_nueva...), NO sobre pagina
     # mapeada ("laboratorios" no empieza con lab_ y rompe el sistema).
     _es_lab = (url_name or "").startswith("lab_")
-    if pagina in ("auxiliares", "auxiliares_horarios", "auxiliares_soy", "horarios_export_xlsx", "horarios_export_pdf") or _es_lab:
+    if pagina in ("auxiliares", "auxiliares_horarios", "auxiliares_soy", "horarios_export_xlsx", "horarios_export_pdf", "novedades") or _es_lab:
         sistema = "AUXILIARES"
     elif pagina == "sugerencias" and request.session.get("sistema_panel") in ("SOPORTE", "AUXILIARES"):
         sistema = request.session["sistema_panel"]
