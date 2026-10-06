@@ -594,7 +594,6 @@ def auxiliares_sabados_vista(request: HttpRequest) -> HttpResponse:
         else:
             return redirect(f"{reverse('auxiliares_sabados')}?mes={mes}&anio={anio}")
     sabados: list[dict[str, object]] = []
-    conteo: dict[str, int] = {}
     defaults: dict[str, dict[str, str]] = {}
     try:
         datos = api_get(
@@ -608,8 +607,6 @@ def auxiliares_sabados_vista(request: HttpRequest) -> HttpResponse:
     if isinstance(datos, dict):
         if isinstance(datos.get("sabados"), list):
             sabados = [s for s in datos["sabados"] if isinstance(s, dict)]
-        if isinstance(datos.get("conteo"), dict):
-            conteo = {str(k): int(v) for k, v in datos["conteo"].items()}
         if isinstance(datos.get("defaults"), dict):
             defaults = datos["defaults"]
     equipo: list[dict[str, object]] = []
