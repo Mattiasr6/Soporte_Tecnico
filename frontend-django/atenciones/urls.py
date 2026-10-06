@@ -54,6 +54,11 @@ urlpatterns = [
     path("notas/guardar/", views.notas_guardar_vista, name="notas_guardar"),
     path("auxiliares/", views.auxiliares_vista, name="auxiliares"),
     path("auxiliares/horarios/", views.auxiliares_horarios_vista, name="auxiliares_horarios"),
+    path(
+        "auxiliares/horarios-sabados/",
+        views.auxiliares_sabados_vista,
+        name="auxiliares_sabados",
+    ),
     path("wilmercito/", views.wilmercito_vista, name="wilmercito"),
     path(
         "wilmercito/calificar/",
@@ -79,6 +84,28 @@ urlpatterns = [
     ),
     path("auxiliares/atenciones/", views_lab.lab_lista_vista, name="lab_lista"),
     path("auxiliares/atenciones/nueva/", views_lab.lab_nueva_vista, name="lab_nueva"),
+    path("auxiliares/novedades/", views_lab.novedades_vista, name="novedades"),
+    path(
+        "auxiliares/novedades/<int:novedad_id>/foto/",
+        views_lab.novedad_foto_vista,
+        name="novedad_foto",
+    ),
+    path("auxiliares/soy/", views_lab.soy_vista, name="auxiliares_soy"),
+    path(
+        "auxiliares/horarios/export.xlsx",
+        views_lab.horarios_export_xlsx_vista,
+        name="horarios_export_xlsx",
+    ),
+    path(
+        "auxiliares/horarios/export.pdf",
+        views_lab.horarios_export_xlsx_vista,
+        name="horarios_export_pdf",
+    ),
+    path(
+        "auxiliares/atenciones/<int:atencion_id>/clonar/",
+        views_lab.lab_clonar_vista,
+        name="lab_clonar",
+    ),
     path(
         "auxiliares/atenciones/<int:atencion_id>/editar/",
         views_lab.lab_editar_vista,

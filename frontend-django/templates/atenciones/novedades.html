@@ -1,0 +1,208 @@
+{% extends "atenciones/base.html" %}
+{% block titulo %}Novedades de turno — Soporte Técnico{% endblock %}
+{% block contenido %}
+<div class="page-wide">
+  <style>
+    .nov-tabs{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 14px;align-items:center}
+    .nov-tabs .btn{padding:6px 14px;font-size:13px;border-radius:999px}
+    .nov-tabs .lbl{font-size:12px;color:var(--color-muted,#888);margin-right:2px}
+    .composer-ask{border:1px solid #dfe7e2;border-radius:16px;background:var(--color-surface,#fff);padding:18px;margin-bottom:16px}
+    .composer-ask h2{margin:0 0 4px;font-size:18px}
+    .composer-ask .hint{font-size:13px;color:var(--color-muted,#888);margin:0 0 14px}
+    .ccards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+    .ccard{display:flex;flex-direction:column;gap:6px;align-items:flex-start;text-align:left;border:2px solid #dfe7e2;border-radius:14px;padding:14px;cursor:pointer;background:#fff;font:inherit}
+    .ccard iconify-icon{font-size:26px}
+    .ccard b{font-size:15px}
+    .ccard small{color:var(--color-muted,#888);font-size:12px;line-height:1.35}
+    .ccard:hover{transform:translateY(-2px);box-shadow:0 4px 12px rgba(30,57,50,.12)}
+    .ccard.c-aviso{border-color:#c9dafb}.ccard.c-aviso iconify-icon{color:#3367d6}
+    .ccard.c-objeto{border-color:#f0ddb0}.ccard.c-objeto iconify-icon{color:#b7791f}
+    .ccard.c-cierre{border-color:#bfe3d0}.ccard.c-cierre iconify-icon{color:#00754a}
+    .cform{border:1px solid #dfe7e2;border-radius:16px;background:var(--color-surface,#fff);padding:16px 18px;margin-bottom:16px}
+    .cform legend{font-weight:700;font-size:15px;padding:0 8px}
+    .cform legend .ccard iconify-icon{font-size:18px;vertical-align:-3px}
+    .cform textarea{width:100%;min-height:70px;border-radius:8px;border:1.5px solid #9db8ad;padding:8px;box-sizing:border-box}
+    .cform .row{display:flex;gap:12px;flex-wrap:wrap;margin:10px 0;align-items:center}
+    .cform .back{float:right;font-size:12px;cursor:pointer;background:none;border:0;color:var(--color-muted,#888);text-decoration:underline}
+    .nov-card{border:1px solid #dfe7e2;border-radius:12px;padding:10px 12px;margin-bottom:10px;background:var(--color-surface,#fff)}
+    .nov-meta{font-size:12px;color:var(--color-muted,#888);margin-top:6px}
+    .nov-card img{max-width:220px;border-radius:8px;margin-top:8px;display:block}
+    .nov-kanban{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+    .nov-col{background:#f4f8f5;border-radius:12px;padding:10px;min-width:0}
+    .nov-col h3{margin:0 0 8px;font-size:13px}
+    .nov-est{display:inline-block;font-size:11px;font-weight:700;border-radius:999px;padding:1px 10px;margin-left:6px}
+    .est-pendiente{background:#fef6e0;color:#8a5a00}.est-devuelto{background:#e6f4ea;color:#00754a}
+    .est-vencido{background:#f3e8e8;color:#8b2e2e}.est-validado{background:#e6f4ea;color:#00754a}
+    .est-rechazado{background:#f3e8e8;color:#8b2e2e}.est-publicado{background:#e8f0fe;color:#3367d6}
+    .nov-actions{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+    .nov-actions .btn{padding:4px 12px;font-size:12px}
+    @media (max-width:900px){
+      .ccards{grid-template-columns:minmax(0,1fr)}
+      .nov-kanban{grid-template-columns:minmax(0,1fr)}
+    }
+  </style>
+  <h1>Novedades del turno</h1>
+  <p class="sub">Publicás como: <b>{{ quien|default:"—" }}</b> · <a href="{% url 'auxiliares_soy' %}">cambiar</a> · Lo que no está acá, no pasó.</p>
+  <nav class="nov-tabs" aria-label="Vista">
+    <span class="lbl">Ver:</span>
+    <a class="btn{% if tab != 'novedades' %} ghost{% endif %}" data-vista="novedades" href="{% url 'novedades' %}?tab=novedades">Muro</a>
+    <a class="btn{% if tab != 'objetos' %} ghost{% endif %}" data-vista="objetos" href="{% url 'novedades' %}?tab=objetos">Objetos (kanban)</a>
+    <a class="btn{% if tab != 'cierres' %} ghost{% endif %}" data-vista="cierres" href="{% url 'novedades' %}?tab=cierres">Cierres</a>
+  </nav>
+  {% if error %}<p class="error">{{ error }}</p>{% endif %}
+  {% if flash %}<p class="flash">{{ flash.texto }}</p>{% endif %}
+
+  <form method="post" enctype="multipart/form-data" id="nov-composer">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="crear">
+    <section class="composer-ask" id="composer-ask">
+      <h2>¿Qué necesitás reportar?</h2>
+      <p class="hint">Elegí una opción y te muestro solo lo que hace falta. {% if quien %}Se publica con tu nombre: {{ quien }}.{% endif %}</p>
+      <div class="ccards">
+        <button type="button" class="ccard c-aviso" data-tipo="novedades">
+          <iconify-icon icon="mdi:bullhorn-outline" aria-hidden="true"></iconify-icon>
+          <b>Aviso al siguiente turno</b>
+          <small>Ej: cargador olvidado en el lab 8, hay visitas a las 15, etc.</small>
+        </button>
+        <button type="button" class="ccard c-objeto" data-tipo="objetos">
+          <iconify-icon icon="mdi:package-variant-closed" aria-hidden="true"></iconify-icon>
+          <b>Objeto encontrado</b>
+          <small>Algo dejado en los labs: entra al kanban hasta que se devuelva.</small>
+        </button>
+        <button type="button" class="ccard c-cierre" data-tipo="cierres">
+          <iconify-icon icon="mdi:calendar-check-outline" aria-hidden="true"></iconify-icon>
+          <b>Cierre de turno</b>
+          <small>Foto de llaves en su lugar. Un encargado lo valida.</small>
+        </button>
+      </div>
+    </section>
+
+    <fieldset class="cform" data-form="novedades">
+      <button type="button" class="back" data-volver>volver a elegir</button>
+      <legend><iconify-icon icon="mdi:bullhorn-outline" aria-hidden="true"></iconify-icon> Aviso al siguiente turno</legend>
+      <textarea name="texto" maxlength="2000" required placeholder="Contá algo útil para el próximo turno…"></textarea>
+      <div class="row">
+        <label>Turno <select name="turno"><option value="">—</option>{% for t in turnos %}<option value="{{ t }}">{{ t|capfirst }}</option>{% endfor %}</select></label>
+        <label>Lab <select name="laboratorio_id"><option value="">—</option>{% for lab in labs %}<option value="{{ lab.id }}">{{ lab.nombre }}</option>{% endfor %}</select></label>
+        <button type="submit" name="tab" value="novedades" class="btn">Publicar aviso</button>
+      </div>
+    </fieldset>
+
+    <fieldset class="cform" data-form="objetos">
+      <button type="button" class="back" data-volver>volver a elegir</button>
+      <legend><iconify-icon icon="mdi:package-variant-closed" aria-hidden="true"></iconify-icon> Objeto encontrado</legend>
+      <textarea name="texto" maxlength="2000" required placeholder="¿Qué es y dónde quedó? Ej: cargador negro en el lab 8"></textarea>
+      <div class="row">
+        <label>Turno <select name="turno"><option value="">—</option>{% for t in turnos %}<option value="{{ t }}">{{ t|capfirst }}</option>{% endfor %}</select></label>
+        <label>Lab <select name="laboratorio_id"><option value="">—</option>{% for lab in labs %}<option value="{{ lab.id }}">{{ lab.nombre }}</option>{% endfor %}</select></label>
+        <label>Foto <input type="file" name="foto" accept="image/jpeg,image/png,image/webp" capture="environment"></label>
+        <button type="submit" name="tab" value="objetos" class="btn">Publicar objeto</button>
+      </div>
+    </fieldset>
+
+    <fieldset class="cform" data-form="cierres">
+      <button type="button" class="back" data-volver>volver a elegir</button>
+      <legend><iconify-icon icon="mdi:calendar-check-outline" aria-hidden="true"></iconify-icon> Cierre de turno</legend>
+      <textarea name="texto" maxlength="2000" required placeholder="Ej: turno concluido, llaves en su lugar, se revisaron labs 1-9"></textarea>
+      <div class="row">
+        <label>Turno <select name="turno"><option value="">—</option>{% for t in turnos %}<option value="{{ t }}">{{ t|capfirst }}</option>{% endfor %}</select></label>
+        <label>Foto de llaves (obligatoria) <input type="file" name="foto" accept="image/jpeg,image/png,image/webp" capture="environment" required></label>
+        <button type="submit" name="tab" value="cierres" class="btn">Cerrar turno</button>
+      </div>
+    </fieldset>
+  </form>
+
+  {% if tab == 'objetos' %}
+  <div class="nov-kanban">
+    <section class="nov-col">
+      <h3>Pendientes ({{ grupos.pendiente|length }})</h3>
+      {% for f in grupos.pendiente %}
+      <article class="nov-card">
+        <div>{{ f.texto }}</div>
+        {% if f.tiene_foto %}<img src="{% url 'novedad_foto' f.id %}" alt="Foto del reporte" loading="lazy">{% endif %}
+        <div class="nov-meta">{{ f.auxiliar_nombre }} · {{ f.fecha_registro }}{% if f.turno %} · {{ f.turno|capfirst }}{% endif %}{% if f.laboratorio %} · {{ f.laboratorio }}{% endif %}</div>
+        <form method="post" class="nov-actions">
+          {% csrf_token %}
+          <input type="hidden" name="tab" value="objetos">
+          <input type="hidden" name="action" value="devolver">
+          <input type="hidden" name="id" value="{{ f.id }}">
+          <button type="submit" class="btn ghost">Marcar devuelto</button>
+        </form>
+      </article>
+      {% empty %}
+      <p class="sub">Nada acá.</p>
+      {% endfor %}
+    </section>
+    <section class="nov-col">
+      <h3>Devueltos ({{ grupos.devuelto|length }})</h3>
+      {% for f in grupos.devuelto %}
+      <article class="nov-card">
+        <div>{{ f.texto }}</div>
+        <div class="nov-meta">{{ f.auxiliar_nombre }} · {{ f.fecha_registro }}</div>
+      </article>
+      {% empty %}
+      <p class="sub">Nada acá.</p>
+      {% endfor %}
+    </section>
+    <section class="nov-col">
+      <h3>Vencidos +90 días ({{ grupos.vencido|length }})</h3>
+      {% for f in grupos.vencido %}
+      <article class="nov-card">
+        <div>{{ f.texto }}</div>
+        <div class="nov-meta">{{ f.auxiliar_nombre }} · {{ f.fecha_registro }}</div>
+      </article>
+      {% empty %}
+      <p class="sub">Nada acá.</p>
+      {% endfor %}
+    </section>
+  </div>
+  {% if puede_validar %}
+  <form method="post" style="margin-top:12px">
+    {% csrf_token %}
+    <input type="hidden" name="tab" value="objetos">
+    <input type="hidden" name="action" value="purgar">
+    <button type="submit" class="btn ghost" onclick="return confirm('Borrar vencidos (+90 días) con sus fotos?')">Purgar vencidos</button>
+  </form>
+  {% endif %}
+  {% else %}
+    {% for f in filas %}
+    <article class="nov-card">
+      <div>{{ f.texto }}<span class="nov-est est-{{ f.estado }}">{{ f.estado }}</span></div>
+      {% if f.tiene_foto %}<img src="{% url 'novedad_foto' f.id %}" alt="Foto del reporte" loading="lazy">{% endif %}
+      <div class="nov-meta">{{ f.auxiliar_nombre }} · {{ f.fecha_registro }}{% if f.turno %} · {{ f.turno|capfirst }}{% endif %}{% if f.laboratorio %} · {{ f.laboratorio }}{% endif %}</div>
+      {% if tab == 'cierres' and f.estado == 'pendiente' and puede_validar %}
+      <form method="post" class="nov-actions">
+        {% csrf_token %}
+        <input type="hidden" name="tab" value="cierres">
+        <input type="hidden" name="id" value="{{ f.id }}">
+        <button type="submit" name="action" value="validar" class="btn">Validar</button>
+        <button type="submit" name="action" value="rechazar" class="btn ghost">Rechazar</button>
+      </form>
+      {% endif %}
+    </article>
+    {% empty %}
+    <p>Nada publicado todavía.</p>
+    {% endfor %}
+  {% endif %}
+</div>
+<script>(function(){
+  var ask=document.getElementById('composer-ask');
+  var forms=document.querySelectorAll('.cform');
+  function ocultarForms(){forms.forEach(function(f){f.hidden=true;});}
+  function mostrar(t){
+    ocultarForms();
+    ask.hidden=true;
+    forms.forEach(function(f){if(f.dataset.form===t)f.hidden=false;});
+    document.querySelectorAll('.nov-tabs [data-vista]').forEach(function(a){
+      a.classList.toggle('ghost', a.dataset.vista!==t);
+    });
+  }
+  document.querySelectorAll('.ccard[data-tipo]').forEach(function(b){
+    b.addEventListener('click',function(){mostrar(b.dataset.tipo);});
+  });
+  document.querySelectorAll('[data-volver]').forEach(function(b){
+    b.addEventListener('click',function(){ocultarForms();ask.hidden=false;});
+  });
+  ocultarForms();
+})();</script>
+{% endblock %}

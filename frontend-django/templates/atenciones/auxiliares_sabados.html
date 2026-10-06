@@ -1,0 +1,225 @@
+{% extends "atenciones/base.html" %}
+{% block titulo %}Sábados por fecha — Soporte Técnico{% endblock %}
+{% block contenido %}
+<div class="page-wide">
+  <div class="sab-head">
+  <h1>Sábados — {{ mes_nombre }} {{ anio }}</h1>
+  <div class="sab-actions">
+    <a class="btn" href="{% url 'horarios_export_xlsx' %}?tipo=sabado&amp;mes={{ mes }}&amp;anio={{ anio }}"><iconify-icon icon="mdi:file-excel-outline"></iconify-icon> Excel</a>
+    <a class="btn ghost" href="{% url 'horarios_export_pdf' %}?tipo=sabado&amp;mes={{ mes }}&amp;anio={{ anio }}"><iconify-icon icon="mdi:file-pdf-outline"></iconify-icon> PDF</a>
+  </div>
+  </div>
+  <style>
+    .sab-head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+    .sab-head h1{margin:0}
+    .sab-actions{display:flex;gap:8px;align-items:center}
+    .sab-actions .btn{box-shadow:0 2px 6px rgba(30,57,50,.18)}
+    .sab-nav{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 12px}
+    .sab-nav .btn{padding:6px 14px;font-size:13px;border-radius:999px}
+    ul.sab-faltan{columns:2;column-gap:24px;margin:8px 0 4px;padding-left:22px;font-size:13px}
+    ul.sab-faltan li{break-inside:avoid;margin-bottom:2px}
+    @media (max-width:767px){ul.sab-faltan{columns:1}}
+  </style>
+  <nav class="sab-nav" aria-label="Navegación de horarios">
+    <a class="btn ghost" href="{% url 'auxiliares_horarios' %}">← Semanal</a>
+    <a class="btn ghost" href="{% url 'auxiliares_sabados' %}?mes={{ mes_previo }}&amp;anio={{ anio_previo }}">← Anterior</a>
+    <a class="btn ghost" href="{% url 'auxiliares_sabados' %}?mes={{ mes_siguiente }}&amp;anio={{ anio_siguiente }}">Siguiente →</a>
+  </nav>
+  {% if error %}<p class="error">{{ error }}</p>{% endif %}
+  {% if sin_sabado %}<details class="flash"><summary>Faltan {{ sin_sabado|length }} por asignar este mes (aviso, no bloquea)</summary><ul class="sab-faltan">{% for n in sin_sabado %}<li>{{ n }}</li>{% endfor %}</ul></details>{% endif %}
+  <p class="sub">Turnos: {{ leyenda }} · Vacío = libre.</p>
+  {% if es_jefe %}
+  <style>
+    .sab-wrap{overflow-x:auto;border:1px solid #dfe7e2;border-radius:14px}
+    table.sab-matriz{border-collapse:separate;border-spacing:0;width:100%;min-width:680px}
+    .sab-matriz thead th{position:sticky;top:0;background:#006241;color:#fff;z-index:2;font-size:12px;padding:8px 6px;text-align:center;vertical-align:top}
+    .sab-matriz thead th.stick,.sab-matriz tbody th.stick{position:sticky;left:0;z-index:1}
+    .sab-matriz thead th.stick{z-index:3;background:#006241}
+    .sab-matriz tbody th.stick{background:#f4f8f5;text-align:left;font-weight:600}
+    .sab-matriz .sab-fecha{font-size:14px;font-weight:700;display:block}
+    .sab-matriz .sab-horas{display:block;font-weight:400;font-size:10.5px;line-height:1.55;opacity:.92;white-space:nowrap}
+    .sab-matriz td,.sab-matriz tbody th{border-top:1px solid #e7ece9;padding:6px;font-size:13px}
+    .sab-matriz tbody tr:nth-child(even) td,.sab-matriz tbody tr:nth-child(even) th.stick{background:#fafcfb}
+    .sab-matriz select{width:100%;min-width:92px;padding:6px 4px;border-radius:8px;border:1.5px solid #9db8ad;font-size:13px;background:#fff}
+    .sab-matriz select.t-man{background:#e6f4ea;border-color:#00754a}
+    .sab-matriz select.t-med{background:#fef6e0;border-color:#b7791f}
+    .sab-matriz select.t-tar{background:#e8f0fe;border-color:#3367d6}
+    .sab-matriz .st-ok{color:#7bf0b2}.sab-matriz .st-falta{color:#ffd66e}
+    .sab-matriz .tot0{color:#aaa}.sab-matriz .tot1{color:#00754a;font-weight:700}
+    .mini-x{background:transparent;border:1px solid rgba(255,255,255,.65);color:#fff;border-radius:8px;font-size:11px;padding:1px 9px;cursor:pointer;margin-top:4px}
+    .sab-save{position:sticky;bottom:0;background:var(--color-surface,#fff);border-top:1px solid #dfe7e2;box-shadow:0 -4px 12px rgba(30,57,50,.08);padding:12px;border-radius:12px 12px 0 0;z-index:5}
+    .sab-matriz .st{font-weight:700}
+    .sab-pills{display:none;gap:6px;flex-wrap:wrap;margin:0 0 10px}
+    .sab-pills button{border:1.5px solid #9db8ad;background:#fff;border-radius:999px;padding:5px 12px;font-size:13px}
+    .sab-pills button.on{background:#006241;color:#fff;border-color:#006241}
+    .sab-modo{display:flex;gap:6px;margin:0 0 10px}
+    .sab-modo button{border:1.5px solid #9db8ad;background:var(--color-surface,#fff);border-radius:999px;padding:5px 12px;font-size:13px}
+    .sab-modo button.on{background:#1e3932;color:#fff;border-color:#1e3932}
+    .sab-zona.modo-uno .sab-pills{display:flex}
+    .sab-zona.modo-uno [data-col]{display:none}
+    .sab-zona.modo-uno [data-col].show{display:table-cell}
+    .sab-zona.modo-uno table.sab-matriz{min-width:0}
+    @media (max-width:767px){
+      .sab-matriz .sab-horas{display:none}
+      .sab-matriz .col-nro{display:none}
+      .sab-matriz select{min-width:76px;font-size:12px}
+      .sab-zona.modo-uno table.sab-matriz{min-width:0}
+    }
+  </style>
+  <form method="post" id="sab-matriz" class="sab-zona">
+    <div class="sab-modo" aria-label="Modo de vista"><button type="button" data-modo="mes">Mes completo</button><button type="button" data-modo="uno">Un sábado</button></div>
+    <div class="sab-pills" aria-label="Elegir sábado">{% for col in columnas %}<button type="button" data-pill="{{ forloop.counter0 }}">Sáb {{ col.corta }}</button>{% endfor %}</div>
+    {% csrf_token %}
+    {% for f in fechas %}<input type="hidden" name="fechas" value="{{ f }}">{% endfor %}
+    {% for fila in filas %}<input type="hidden" name="nombres" value="{{ fila.nombre }}">{% endfor %}
+    {% for col in columnas %}
+      {% for hh in col.horas %}
+      <input type="hidden" name="h_{{ col.fecha }}_{{ hh.turno }}_ini" value="{{ hh.ini }}">
+      <input type="hidden" name="h_{{ col.fecha }}_{{ hh.turno }}_fin" value="{{ hh.fin }}">
+      {% endfor %}
+    {% endfor %}
+    <div class="sab-wrap">
+    <table class="sab-matriz">
+      <thead><tr>
+        <th class="stick col-nro">Nro</th><th class="stick">Auxiliar</th>
+        {% for col in columnas %}
+        <th data-head="{{ col.fecha }}" data-col="{{ forloop.counter0 }}" title="Cupo: mañana 2, mediodía 1, tarde 1-2"><span class="sab-fecha">Sáb {{ col.corta }} <span class="st"></span></span>{% if col.custom %}
+          <span class="sab-horas">Mñ {{ col.horas.0.ini }}–{{ col.horas.0.fin }}<br>Md {{ col.horas.1.ini }}–{{ col.horas.1.fin }}<br>Ta {{ col.horas.2.ini }}–{{ col.horas.2.fin }}</span>{% endif %}
+          <button type="submit" name="limpiar" value="{{ col.fecha }}" class="mini-x"
+            onclick="return confirm('Vaciar el sábado {{ col.fecha }}?')">vaciar</button>
+        </th>
+        {% endfor %}
+        <th>Total</th>
+      </tr></thead>
+      <tbody>
+        {% for fila in filas %}
+        <tr>
+          <th class="stick col-nro">{{ forloop.counter }}</th>
+          <th class="stick">{{ fila.nombre }}{% if fila.encargado %} <small>(enc.)</small>{% endif %}</th>
+          {% for c in fila.celdas %}
+          <td data-col="{{ forloop.counter0 }}">
+            <select name="cel_{{ c.fecha }}_{{ forloop.parentloop.counter0 }}" data-fecha="{{ c.fecha }}">
+              <option value=""{% if not c.turno %} selected{% endif %}>—</option>
+              <option value="mañana"{% if c.turno == "mañana" %} selected{% endif %}>Mañana</option>
+              <option value="mediodia"{% if c.turno == "mediodia" %} selected{% endif %}>Mediodía</option>
+              <option value="tarde"{% if c.turno == "tarde" %} selected{% endif %}>Tarde</option>
+            </select>
+          </td>
+          {% endfor %}
+          <td class="{% if fila.total %}tot1{% else %}tot0{% endif %}">{{ fila.total }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    </div>
+    <div class="sab-save"><button type="submit" class="btn">Guardar mes</button></div>
+  </form>
+  <script>(function(){
+    var CUPO={"mañana":[2,2],"mediodia":[1,1],"tarde":[1,2]};
+    var CLS={"mañana":"t-man","mediodia":"t-med","tarde":"t-tar"};
+    var form=document.getElementById('sab-matriz');
+    function pintar(s){s.classList.remove('t-man','t-med','t-tar');if(CLS[s.value])s.classList.add(CLS[s.value]);}
+    function cupos(){
+      var porFecha={};
+      form.querySelectorAll('select[data-fecha]').forEach(function(s){
+        if(s.value){var t=porFecha[s.dataset.fecha]=porFecha[s.dataset.fecha]||{};t[s.value]=(t[s.value]||0)+1;}
+      });
+      form.querySelectorAll('th[data-head] .st').forEach(function(sp){
+        var t=porFecha[sp.closest('th').dataset.head]||{},m=t['mañana']||0,md=t['mediodia']||0,ta=t['tarde']||0;
+        var lleno=(m>0||md>0||ta>0),ok=(m===2&&md===1&&ta>=1&&ta<=2);
+        sp.textContent=!lleno?'':(ok?'✓':'!');
+        sp.classList.toggle('st-ok',lleno&&ok);sp.classList.toggle('st-falta',lleno&&!ok);
+      });
+    }
+    form.querySelectorAll('select[data-fecha]').forEach(function(s){s.addEventListener('change',function(){pintar(s);cupos();});pintar(s);});
+    cupos();
+    document.querySelectorAll('#sab-matriz .sab-pills').forEach(function(nav){
+      var zone=document.getElementById('sab-matriz');
+      function ver(i){
+        zone.querySelectorAll('[data-col]').forEach(function(el){el.classList.toggle('show',el.dataset.col===String(i));});
+        nav.querySelectorAll('[data-pill]').forEach(function(b){b.classList.toggle('on',b.dataset.pill===String(i));});
+      }
+      nav.querySelectorAll('[data-pill]').forEach(function(b){b.addEventListener('click',function(){ver(b.dataset.pill);});});
+      function modo(m){
+        zone.classList.toggle('modo-uno',m==='uno');
+        zone.querySelectorAll('[data-modo]').forEach(function(x){x.classList.toggle('on',x.dataset.modo===m);});
+        if(m==='uno')ver(0);
+      }
+      zone.querySelectorAll('[data-modo]').forEach(function(b){b.addEventListener('click',function(){modo(b.dataset.modo);});});
+      modo(window.innerWidth<768?'uno':'mes');
+    });
+    form.addEventListener('submit',function(e){
+      if(e.submitter&&e.submitter.name==='limpiar')return;
+      var porFecha={};
+      this.querySelectorAll('select[data-fecha]').forEach(function(s){
+        if(s.value){porFecha[s.dataset.fecha]=porFecha[s.dataset.fecha]||{};var t=porFecha[s.dataset.fecha];t[s.value]=(t[s.value]||0)+1;}
+      });
+      for(var f in porFecha){
+        for(var t in CUPO){
+          var n=porFecha[f][t]||0;
+          if(n<CUPO[t][0]||n>CUPO[t][1]){e.preventDefault();alert('Sábado '+f+': cupo mañana 2, mediodía 1, tarde 1-2.');return;}
+        }
+      }
+    });
+  })();</script>
+  {% else %}
+  <div class="sab-wrap">
+  <style>
+    .sab-wrap{overflow-x:auto;border:1px solid #dfe7e2;border-radius:14px}
+    table.sab-matriz{border-collapse:separate;border-spacing:0;width:100%;min-width:560px}
+    .sab-matriz thead th{background:#006241;color:#fff;font-size:12px;padding:8px 6px}
+    .sab-matriz td,.sab-matriz th{border-top:1px solid #e7ece9;padding:6px;font-size:13px}
+    .sab-matriz td.t-man{background:#e6f4ea}.sab-matriz td.t-med{background:#fef6e0}.sab-matriz td.t-tar{background:#e8f0fe}
+    .sab-matriz .tot0{color:#aaa}.sab-matriz .tot1{color:#00754a;font-weight:700}
+    .sab-pills{display:none;gap:6px;flex-wrap:wrap;margin:0 0 10px}
+    .sab-pills button{border:1.5px solid #9db8ad;background:#fff;border-radius:999px;padding:5px 12px;font-size:13px}
+    .sab-pills button.on{background:#006241;color:#fff;border-color:#006241}
+    .sab-modo{display:flex;gap:6px;margin:0 0 10px}
+    .sab-modo button{border:1.5px solid #9db8ad;background:#fff;border-radius:999px;padding:5px 12px;font-size:13px}
+    .sab-modo button.on{background:#1e3932;color:#fff;border-color:#1e3932}
+    .sab-zona.modo-uno .sab-pills{display:flex}
+    .sab-zona.modo-uno [data-col]{display:none}
+    .sab-zona.modo-uno [data-col].show{display:table-cell}
+    .sab-zona.modo-uno table.sab-matriz{min-width:0}
+    @media (max-width:767px){
+      .sab-matriz .sab-horas{display:none}
+      table.sab-matriz{min-width:0}
+    }
+  </style>
+  <div class="sab-zona">
+  <div class="sab-modo" aria-label="Modo de vista"><button type="button" data-modo="mes">Mes completo</button><button type="button" data-modo="uno">Un sábado</button></div>
+  <div class="sab-pills" aria-label="Elegir sábado">{% for col in columnas %}<button type="button" data-pill="{{ forloop.counter0 }}">Sáb {{ col.corta }}</button>{% endfor %}</div>
+  <table class="sab-matriz">
+    <thead><tr><th>Nro</th><th>Auxiliar</th>
+      {% for col in columnas %}<th data-col="{{ forloop.counter0 }}">Sáb {{ col.corta }}</th>{% endfor %}
+      <th>Total</th></tr></thead>
+    <tbody>
+      {% for fila in filas %}
+      <tr><td>{{ forloop.counter }}</td>
+        <td>{{ fila.nombre }}{% if fila.encargado %} <small>(enc.)</small>{% endif %}</td>
+        {% for c in fila.celdas %}<td data-col="{{ forloop.counter0 }}" class="{% if c.turno == "mañana" %}t-man{% elif c.turno == "mediodia" %}t-med{% elif c.turno == "tarde" %}t-tar{% endif %}">{% if c.turno == "mañana" %}Mañana{% elif c.turno == "mediodia" %}Mediodía{% elif c.turno == "tarde" %}Tarde{% else %}—{% endif %}</td>{% endfor %}
+        <td class="{% if fila.total %}tot1{% else %}tot0{% endif %}">{{ fila.total }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  </div>
+  <script>(function(){
+    var zone=document.querySelector('.page-wide .sab-zona');
+    var nav=zone.querySelector('.sab-pills');
+    function ver(i){
+      zone.querySelectorAll('[data-col]').forEach(function(el){el.classList.toggle('show',el.dataset.col===String(i));});
+      nav.querySelectorAll('[data-pill]').forEach(function(b){b.classList.toggle('on',b.dataset.pill===String(i));});
+    }
+    function modo(m){
+      zone.classList.toggle('modo-uno',m==='uno');
+      zone.querySelectorAll('[data-modo]').forEach(function(x){x.classList.toggle('on',x.dataset.modo===m);});
+      if(m==='uno')ver(0);
+    }
+    nav.querySelectorAll('[data-pill]').forEach(function(b){b.addEventListener('click',function(){ver(b.dataset.pill);});});
+    zone.querySelectorAll('[data-modo]').forEach(function(b){b.addEventListener('click',function(){modo(b.dataset.modo);});});
+    modo(window.innerWidth<768?'uno':'mes');
+  })();</script>
+  {% endif %}
+</div>
+{% endblock %}
