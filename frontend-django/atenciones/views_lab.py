@@ -403,7 +403,7 @@ def lab_nueva_vista(request: HttpRequest) -> HttpResponse:
                     if str(v).strip()
                 ]
                 copias = [
-                    {**origen, "laboratorio_id": int(v)}
+                    {**origen, "laboratorio_id": int(v), "_forzar": True}
                     for v in labs
                 ]
                 if not copias:
@@ -444,8 +444,13 @@ def lab_nueva_vista(request: HttpRequest) -> HttpResponse:
                     error = "Lista vacía."
             else:
                 for item in a_enviar:
+                    payload = {
+                        k: v for k, v in item.items() if not str(k).startswith("_")
+                    }
+                    if item.get("_forzar"):
+                        payload["forzar_duplicado"] = True
                     try:
-                        api_post("/api/laboratorios/atenciones", token, item)
+                        api_post("/api/laboratorios/atenciones", token, payload)
                     except ApiError as e:
                         error = str(e.detail) if e.detail else "No se pudo enviar"
                         break
@@ -533,9 +538,18 @@ def lab_clonar_vista(request: HttpRequest, atencion_id: int) -> HttpResponse:
         return redirect("lab_lista")
     cards = _cards(token)
     if request.method == "POST":
-        labs = [v for v in request.POST.getlist("laboratorio_id") if str(v).strip()]
-        if not labs:
-            error = "Elegí al menos un laboratorio."
+        labs_a_clonar: list[int] = []
+        for lab in cards["activas"]:
+            try:
+                cantidad = int(str(request.POST.get(f"copias_{lab['id']}", "0")))
+            except (TypeError, ValueError):
+                cantidad = 0
+            if cantidad:
+                labs_a_clonar.extend(
+                    [int(lab["id"])] * min(max(cantidad, 0), 99)
+                )
+        if not labs_a_clonar:
+            error = "Poné cuántas copias querés en al menos un laboratorio."
         else:
             def tomar(campo: str, default: object) -> str:
                 valor = str(request.POST.get(campo) or "").strip()
@@ -566,8 +580,12 @@ def lab_clonar_vista(request: HttpRequest, atencion_id: int) -> HttpResponse:
             if obs:
                 base["observaciones"] = obs
             creadas = 0
-            for lab in labs:
-                copia = {**base, "laboratorio_id": int(lab)}
+            for lab_id in labs_a_clonar:
+                copia = {
+                    **base,
+                    "laboratorio_id": lab_id,
+                    "forzar_duplicado": True,
+                }
                 try:
                     api_post("/api/laboratorios/atenciones", token, copia)
                 except ApiError as e:

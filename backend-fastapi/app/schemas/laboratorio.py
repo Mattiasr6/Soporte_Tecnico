@@ -77,6 +77,7 @@ class LabAtencionCreate(BaseModel):
     solucion: str
     observaciones: str | None = None
     fecha_registro: date | None = None
+    forzar_duplicado: bool = False
 
 
 class LabAtencionUpdate(BaseModel):
