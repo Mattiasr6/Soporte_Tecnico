@@ -405,10 +405,9 @@ def lab_nueva_vista(request: HttpRequest) -> HttpResponse:
                 copias = [
                     {**origen, "laboratorio_id": int(v)}
                     for v in labs
-                    if str(v) != str(origen.get("laboratorio_id", ""))
                 ]
                 if not copias:
-                    error = "Elegí al menos un laboratorio distinto al original."
+                    error = "Elegí al menos un laboratorio."
                 else:
                     batch[idx + 1 : idx + 1] = copias
                     request.session["lab_batch"] = batch
@@ -538,24 +537,37 @@ def lab_clonar_vista(request: HttpRequest, atencion_id: int) -> HttpResponse:
         if not labs:
             error = "Elegí al menos un laboratorio."
         else:
+            def tomar(campo: str, default: object) -> str:
+                valor = str(request.POST.get(campo) or "").strip()
+                return valor if valor else str(default or "")
+
+            base = {
+                "categoria": tomar("categoria", origen.get("categoria", "")),
+                "auxiliar_nombre": tomar(
+                    "auxiliar_nombre", origen.get("auxiliar_nombre", "")
+                ),
+                "descripcion": tomar("descripcion", origen.get("descripcion", "")),
+                "solucion": tomar("solucion", origen.get("solucion", "")),
+                "medio_solicitud": tomar(
+                    "medio_solicitud", origen.get("medio_solicitud") or "Presencial"
+                ),
+                "fecha_registro": tomar(
+                    "fecha_registro", origen.get("fecha_registro") or _hoy_iso()
+                ),
+            }
+            turno = str(request.POST.get("turno") or "").strip()
+            if not turno:
+                turno = str(origen.get("turno") or "")
+            if turno in TURNOS:
+                base["turno"] = turno
+            obs = str(request.POST.get("observaciones") or "").strip()
+            if not obs:
+                obs = str(origen.get("observaciones") or "")
+            if obs:
+                base["observaciones"] = obs
             creadas = 0
             for lab in labs:
-                copia = {
-                    "laboratorio_id": int(lab),
-                    "categoria": str(origen.get("categoria", "")),
-                    "auxiliar_nombre": str(origen.get("auxiliar_nombre", "")),
-                    "descripcion": str(origen.get("descripcion", "")),
-                    "solucion": str(origen.get("solucion", "")),
-                    "medio_solicitud": str(
-                        origen.get("medio_solicitud") or "Presencial"
-                    ),
-                }
-                if origen.get("turno"):
-                    copia["turno"] = origen["turno"]
-                if origen.get("observaciones"):
-                    copia["observaciones"] = origen["observaciones"]
-                if origen.get("fecha_registro"):
-                    copia["fecha_registro"] = str(origen["fecha_registro"])
+                copia = {**base, "laboratorio_id": int(lab)}
                 try:
                     api_post("/api/laboratorios/atenciones", token, copia)
                 except ApiError as e:
@@ -582,6 +594,9 @@ def lab_clonar_vista(request: HttpRequest, atencion_id: int) -> HttpResponse:
         {
             "origen": origen,
             "activas": cards["activas"],
+            "categorias": _categorias(token),
+            "turnos": TURNOS,
+            "medios": MEDIOS,
             "error": error,
         },
     )

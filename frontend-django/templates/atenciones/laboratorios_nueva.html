@@ -116,9 +116,7 @@
       <input type="hidden" name="idx" value="{{ forloop.counter0 }}">
       <div class="pills">
         {% for lab in activas %}
-        {% if lab.id != item.laboratorio_id %}
         <label class="pill tick-lab"><input type="checkbox" name="laboratorio_id" value="{{ lab.id }}"> {{ lab.codigo }}</label>
-        {% endif %}
         {% endfor %}
       </div>
       <p class="sub clon-info" hidden></p>

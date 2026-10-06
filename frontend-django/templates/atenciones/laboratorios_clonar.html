@@ -3,36 +3,76 @@
 {% block contenido %}
 <div class="page-wide">
   <h1>Clonar atención</h1>
-  <p class="sub"><a href="{% url 'lab_lista' %}">← Volver a registros</a></p>
+  <p class="sub"><a href="{% url 'lab_lista' %}">← Volver a registros</a> · Editá lo que quieras antes de crear las copias.</p>
   {% if error %}<p class="error">{{ error }}</p>{% endif %}
 
   <section class="nov-card">
-    <div class="ficha-fila"><span>Origen (lab {{ origen.laboratorio }})</span><b>{{ origen.descripcion|truncatechars:120 }}</b></div>
-    <div class="ficha-fila"><span>Categoría</span><b>{{ origen.categoria }}</b></div>
-    <div class="ficha-fila"><span>Auxiliar</span><b>{{ origen.auxiliar_nombre|default:"—" }}</b></div>
-    <div class="ficha-fila"><span>Fecha</span><b>{{ origen.fecha_registro }}</b></div>
+    <div class="ficha-fila"><span>Origen</span><b>#{{ origen.id }} · lab {{ origen.laboratorio }} · {{ origen.fecha_registro }}</b></div>
+    <div class="ficha-fila"><span>Descripción original</span><b>{{ origen.descripcion|truncatechars:160 }}</b></div>
   </section>
 
   <form method="post" id="form-clonar">
     {% csrf_token %}
+
+    <h2>Datos de las copias</h2>
+    <label>Categoría
+      <select name="categoria">
+        {% for c in categorias %}
+        <option value="{{ c.nombre }}"{% if c.nombre == origen.categoria %} selected{% endif %}>{{ c.nombre }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>Turno
+      <select name="turno">
+        <option value="">— Sin turno —</option>
+        {% for t in turnos %}<option value="{{ t }}"{% if t == origen.turno %} selected{% endif %}>{{ t|capfirst }}</option>{% endfor %}
+      </select>
+    </label>
+    <label>Medio
+      <select name="medio_solicitud">
+        {% for m in medios %}<option value="{{ m }}"{% if m == origen.medio_solicitud or not origen.medio_solicitud and m == "Presencial" %} selected{% endif %}>{{ m }}</option>{% endfor %}
+      </select>
+    </label>
+    <label>Auxiliar(es)
+      <input type="text" name="auxiliar_nombre" value="{{ origen.auxiliar_nombre|default:'' }}">
+    </label>
+    <label>Descripción
+      <textarea name="descripcion" rows="3" required>{{ origen.descripcion }}</textarea>
+    </label>
+    <label>Solución
+      <textarea name="solucion" rows="3" required>{{ origen.solucion }}</textarea>
+    </label>
+    <label>Observaciones (opcional)
+      <input type="text" name="observaciones" value="{{ origen.observaciones|default:'' }}">
+    </label>
+    <label>Fecha
+      <input type="date" name="fecha_registro" value="{{ origen.fecha_registro }}">
+    </label>
+
+    <h2>Clonar en…</h2>
     <fieldset class="lab-picker">
-      <legend>Clonar en… <span class="sub">(una copia por lab marcado; cada una se edita después)</span></legend>
+      <legend>Laboratorios <span class="sub">(una copia por lab marcado, incluido el original)</span></legend>
       <div class="pills">
         {% for lab in activas %}
-          {% if lab.id != origen.laboratorio_id %}
-          <label class="pill">
-            <input type="checkbox" name="laboratorio_id" value="{{ lab.id }}">
-            {{ lab.codigo }}
-          </label>
-          {% endif %}
+        <label class="pill">
+          <input type="checkbox" name="laboratorio_id" value="{{ lab.id }}">
+          {{ lab.codigo }}
+        </label>
         {% endfor %}
       </div>
       <p id="clon-count" class="sub" hidden></p>
       {% if not activas %}<p class="sub">Sin laboratorios activos.</p>{% endif %}
     </fieldset>
     <style>
+      .page-wide label{display:block;margin-top:10px;font-size:13px;color:var(--muted)}
+      .page-wide input[type=text],.page-wide select,.page-wide input[type=date],.page-wide textarea{
+        display:block;width:100%;max-width:640px;margin-top:4px;font:inherit;
+        border:1.5px solid #9db8ad;border-radius:8px;padding:7px 9px;background:#fff}
+      .page-wide textarea{box-sizing:border-box}
       .lab-picker .pill:has(input:checked){font-weight:700;border-color:var(--color-accent,#00754a);background-color:#e6f4ea}
       .lab-picker .pill:focus-within{outline:2px solid currentColor;outline-offset:2px}
+      .lab-picker .pills{margin-top:6px}
+      h2{font-size:15px;margin:22px 0 4px}
     </style>
     <p><button type="submit" class="btn">Crear copias</button></p>
   </form>
@@ -41,7 +81,7 @@
     var form = document.getElementById("form-clonar");
     var box = document.getElementById("clon-count");
     if (!form) return;
-    function marcados() { return form.querySelectorAll("input:checked").length; }
+    function marcados() { return form.querySelectorAll("input[type=checkbox]:checked").length; }
     function upd() {
       var n = marcados();
       if (box) { box.hidden = n === 0; box.textContent = n === 1 ? "Se creará 1 copia" : "Se crearán " + n + " copias"; }
