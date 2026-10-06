@@ -180,7 +180,58 @@ def _item_lab_desde_post(post: dict[str, object]) -> tuple[dict[str, object] | N
 
 
 @con_login
+def soy_vista(request: HttpRequest) -> HttpResponse:
+    rol = _rol(request)
+    if rol not in ("Auxiliar", "Encargado"):
+        return redirect("lab_lista")
+    token = str(request.session["jwt"])
+    error = ""
+    siguiente = (request.GET.get("next") or request.POST.get("next") or "").strip()
+    destino = siguiente if siguiente.startswith("/") else reverse("lab_nueva")
+    try:
+        datos = api_get("/api/laboratorios/equipo", token)
+    except ApiError as e:
+        datos = None
+        error = str(e.detail) if e.detail else "No se pudo cargar la nómina"
+    miembros = []
+    if isinstance(datos, dict) and isinstance(datos.get("auxiliares"), list):
+        miembros = [m for m in datos["auxiliares"] if isinstance(m, dict)]
+    # ponytail: a confianza, pero cada cuenta solo ve su grupo
+    quiere_encargado = rol == "Encargado"
+    opciones = sorted(
+        str(m.get("nombre", ""))
+        for m in miembros
+        if m.get("activo", True)
+        and bool(m.get("encargado", False)) == quiere_encargado
+        and str(m.get("nombre", "")).strip()
+    )
+    if request.method == "POST":
+        elegido = (request.POST.get("auxiliar") or "").strip()
+        if _norm_nombre(elegido) in {_norm_nombre(n) for n in opciones}:
+            request.session["auxiliar_nombre"] = elegido
+            request.session["auxiliar_encargado"] = quiere_encargado
+            return redirect(destino)
+        error = "Ese nombre no está en tu grupo"
+    actual = str(request.session.get("auxiliar_nombre", ""))
+    return render(
+        request,
+        "atenciones/auxiliares_soy.html",
+        {
+            "opciones": opciones,
+            "actual": actual,
+            "siguiente": destino,
+            "es_encargado": quiere_encargado,
+            "error": error,
+        },
+    )
+
+
+@con_login
 def lab_nueva_vista(request: HttpRequest) -> HttpResponse:
+    if _rol(request) in ("Auxiliar", "Encargado") and not (
+        request.session.get("auxiliar_nombre") or ""
+    ).strip():
+        return redirect(f"{reverse('auxiliares_soy')}?next={reverse('lab_nueva')}")
     token = str(request.session["jwt"])
     error = ""
     batch: list[dict[str, object]] = request.session.get("lab_batch", [])
@@ -259,6 +310,8 @@ def lab_nueva_vista(request: HttpRequest) -> HttpResponse:
         _partes = [p for p in _partes if p]
         aux1 = _partes[0] if _partes else ""
         aux_extras = _partes[1:]
+    if not aux1:
+        aux1 = str(request.session.get("auxiliar_nombre", ""))
     return render(
         request,
         "atenciones/laboratorios_nueva.html",
@@ -557,6 +610,39 @@ def lab_dashboard_vista(request: HttpRequest) -> HttpResponse:
             "payload": _payload_lab_dashboard(stats, anio_stats),
         },
     )
+
+
+@con_login
+def horarios_export_xlsx_vista(request: HttpRequest) -> HttpResponse:
+    token = str(request.session["jwt"])
+    es_pdf = request.path.endswith(".pdf")
+    params = {
+        k: v for k in ("tipo", "mes", "anio") if (v := request.GET.get(k))
+    } or {"tipo": "sabado"}
+    res = requests.get(
+        settings.FASTAPI_URL + "/api/laboratorios/horarios/export." + ("pdf" if es_pdf else "xlsx"),
+        headers={"Authorization": f"Bearer {token}"},
+        params=params,
+        timeout=TIMEOUT,
+    )
+    if res.status_code in (401, 403):
+        return redirect("login")
+    destino = "auxiliares_horarios" if params.get("tipo") == "semanal" else "auxiliares_sabados"
+    if res.status_code >= 400:
+        _flash(request, "error", "No se pudo exportar el archivo")
+        return redirect(destino)
+    nombre = "horarios." + ("pdf" if es_pdf else "xlsx")
+    disp = res.headers.get("Content-Disposition", "")
+    if "filename=" in disp:
+        nombre = disp.split("filename=", 1)[1].strip().strip('"')
+    resp = HttpResponse(
+        res.content,
+        content_type="application/pdf"
+        if es_pdf
+        else "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+    resp["Content-Disposition"] = f"attachment; filename={nombre}"
+    return resp
 
 
 @con_login

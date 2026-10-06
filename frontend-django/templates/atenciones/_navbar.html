@@ -118,7 +118,7 @@
     <div class="side-footer">
       <div class="side-user">
         <span class="avatar">{{ usuario.display_name|default:"U"|slice:":1"|upper }}</span>
-        <span class="side-user-main"><strong>{{ usuario.display_name|default:"Usuario" }}</strong><small>{{ usuario.role|default:"" }}</small></span>
+        <span class="side-user-main"><strong>{{ usuario.display_name|default:"Usuario" }}</strong><small>{{ usuario.role|default:"" }}</small>{% if auxiliar_nombre %}<small>Soy: {{ auxiliar_nombre }} · <a href="{% url 'auxiliares_soy' %}">cambiar</a></small>{% endif %}</span>
       </div>
       <form method="post" action="{% url 'logout' %}">
         {% csrf_token %}

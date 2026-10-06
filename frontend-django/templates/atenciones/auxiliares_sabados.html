@@ -2,8 +2,18 @@
 {% block titulo %}Sábados por fecha — Soporte Técnico{% endblock %}
 {% block contenido %}
 <div class="page-wide">
+  <div class="sab-head">
   <h1>Sábados — {{ mes_nombre }} {{ anio }}</h1>
+  <div class="sab-actions">
+    <a class="btn" href="{% url 'horarios_export_xlsx' %}?tipo=sabado&amp;mes={{ mes }}&amp;anio={{ anio }}"><iconify-icon icon="mdi:file-excel-outline"></iconify-icon> Excel</a>
+    <a class="btn ghost" href="{% url 'horarios_export_pdf' %}?tipo=sabado&amp;mes={{ mes }}&amp;anio={{ anio }}"><iconify-icon icon="mdi:file-pdf-outline"></iconify-icon> PDF</a>
+  </div>
+  </div>
   <style>
+    .sab-head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+    .sab-head h1{margin:0}
+    .sab-actions{display:flex;gap:8px;align-items:center}
+    .sab-actions .btn{box-shadow:0 2px 6px rgba(30,57,50,.18)}
     .sab-nav{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 12px}
     .sab-nav .btn{padding:6px 14px;font-size:13px;border-radius:999px}
     ul.sab-faltan{columns:2;column-gap:24px;margin:8px 0 4px;padding-left:22px;font-size:13px}

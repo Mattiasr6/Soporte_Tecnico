@@ -3,6 +3,7 @@
 Cupo: mañana 2, mediodía 1, tarde 1-2. Solo sábados (YYYY-MM-DD).
 """
 
+import io
 import os
 from pathlib import Path
 
@@ -187,6 +188,62 @@ def test_rechazos(archivos_data):
         ).status_code
         == 400
     )
+
+
+def test_export_xlsx_sabado_y_semanal(archivos_data):
+    from openpyxl import load_workbook
+
+    for i in range(1, 6):
+        _agregar_aux(f"{AUX}{i}")
+    body = _body(*[f"{AUX}{i}" for i in range(1, 6)])
+    assert (
+        client.put(
+            f"/api/laboratorios/horarios-sabado/{SABADO_OK}",
+            json=body,
+            headers=h(UID_JEFE),
+        ).status_code
+        == 200
+    )
+    r = client.get(
+        "/api/laboratorios/horarios/export.xlsx",
+        params={"tipo": "sabado", "mes": 1, "anio": 2099},
+        headers=h(UID_TEC),
+    )
+    assert r.status_code == 200, r.text
+    assert "spreadsheetml" in r.headers["content-type"]
+    assert r.content[:2] == b"PK"
+    assert "sabados_2099-01.xlsx" in r.headers["content-disposition"]
+    ws = load_workbook(filename=io.BytesIO(r.content)).active
+    assert ws is not None
+    assert ws["A1"].value == "HORARIOS TURNO SABADO 01-2099"
+    assert [c.value for c in ws[2]] == ["NOMBRE", "SABADO", "TURNO", "INICIO", "FIN"]
+    nombres = [fila[0].value for fila in ws.iter_rows(min_row=3)]
+    assert f"{AUX}1" in nombres
+    libres = [fila for fila in ws.iter_rows(min_row=3) if fila[2].value == "Libre"]
+    assert not libres  # el equipo de prueba son solo los 5 asignados
+    r = client.get(
+        "/api/laboratorios/horarios/export.xlsx",
+        params={"tipo": "semanal"},
+        headers=h(UID_TEC),
+    )
+    assert r.status_code == 200, r.text
+    assert (
+        client.get(
+            "/api/laboratorios/horarios/export.xlsx",
+            params={"tipo": "word"},
+            headers=h(UID_TEC),
+        ).status_code
+        == 400
+    )
+    r = client.get(
+        "/api/laboratorios/horarios/export.pdf",
+        params={"tipo": "sabado", "mes": 1, "anio": 2099},
+        headers=h(UID_TEC),
+    )
+    assert r.status_code == 200, r.text
+    assert r.headers["content-type"] == "application/pdf"
+    assert r.content[:4] == b"%PDF"
+    assert "sabados_2099-01.pdf" in r.headers["content-disposition"]
 
 
 def test_delete_limpia_la_fecha(archivos_data):

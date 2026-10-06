@@ -923,3 +923,166 @@ def export_lab_csv(
         media_type="text/csv",
         headers={"Content-Disposition": "attachment; filename=lab_atenciones.csv"},
     )
+
+
+XLSX_MEDIA = (
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+)
+
+# ponytail: espeja sus Excel (nombres + fecha + turno), sin logo por ahora
+TURNO_XLSX = {"mañana": "Mañana", "mediodia": "Medio Dia", "tarde": "Tarde", "noche": "Noche"}
+
+
+def _libro_xlsx(
+    titulo: str, cabecera: list[str], filas: list[list[object]], anchos: list[int]
+) -> bytes:
+    from openpyxl import Workbook
+    from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
+
+    wb = Workbook()
+    ws = wb.active
+    assert ws is not None
+    fino = Side(style="thin", color="9DB8AD")
+    borde = Border(left=fino, right=fino, top=fino, bottom=fino)
+    n = len(cabecera)
+    ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=n)
+    titulo_celda = ws.cell(row=1, column=1, value=titulo)
+    titulo_celda.font = Font(bold=True, size=14, color="1E3932")
+    for i, h in enumerate(cabecera, start=1):
+        c = ws.cell(row=2, column=i, value=h)
+        c.font = Font(bold=True, color="FFFFFF")
+        c.fill = PatternFill("solid", fgColor="006241")
+        c.alignment = Alignment(horizontal="center")
+        c.border = borde
+    for f, fila in enumerate(filas, start=3):
+        for i, valor in enumerate(fila, start=1):
+            c = ws.cell(row=f, column=i, value=valor)
+            c.border = borde
+            if f % 2 == 0:
+                c.fill = PatternFill("solid", fgColor="F4F8F5")
+    for i, ancho in enumerate(anchos, start=1):
+        ws.column_dimensions[ws.cell(row=2, column=i).column_letter].width = ancho
+    ws.freeze_panes = "A3"
+    buf = io.BytesIO()
+    wb.save(buf)
+    return buf.getvalue()
+
+
+@router.get("/horarios/export.xlsx")
+def export_horarios_xlsx(
+    db: DbSession,
+    user: CurrentUser,
+    tipo: str = "sabado",
+    mes: int | None = None,
+    anio: int | None = None,
+) -> Response:
+    del db, user
+    titulo, cabecera, filas, nombre = _filas_export(tipo, mes, anio)
+    anchos = [32, 14] + [12] * (len(cabecera) - 2)
+    return Response(
+        content=_libro_xlsx(titulo, cabecera, filas, anchos),
+        media_type=XLSX_MEDIA,
+        headers={"Content-Disposition": f"attachment; filename={nombre}.xlsx"},
+    )
+
+
+@router.get("/horarios/export.pdf")
+def export_horarios_pdf(
+    db: DbSession,
+    user: CurrentUser,
+    tipo: str = "sabado",
+    mes: int | None = None,
+    anio: int | None = None,
+) -> Response:
+    del db, user
+    titulo, cabecera, filas, nombre = _filas_export(tipo, mes, anio)
+    return Response(
+        content=_hoja_pdf(titulo, cabecera, filas),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename={nombre}.pdf"},
+    )
+
+
+def _filas_export(
+    tipo: str, mes: int | None, anio: int | None
+) -> tuple[str, list[str], list[list[object]], str]:
+    """Titulo, cabecera, filas y base del nombre de archivo para exportar."""
+    import unicodedata
+
+    def _norm(s: str) -> str:
+        t = unicodedata.normalize("NFD", s.strip().casefold())
+        return "".join(c for c in t if unicodedata.category(c) != "Mn")
+
+    if tipo == "semanal":
+        horarios = _horarios()
+        filas: list[list[object]] = []
+        for turno in TURNOS:
+            b = horarios.get(turno, {})
+            for nombre in b.get("auxiliares", []):
+                filas.append(
+                    [nombre, TURNO_XLSX[turno], b.get("inicio", ""), b.get("fin", "")]
+                )
+        return (
+            "HORARIOS POR TURNO (SEMANAL)",
+            ["NOMBRE", "TURNO", "INICIO", "FIN"],
+            filas,
+            "horarios_semanales",
+        )
+    if tipo != "sabado":
+        raise bad_request("tipo debe ser semanal o sabado")
+    now = datetime.now(UTC)
+    mes = now.month if mes is None else mes
+    anio = now.year if anio is None else anio
+    fechas = _sabados_del_mes(anio, mes)
+    guardados = _sabados()
+    filas = []
+    vistos: set[str] = set()
+    for f in fechas:
+        bloques = guardados.get(f) or {}
+        for turno in SABADO_TURNOS:
+            b = bloques.get(turno) or {}
+            for nombre in b.get("auxiliares", []):
+                vistos.add(_norm(str(nombre)))
+                filas.append(
+                    [nombre, f, TURNO_XLSX[turno], b.get("inicio", ""), b.get("fin", "")]
+                )
+    for m in _equipo():
+        if m.get("activo", True) and _norm(m["nombre"]) not in vistos:
+            filas.append([m["nombre"], "", "Libre", "", ""])
+    return (
+        f"HORARIOS TURNO SABADO {mes:02d}-{anio}",
+        ["NOMBRE", "SABADO", "TURNO", "INICIO", "FIN"],
+        filas,
+        f"sabados_{anio}-{mes:02d}",
+    )
+
+
+def _hoja_pdf(titulo: str, cabecera: list[str], filas: list[list[object]]) -> bytes:
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import A4, landscape
+    from reportlab.lib.styles import getSampleStyleSheet
+    from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buf, pagesize=landscape(A4), leftMargin=30, rightMargin=30, topMargin=30, bottomMargin=30
+    )
+    partes = [Paragraph(titulo, getSampleStyleSheet()["Title"]), Spacer(1, 12)]
+    datos = [cabecera] + [[str(v) for v in fila] for fila in filas]
+    tabla = Table(datos, colWidths=[220, 90, 90, 70, 70][: len(cabecera)], repeatRows=1)
+    tabla.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#006241")),
+                ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                ("FONTSIZE", (0, 0), (-1, -1), 9),
+                ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#9DB8AD")),
+                ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#F4F8F5")]),
+                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ]
+        )
+    )
+    partes.append(tabla)
+    doc.build(partes)
+    return buf.getvalue()
