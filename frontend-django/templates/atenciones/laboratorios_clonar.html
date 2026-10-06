@@ -51,12 +51,12 @@
 
     <h2>Clonar en…</h2>
     <fieldset class="lab-picker">
-      <legend>Laboratorios <span class="sub">(una copia por lab marcado, incluido el original)</span></legend>
+      <legend>Clonar en… <span class="sub">(poné cuántas copias por lab; pueden ser varias del mismo)</span></legend>
       <div class="pills">
         {% for lab in activas %}
-        <label class="pill">
-          <input type="checkbox" name="laboratorio_id" value="{{ lab.id }}">
+        <label class="pill tick-lab">
           {{ lab.codigo }}
+          <input type="number" name="copias_{{ lab.id }}" min="0" max="99" value="0" aria-label="Copias en {{ lab.codigo }}">
         </label>
         {% endfor %}
       </div>
@@ -69,7 +69,9 @@
         display:block;width:100%;max-width:640px;margin-top:4px;font:inherit;
         border:1.5px solid #9db8ad;border-radius:8px;padding:7px 9px;background:#fff}
       .page-wide textarea{box-sizing:border-box}
-      .lab-picker .pill:has(input:checked){font-weight:700;border-color:var(--color-accent,#00754a);background-color:#e6f4ea}
+      .lab-picker .tick-lab{display:inline-flex;align-items:center;gap:6px;cursor:pointer}
+      .lab-picker .tick-lab.on{font-weight:700;border-color:var(--color-accent,#00754a);background-color:#e6f4ea}
+      .lab-picker .tick-lab input[type=number]{width:56px;margin:0;font:inherit;border:1.5px solid #9db8ad;border-radius:8px;padding:4px 6px;background:#fff}
       .lab-picker .pill:focus-within{outline:2px solid currentColor;outline-offset:2px}
       .lab-picker .pills{margin-top:6px}
       h2{font-size:15px;margin:22px 0 4px}
@@ -81,14 +83,22 @@
     var form = document.getElementById("form-clonar");
     var box = document.getElementById("clon-count");
     if (!form) return;
-    function marcados() { return form.querySelectorAll("input[type=checkbox]:checked").length; }
+    function total() {
+      var n = 0;
+      form.querySelectorAll("input[type=number]").forEach(function (i) {
+        n += Math.max(0, Math.min(99, parseInt(i.value, 10) || 0));
+        var lab = i.closest(".tick-lab");
+        if (lab) lab.classList.toggle("on", (parseInt(i.value, 10) || 0) > 0);
+      });
+      return n;
+    }
     function upd() {
-      var n = marcados();
+      var n = total();
       if (box) { box.hidden = n === 0; box.textContent = n === 1 ? "Se creará 1 copia" : "Se crearán " + n + " copias"; }
     }
-    form.querySelectorAll("input[type=checkbox]").forEach(function (c) { c.addEventListener("change", upd); });
+    form.querySelectorAll("input[type=number]").forEach(function (c) { c.addEventListener("input", upd); });
     form.addEventListener("submit", function (e) {
-      if (marcados() === 0) { e.preventDefault(); alert("Elegí al menos un laboratorio."); }
+      if (total() === 0) { e.preventDefault(); alert("Poné cuántas copias querés en al menos un laboratorio."); }
     });
     upd();
   })();

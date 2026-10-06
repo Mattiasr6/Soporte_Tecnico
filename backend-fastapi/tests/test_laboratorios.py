@@ -841,3 +841,36 @@ def test_auxiliar_desconocido_400(api_limpia):
         headers=h(UID_TEC),
     )
     assert r.status_code == 400, r.text
+
+
+def test_forzar_duplicado_permite_clonar(api_limpia, archivos_data):
+    _agregar_aux(f"{AUX}Dup")
+    lab = _crear_lab(f"{AMARK}DUP")
+    cat = _crear_cat(f"{CMARK}dup")
+    dto = {
+        "laboratorio_id": lab["id"],
+        "categoria": cat["nombre"],
+        "descripcion": f"{AMARK}misma desc",
+        "solucion": "s",
+        "auxiliar_nombre": f"{AUX}Dup",
+    }
+    assert (
+        client.post(
+            "/api/laboratorios/atenciones", json=dto, headers=h(UID_JEFE)
+        ).status_code
+        == 200
+    )
+    # sin flag: el guard de 60s bloquea
+    assert (
+        client.post(
+            "/api/laboratorios/atenciones", json=dto, headers=h(UID_JEFE)
+        ).status_code
+        == 409
+    )
+    # con flag (clonador): permite
+    r = client.post(
+        "/api/laboratorios/atenciones",
+        json={**dto, "forzar_duplicado": True},
+        headers=h(UID_JEFE),
+    )
+    assert r.status_code == 200, r.text

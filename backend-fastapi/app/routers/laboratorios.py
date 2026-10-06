@@ -673,7 +673,7 @@ def create_lab_atencion(dto: LabAtencionCreate, db: DbSession, user: CurrentUser
             LabAtencion.created_at >= now - timedelta(seconds=60),
         )
     )
-    if dup is not None:
+    if dup is not None and not dto.forzar_duplicado:
         raise conflict("Atencion duplicada en los ultimos 60 segundos")
     turno_val = _validar_turno(dto.turno)
     row = LabAtencion(
