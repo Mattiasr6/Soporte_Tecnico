@@ -142,29 +142,34 @@ def lab_lista_vista(request: HttpRequest) -> HttpResponse:
     )
 
 
-def _item_lab_desde_post(post: dict[str, object]) -> tuple[dict[str, object] | None, str]:
-    lab_id = str(post.get("laboratorio_id", "")).strip()
+def _items_lab_desde_post(post: dict[str, object]) -> tuple[list[dict[str, object]], str]:
+    """Un item por cada laboratorio marcado en el form."""
     categoria = str(post.get("categoria", "")).strip()
     descripcion = str(post.get("descripcion", "")).strip()
     solucion = str(post.get("solucion", "")).strip()
-    if not lab_id:
-        return None, "Elige un laboratorio."
-    if not categoria:
-        return None, "Elige una categoría."
-    if not descripcion or not solucion:
-        return None, "Faltan descripción o solución."
-    try:
-        lab_id_int = int(lab_id)
-    except ValueError:
-        return None, "Laboratorio inválido."
     _getlist = getattr(post, "getlist", None)
+    if callable(_getlist):
+        labs = [v for v in _getlist("laboratorio_id") if str(v).strip()]
+    else:
+        bruto = post.get("laboratorio_id", "")
+        lista = bruto if isinstance(bruto, list) else [bruto]
+        labs = [v for v in lista if str(v).strip()]
+    if not labs:
+        return [], "Elegí al menos un laboratorio."
+    if not categoria:
+        return [], "Elegí una categoría."
+    if not descripcion or not solucion:
+        return [], "Faltan descripción o solución."
+    try:
+        labs_int = [int(v) for v in labs]
+    except (TypeError, ValueError):
+        return [], "Laboratorio inválido."
     extras = (
         _getlist("auxiliar_extra")
         if callable(_getlist)
         else post.get("auxiliar_extra", [])
     )
-    return {
-        "laboratorio_id": lab_id_int,
+    base = {
         "categoria": categoria,
         "auxiliar_nombre": _combinar_auxiliares(
             post.get("auxiliar_nombre", ""),
@@ -176,7 +181,8 @@ def _item_lab_desde_post(post: dict[str, object]) -> tuple[dict[str, object] | N
         "solucion": solucion,
         "observaciones": post.get("observaciones") or None,
         "fecha_registro": str(post.get("fecha_registro") or _hoy_iso()),
-    }, ""
+    }
+    return [{**base, "laboratorio_id": lab_id} for lab_id in labs_int], ""
 
 
 @con_login
@@ -252,7 +258,7 @@ def novedades_vista(request: HttpRequest) -> HttpResponse:
         request.session.get("auxiliar_nombre") or ""
     ).strip():
         return redirect(f"{reverse('auxiliares_soy')}?next={reverse('novedades')}")
-    tab = (request.GET.get("tab") or request.POST.get("tab") or "novedades").strip()
+    tab = (request.POST.get("tab") or request.GET.get("tab") or "novedades").strip()
     if tab not in NOV_TABS:
         tab = "novedades"
     token = str(request.session["jwt"])
@@ -371,19 +377,42 @@ def lab_nueva_vista(request: HttpRequest) -> HttpResponse:
     if request.method == "POST":
         action = request.POST.get("action")
         if action == "agregar":
-            item, error = _item_lab_desde_post(request.POST)
-            if not error and item is not None:
+            items, error = _items_lab_desde_post(request.POST)
+            if not error and items:
                 if edit_idx is not None:
-                    batch[edit_idx] = item
+                    batch[edit_idx : edit_idx + 1] = items
                     request.session.pop("lab_edit_idx", None)
                     edit_idx = None
                 else:
-                    batch.append(item)
+                    batch.extend(items)
                 request.session["lab_batch"] = batch
                 return redirect("lab_nueva")
             if edit_idx is not None and not error:
                 request.session["lab_batch"] = batch
                 return redirect("lab_nueva")
+        elif action == "clonar":
+            try:
+                idx = int(request.POST.get("idx", "-1"))
+                origen = batch[idx]
+            except (IndexError, ValueError):
+                error = "Índice inválido."
+            else:
+                labs = [
+                    v
+                    for v in request.POST.getlist("laboratorio_id")
+                    if str(v).strip()
+                ]
+                copias = [
+                    {**origen, "laboratorio_id": int(v)}
+                    for v in labs
+                    if str(v) != str(origen.get("laboratorio_id", ""))
+                ]
+                if not copias:
+                    error = "Elegí al menos un laboratorio distinto al original."
+                else:
+                    batch[idx + 1 : idx + 1] = copias
+                    request.session["lab_batch"] = batch
+                    return redirect("lab_nueva")
         elif action == "editar":
             try:
                 idx = int(request.POST.get("idx", "-1"))
@@ -408,9 +437,9 @@ def lab_nueva_vista(request: HttpRequest) -> HttpResponse:
         elif action == "enviar":
             a_enviar = batch
             if not a_enviar and edit_idx is None:
-                directo, error = _item_lab_desde_post(request.POST)
-                if directo is not None:
-                    a_enviar = [directo]
+                directos, error = _items_lab_desde_post(request.POST)
+                if directos:
+                    a_enviar = directos
             if not a_enviar:
                 if not error:
                     error = "Lista vacía."
@@ -480,6 +509,82 @@ def _cuerpo_lab_edicion(request: HttpRequest) -> dict[str, object]:
         with contextlib.suppress(ValueError):
             cuerpo["laboratorio_id"] = int(lab_id)
     return {k: v for k, v in cuerpo.items() if v != ""}
+
+
+@con_login
+def lab_clonar_vista(request: HttpRequest, atencion_id: int) -> HttpResponse:
+    token = str(request.session["jwt"])
+    error = ""
+    try:
+        origen = api_get(f"/api/laboratorios/atenciones/{atencion_id}", token)
+    except ApiError as e:
+        if e.status in (401, 403):
+            return redirect("login")
+        _flash(request, "error", "Atención no encontrada")
+        return redirect("lab_lista")
+    if not isinstance(origen, dict):
+        return redirect("lab_lista")
+    puede = (
+        origen.get("usuario_id") == (request.session.get("usuario") or {}).get("id")
+        or _puede_reportes(request)
+        or _es_encargado(request)
+    )
+    if not puede:
+        _flash(request, "error", "Solo el dueño o un encargado puede clonar")
+        return redirect("lab_lista")
+    cards = _cards(token)
+    if request.method == "POST":
+        labs = [v for v in request.POST.getlist("laboratorio_id") if str(v).strip()]
+        if not labs:
+            error = "Elegí al menos un laboratorio."
+        else:
+            creadas = 0
+            for lab in labs:
+                copia = {
+                    "laboratorio_id": int(lab),
+                    "categoria": str(origen.get("categoria", "")),
+                    "auxiliar_nombre": str(origen.get("auxiliar_nombre", "")),
+                    "descripcion": str(origen.get("descripcion", "")),
+                    "solucion": str(origen.get("solucion", "")),
+                    "medio_solicitud": str(
+                        origen.get("medio_solicitud") or "Presencial"
+                    ),
+                }
+                if origen.get("turno"):
+                    copia["turno"] = origen["turno"]
+                if origen.get("observaciones"):
+                    copia["observaciones"] = origen["observaciones"]
+                if origen.get("fecha_registro"):
+                    copia["fecha_registro"] = str(origen["fecha_registro"])
+                try:
+                    api_post("/api/laboratorios/atenciones", token, copia)
+                except ApiError as e:
+                    if creadas:
+                        _flash(
+                            request,
+                            "ok",
+                            f"{creadas} copia(s) creada(s); la siguiente falló: "
+                            + str(e.detail),
+                        )
+                    else:
+                        _flash(
+                            request,
+                            "error",
+                            str(e.detail) if e.detail else "No se pudo clonar",
+                        )
+                    return redirect("lab_lista")
+                creadas += 1
+            _flash(request, "ok", f"{creadas} copia(s) creada(s). Editá cada una para diferenciarla.")
+            return redirect("lab_lista")
+    return render(
+        request,
+        "atenciones/laboratorios_clonar.html",
+        {
+            "origen": origen,
+            "activas": cards["activas"],
+            "error": error,
+        },
+    )
 
 
 @con_login

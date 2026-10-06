@@ -108,9 +108,44 @@
     </span>
     <input type="hidden" name="idx" value="{{ forloop.counter0 }}">
   </form>
+  <details class="batch-clonar">
+    <summary class="link-btn">⧉ Clonar a otros labs</summary>
+    <form method="post">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="clonar">
+      <input type="hidden" name="idx" value="{{ forloop.counter0 }}">
+      <div class="pills">
+        {% for lab in activas %}
+        {% if lab.id != item.laboratorio_id %}
+        <label class="pill tick-lab"><input type="checkbox" name="laboratorio_id" value="{{ lab.id }}"> {{ lab.codigo }}</label>
+        {% endif %}
+        {% endfor %}
+      </div>
+      <p class="sub clon-info" hidden></p>
+      <button type="submit" class="link-btn">Crear copias en la lista</button>
+    </form>
+  </details>
   {% empty %}
   <p class="sub">Todavía no agregaste ninguna atención.</p>
   {% endfor %}
+  <style>
+    .batch-clonar{margin:-6px 0 10px}
+    .batch-clonar summary{cursor:pointer}
+    .batch-clonar .pill:has(input:checked){font-weight:700;border-color:var(--color-accent,#00754a);background-color:#e6f4ea}
+    .batch-clonar .pills{margin:6px 0}
+  </style>
+  <script>
+  (function () {
+    document.querySelectorAll(".batch-clonar form").forEach(function (f) {
+      f.addEventListener("submit", function (e) {
+        if (!f.querySelector("input:checked")) {
+          e.preventDefault();
+          alert("Elegí al menos un laboratorio distinto al original.");
+        }
+      });
+    });
+  })();
+  </script>
 </div>
 <script>
 (function () {

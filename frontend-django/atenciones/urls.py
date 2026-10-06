@@ -102,6 +102,11 @@ urlpatterns = [
         name="horarios_export_pdf",
     ),
     path(
+        "auxiliares/atenciones/<int:atencion_id>/clonar/",
+        views_lab.lab_clonar_vista,
+        name="lab_clonar",
+    ),
+    path(
         "auxiliares/atenciones/<int:atencion_id>/editar/",
         views_lab.lab_editar_vista,
         name="lab_editar",

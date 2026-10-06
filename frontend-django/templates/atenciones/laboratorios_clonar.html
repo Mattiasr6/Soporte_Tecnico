@@ -1,0 +1,57 @@
+{% extends "atenciones/base.html" %}
+{% block titulo %}Clonar atención — Soporte Técnico{% endblock %}
+{% block contenido %}
+<div class="page-wide">
+  <h1>Clonar atención</h1>
+  <p class="sub"><a href="{% url 'lab_lista' %}">← Volver a registros</a></p>
+  {% if error %}<p class="error">{{ error }}</p>{% endif %}
+
+  <section class="nov-card">
+    <div class="ficha-fila"><span>Origen (lab {{ origen.laboratorio }})</span><b>{{ origen.descripcion|truncatechars:120 }}</b></div>
+    <div class="ficha-fila"><span>Categoría</span><b>{{ origen.categoria }}</b></div>
+    <div class="ficha-fila"><span>Auxiliar</span><b>{{ origen.auxiliar_nombre|default:"—" }}</b></div>
+    <div class="ficha-fila"><span>Fecha</span><b>{{ origen.fecha_registro }}</b></div>
+  </section>
+
+  <form method="post" id="form-clonar">
+    {% csrf_token %}
+    <fieldset class="lab-picker">
+      <legend>Clonar en… <span class="sub">(una copia por lab marcado; cada una se edita después)</span></legend>
+      <div class="pills">
+        {% for lab in activas %}
+          {% if lab.id != origen.laboratorio_id %}
+          <label class="pill">
+            <input type="checkbox" name="laboratorio_id" value="{{ lab.id }}">
+            {{ lab.codigo }}
+          </label>
+          {% endif %}
+        {% endfor %}
+      </div>
+      <p id="clon-count" class="sub" hidden></p>
+      {% if not activas %}<p class="sub">Sin laboratorios activos.</p>{% endif %}
+    </fieldset>
+    <style>
+      .lab-picker .pill:has(input:checked){font-weight:700;border-color:var(--color-accent,#00754a);background-color:#e6f4ea}
+      .lab-picker .pill:focus-within{outline:2px solid currentColor;outline-offset:2px}
+    </style>
+    <p><button type="submit" class="btn">Crear copias</button></p>
+  </form>
+  <script>
+  (function () {
+    var form = document.getElementById("form-clonar");
+    var box = document.getElementById("clon-count");
+    if (!form) return;
+    function marcados() { return form.querySelectorAll("input:checked").length; }
+    function upd() {
+      var n = marcados();
+      if (box) { box.hidden = n === 0; box.textContent = n === 1 ? "Se creará 1 copia" : "Se crearán " + n + " copias"; }
+    }
+    form.querySelectorAll("input[type=checkbox]").forEach(function (c) { c.addEventListener("change", upd); });
+    form.addEventListener("submit", function (e) {
+      if (marcados() === 0) { e.preventDefault(); alert("Elegí al menos un laboratorio."); }
+    });
+    upd();
+  })();
+  </script>
+</div>
+{% endblock %}

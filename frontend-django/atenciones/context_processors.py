@@ -40,6 +40,7 @@ def sesion(request):
         "lab_nueva": "lab_nueva",
         "lab_editar": "laboratorios",
         "lab_eliminar": "laboratorios",
+        "lab_clonar": "laboratorios",
         "lab_reportes": "lab_reportes",
         "lab_dashboard": "lab_dashboard",
         "lab_export_csv": "laboratorios",
