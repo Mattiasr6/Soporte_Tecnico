@@ -37,10 +37,16 @@
     .sw-plant .acciones{margin-top:6px}
     .sw-ok{color:var(--color-accent,#00754a);font-weight:700}
     @media (max-width:767px){
-      .sw-col{min-width:0}
+      .sw-cols{flex-direction:column;flex-wrap:nowrap}
+      .sw-col{min-width:0;flex:none;width:100%}
       .sw-form input[type=text],.sw-form select,.sw-form textarea{min-width:0;width:100%}
       .sw-form label{width:100%}
       .sw-tabla{font-size:12px}
+      .sw-tabla,.sw-tabla tbody,.sw-tabla tr,.sw-tabla td{display:block;width:100%;box-sizing:border-box}
+      .sw-tabla thead{display:none}
+      .sw-tabla tr{border:1px solid #eef3f0;border-radius:10px;margin-bottom:8px;padding:4px 0;background:#fff}
+      .sw-tabla td{border:0;padding:3px 9px}
+      .sw-matriz label{font-size:12px;padding:4px 8px}
     }
   </style>
 
