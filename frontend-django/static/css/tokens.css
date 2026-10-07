@@ -77,8 +77,8 @@ body {
   margin-top: 12px;
 }
 .page-wide {
-  max-width: none;
-  margin: 0;
+  max-width: 1200px;
+  margin: 0 auto;
   background: transparent;
   border: 0;
   border-radius: 0;
@@ -1447,6 +1447,11 @@ html.a11y-contraste-alto textarea {
   display: none;
 }
 @media (max-width: 767px) {
+  .page-wide {
+    max-width: none;
+    margin: 0;
+    padding: 12px;
+  }
   .atencion-tabla {
     display: none;
   }
