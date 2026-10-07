@@ -6,7 +6,11 @@
     .sw-head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
     .sw-head h1{margin:0}
     .sw-nav .btn{padding:6px 14px;font-size:13px;border-radius:999px}
-    .sw-cols{display:flex;gap:18px;flex-wrap:wrap;margin-top:14px;align-items:flex-start}
+    .sw-cols{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:14px;align-items:start}
+    .sw-cols>section{display:contents}
+    .sw-span{grid-column:1/-1}
+    .sw-tl{grid-column:1;grid-row:1}
+    .sw-tr{grid-column:2;grid-row:1}
     .sw-col{flex:1;min-width:300px}
     .sw-card{background:var(--color-surface,#fff);border:1px solid #dfe7e2;border-radius:14px;padding:14px 16px;margin-bottom:14px}
     .sw-card h2{margin:0 0 10px;font-size:16px}
@@ -18,8 +22,12 @@
     .sw-form .chk{flex-direction:row;align-items:center;gap:5px;padding-bottom:7px}
     .sw-form .btn{padding:6px 14px;font-size:13px;border-radius:8px}
     .sw-tabla{width:100%;border-collapse:collapse;font-size:13px}
-    .sw-tabla th,.sw-tabla td{text-align:left;padding:6px 8px;border-bottom:1px solid #eef3f0;vertical-align:top}
+    .sw-tabla th,.sw-tabla td{text-align:left;padding:10px 12px;border-bottom:1px solid #eef3f0;vertical-align:top}
     .sw-tabla th{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted,#888)}
+    .sw-tabla tbody tr:hover{background:#f6faf7}
+    .sw-nombre-t{display:block;font-size:14px;font-weight:700;margin:0 0 5px;line-height:1.3}
+    .sw-meta{display:flex;gap:6px;flex-wrap:wrap;align-items:center;line-height:1.6}
+    .sw-num{white-space:nowrap}
     .sw-tabla tr.inactivo{opacity:.5}
     .sw-tag{display:inline-block;font-size:10.5px;font-weight:700;border-radius:999px;padding:1px 8px;margin-right:4px;background:#eef3f0;color:#3d5a50}
     .sw-tag.esencial{background:#fde8c8;color:#8a5a00}
@@ -37,7 +45,8 @@
     .sw-plant .acciones{margin-top:6px}
     .sw-ok{color:var(--color-accent,#00754a);font-weight:700}
     @media (max-width:767px){
-      .sw-cols{flex-direction:column;flex-wrap:nowrap}
+      .sw-cols{grid-template-columns:1fr}
+      .sw-tl,.sw-tr{grid-column:auto;grid-row:auto}
       .sw-col{min-width:0;flex:none;width:100%}
       .sw-form input[type=text],.sw-form select,.sw-form textarea{min-width:0;width:100%}
       .sw-form label{width:100%}
@@ -62,7 +71,7 @@
 
   <div class="sw-cols">
     <section class="sw-col">
-      <div class="sw-card">
+      <div class="sw-card sw-tl">
         <h2>Programa en un lab</h2>
         <p class="hint">Elegí lab y marcá qué corre ahí. Guardar reemplaza la lista completa de ese lab.</p>
         <form method="get">
@@ -101,7 +110,7 @@
         {% endif %}
       </div>
 
-      <div class="sw-card">
+      <div class="sw-card sw-span">
         <h2>Catálogo ({{ sws|length }})</h2>
         <p class="hint">Licencia por programa. Los esenciales deben estar en todos los labs.</p>
         <table class="sw-tabla">
@@ -110,14 +119,16 @@
             {% for s in sws %}
             <tr {% if not s.activo %}class="inactivo"{% endif %}>
               <td>
-                <b>{{ s.nombre }}</b><br>
-                {% if s.esencial %}<span class="sw-tag esencial">esencial</span>{% endif %}
-                {% if s.docentes %}<span class="sw-tag docente">docentes</span>{% endif %}
-                {% if not s.activo %}<span class="sw-tag inactivo">inactivo</span>{% endif %}
-                {% if s.uso %}<span class="hint">{{ s.uso }}</span>{% endif %}
+                <span class="sw-nombre-t">{{ s.nombre }}</span>
+                <span class="sw-meta">
+                  {% if s.esencial %}<span class="sw-tag esencial">esencial</span>{% endif %}
+                  {% if s.docentes %}<span class="sw-tag docente">docentes</span>{% endif %}
+                  {% if not s.activo %}<span class="sw-tag inactivo">inactivo</span>{% endif %}
+                  {% if s.uso %}<span class="hint">{{ s.uso }}</span>{% endif %}
+                </span>
               </td>
-              <td><span class="sw-tag {{ s.licencia }}">{{ s.licencia }}</span></td>
-              <td>{{ s.labs|length }}</td>
+              <td class="sw-num"><span class="sw-tag {{ s.licencia }}">{{ s.licencia }}</span></td>
+              <td class="sw-num">{{ s.labs|length }}</td>
               {% if puede_editar %}
               <td><button class="btn ghost" type="button" data-sw-editar="{{ s.id }}">Editar</button></td>
               {% endif %}
@@ -131,7 +142,7 @@
     </section>
 
     <section class="sw-col">
-      <div class="sw-card">
+      <div class="sw-card sw-tr">
         <h2 id="sw-form-title">Agregar programa</h2>
         <form method="post" id="sw-form">
           {% csrf_token %}
@@ -157,7 +168,7 @@
         <p class="hint" id="sw-msg"></p>
       </div>
 
-      <div class="sw-card">
+      <div class="sw-card sw-span">
         <h2>Plantillas de atención</h2>
         <p class="hint">Texto armado para registrar una atención de software ({"{programa}" } y {"{pc}"} se rellenan a mano).</p>
         <form method="post">
