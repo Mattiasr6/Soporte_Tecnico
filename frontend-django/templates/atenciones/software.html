@@ -3,6 +3,8 @@
 {% block contenido %}
 <div class="page-wide">
   <style>
+    /* esta página va a sangre: sin marco, ocupa todo salvo el sidebar */
+    .page-wide{max-width:none;margin:0;background:transparent;border:0;border-radius:0;padding:18px 20px}
     .sw-head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
     .sw-head h1{margin:0}
     .sw-nav .btn{padding:6px 14px;font-size:13px;border-radius:999px}
@@ -45,6 +47,7 @@
     .sw-plant .acciones{margin-top:6px}
     .sw-ok{color:var(--color-accent,#00754a);font-weight:700}
     @media (max-width:767px){
+      .page-wide{padding:12px}
       .sw-cols{grid-template-columns:1fr}
       .sw-tl,.sw-tr{grid-column:auto;grid-row:auto}
       .sw-col{min-width:0;flex:none;width:100%}
