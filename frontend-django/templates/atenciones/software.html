@@ -87,7 +87,7 @@
           </div>
         </form>
         {% if lab_sel %}
-        <form method="post">
+        <form method="post" id="sw-matriz-form">
           {% csrf_token %}
           <input type="hidden" name="action" value="matriz">
           <input type="hidden" name="lab_id" value="{{ lab_sel }}">
@@ -105,6 +105,18 @@
           </div>
           <p style="margin-top:10px"><button class="btn" type="submit" {% if not puede_editar %}disabled{% endif %}>Guardar en este lab</button></p>
         </form>
+        <script>
+        (function () {
+          var f = document.getElementById("sw-matriz-form");
+          if (!f) return;
+          f.addEventListener("submit", function (e) {
+            var n = f.querySelectorAll('input[name="software_ids"]:checked').length;
+            if (n === 0 && !confirm("Vas a dejar el lab sin ningún programa. ¿Seguro?")) {
+              e.preventDefault();
+            }
+          });
+        })();
+        </script>
         {% else %}
         <p class="hint">Elegí un lab para ver/editar su lista.</p>
         {% endif %}
