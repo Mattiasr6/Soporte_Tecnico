@@ -77,11 +77,11 @@ body {
   margin-top: 12px;
 }
 .page-wide {
-  max-width: 900px;
-  margin: 30px auto;
-  background: var(--color-page-bg);
-  border: 2px solid var(--color-border-strong);
-  border-radius: var(--radius-card);
+  max-width: none;
+  margin: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
   padding: 24px 28px;
   box-sizing: border-box;
 }
