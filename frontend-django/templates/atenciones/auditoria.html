@@ -1,0 +1,89 @@
+{% extends "atenciones/base.html" %}
+{% block titulo %}Auditoría — Soporte Técnico{% endblock %}
+{% block contenido %}
+<div class="page-wide">
+  <style>
+    .au-head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+    .au-head h1{margin:0}
+    .au-nav .btn{padding:6px 14px;font-size:13px;border-radius:999px}
+    .au-filtros{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin:14px 0}
+    .au-filtros label{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--muted,#888)}
+    .au-filtros select{font:inherit;border:1.5px solid #9db8ad;border-radius:8px;padding:5px 7px;background:#fff}
+    .au-filtros .btn{padding:6px 14px;font-size:13px;border-radius:8px}
+    .au-tabla{width:100%;border-collapse:collapse;font-size:13px}
+    .au-tabla th,.au-tabla td{text-align:left;padding:7px 9px;border-bottom:1px solid #eef3f0;vertical-align:top}
+    .au-tabla th{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted,#888)}
+    .au-tag{display:inline-block;font-size:10.5px;font-weight:700;border-radius:999px;padding:1px 9px;background:#eef3f0;color:#3d5a50;white-space:nowrap}
+    .au-tag.crear{background:#e6f4ea;color:#00754a}
+    .au-tag.editar{background:#e8f0fe;color:#1f4a9c}
+    .au-tag.eliminar{background:#f3e8e8;color:#8b2e2e}
+    .au-det{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11.5px;color:#3d5a50;word-break:break-word}
+    .au-cuando{font-size:11.5px;color:var(--muted,#888);white-space:nowrap}
+    .au-quien{font-size:12.5px}
+    .au-quien small{display:block;color:var(--muted,#888);font-size:11px}
+    .au-vacio{padding:24px;text-align:center;color:var(--muted,#888)}
+    @media (max-width:767px){
+      .au-tabla,.au-tabla tbody,.au-tabla tr,.au-tabla td{display:block;width:100%}
+      .au-tabla thead{display:none}
+      .au-tabla tr{border:1px solid #eef3f0;border-radius:10px;margin-bottom:8px;padding:6px 0}
+      .au-tabla td{border:0;padding:3px 9px}
+    }
+  </style>
+
+  <div class="au-head">
+    <h1>Auditoría de cambios</h1>
+    <nav class="au-nav" aria-label="Navegación">
+      <a class="btn ghost" href="{% url 'lab_lista' %}">← Registros</a>
+    </nav>
+  </div>
+  <p class="sub">Rastro de cambios esenciales: qué se creó, qué se editó y qué se borró. Visible solo para Jefes.</p>
+  {% if error %}<p class="error">{{ error }}</p>{% endif %}
+  {% if flash %}<p class="flash {{ flash.tipo }}">{{ flash.texto }}</p>{% endif %}
+
+  <form method="get" class="au-filtros">
+    <label>Entidad
+      <select name="entidad" onchange="this.form.submit()">
+        <option value="">— todas —</option>
+        {% for e in entidades %}
+        <option value="{{ e }}" {% if entidad_sel == e %}selected{% endif %}>{{ e }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>Acción
+      <select name="accion" onchange="this.form.submit()">
+        <option value="">— todas —</option>
+        {% for a in acciones %}
+        <option value="{{ a }}" {% if accion_sel == a %}selected{% endif %}>{{ a }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <button class="btn" type="submit">Filtrar</button>
+    <a class="btn ghost" href="{% url 'auditoria' %}">Limpiar</a>
+    <span class="sub">{{ total }} registro{{ total|pluralize }}</span>
+  </form>
+
+  {% if filas %}
+  <table class="au-tabla">
+    <thead>
+      <tr><th>Cuándo</th><th>Quién</th><th>Acción</th><th>Entidad</th><th>Detalle</th></tr>
+    </thead>
+    <tbody>
+      {% for f in filas %}
+      <tr>
+        <td class="au-cuando">{{ f.fecha|date:"d/m/Y H:i" }}</td>
+        <td class="au-quien">
+          {{ f.usuario_nombre|default:f.usuario_email }}
+          <small>{{ f.rol }}{% if f.entidad_id %} · #{{ f.entidad_id }}{% endif %}</small>
+        </td>
+        <td><span class="au-tag {{ f.accion }}">{{ f.accion }}</span></td>
+        <td>{{ f.entidad }}</td>
+        <td class="au-det">{{ f.detalle|default:"—" }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="au-vacio">Sin cambios registrados todavía.</div>
+  {% endif %}
+</div>
+{% endblock %}

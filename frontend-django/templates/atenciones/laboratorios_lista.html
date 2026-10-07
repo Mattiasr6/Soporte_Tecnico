@@ -15,11 +15,11 @@
   {% if flash %}<p class="flash {{ flash.tipo }}">{{ flash.texto }}</p>{% endif %}
   <h2>Laboratorios activos</h2>
   <div class="pills">
-    {% for lab in activas %}
-    <span class="pill">{{ lab.codigo }}</span>
-    {% empty %}
-    <p class="sub">Sin laboratorios activos.</p>
-    {% endfor %}
+  {% for lab in activas %}
+  <a class="pill" href="{% url 'lab_pcs' lab.id %}" title="Editar el dibujo de {{ lab.codigo }}"><iconify-icon icon="mdi:monitor-dashboard-outline" aria-hidden="true"></iconify-icon> {{ lab.codigo }}</a>
+  {% empty %}
+  <p class="sub">Sin laboratorios activos.</p>
+  {% endfor %}
   </div>
   {% if inactivas %}
   <h2>Inactivos</h2>

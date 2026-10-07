@@ -7,7 +7,7 @@ import logging
 
 import requests
 from django.conf import settings
-from django.http import HttpRequest, HttpResponse
+from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import redirect, render
 from django.urls import reverse
 
@@ -912,6 +912,256 @@ def horarios_export_xlsx_vista(request: HttpRequest) -> HttpResponse:
     return resp
 
 
+FICHA_CAMPOS = (
+    "procesador",
+    "ram",
+    "disco",
+    "marca",
+    "gpu",
+    "monitores",
+    "sillas",
+    "capacidad",
+    "pcs_estudiantes",
+    "pcs_docentes",
+)
+
+
+@con_login
+def lab_pcs_vista(request: HttpRequest, laboratorio_id: int) -> HttpResponse:
+    token = str(request.session["jwt"])
+    error = ""
+
+    # estados de una PC bajo demanda: GET /pcs/<id>/?estados=<pc_id>
+    pc_estados = request.GET.get("estados")
+    if pc_estados:
+        try:
+            filas_estados = api_get(f"/api/software/pcs/{int(pc_estados)}", token)
+        except (ApiError, ValueError) as e:
+            detalle = str(getattr(e, "detail", "")) or "PC inválida"
+            return JsonResponse({"ok": False, "error": detalle}, status=400)
+        return JsonResponse({"ok": True, "estados": filas_estados})
+
+    nombre_lab = ""
+    ficha: dict[str, object] = {}
+    pcs: dict[str, object] = {"filas": 0, "cols": 0, "pcs": []}
+    cards = _cards(token)
+    for c in cards["activas"] + cards["inactivas"]:
+        if c.get("id") == laboratorio_id:
+            nombre_lab = str(c.get("codigo", ""))
+            ficha = {
+                campo: c.get(campo)
+                for campo in FICHA_CAMPOS
+                if c.get(campo) not in (None, "")
+            }
+            break
+
+    if request.method == "POST":
+        try:
+            cuerpo = json.loads(request.body or b"{}")
+        except ValueError:
+            cuerpo = None
+        if not isinstance(cuerpo, dict):
+            return JsonResponse({"ok": False, "error": "JSON inválido"}, status=400)
+        accion = str(cuerpo.pop("accion", "dibujo"))
+        try:
+            if accion == "marcar":
+                pc_id = int(cuerpo.pop("pc_id", 0))
+                cuerpo.setdefault("auxiliar_nombre", _quien_reporta(request))
+                api_put(f"/api/software/pcs/{pc_id}", token, cuerpo)
+            elif accion == "ficha":
+                # se envían todos los campos; vacío = limpiar (el API acepta null)
+                cuerpo = {k: v for k, v in cuerpo.items() if k in FICHA_CAMPOS}
+                api_put(f"/api/laboratorios/{laboratorio_id}", token, cuerpo)
+            else:
+                api_put(f"/api/laboratorios/{laboratorio_id}/pcs", token, cuerpo)
+        except ApiError as e:
+            detalle = str(e.detail) if e.detail else "No se pudo guardar"
+            return JsonResponse({"ok": False, "error": detalle}, status=400)
+        except (TypeError, ValueError):
+            return JsonResponse({"ok": False, "error": "JSON inválido"}, status=400)
+        return JsonResponse({"ok": True})
+
+    try:
+        datos = api_get(f"/api/laboratorios/{laboratorio_id}/pcs", token)
+    except ApiError as e:
+        if e.status in (401, 403):
+            return redirect("login")
+        _flash(request, "error", str(e.detail) if e.detail else "No se pudo cargar")
+        return redirect("lab_lista")
+    if isinstance(datos, dict):
+        pcs = datos
+    # software del lab: lectura tolerante (si falla, la sala se ve igual)
+    sw_lab: list[dict[str, object]] = []
+    try:
+        sw_lab = [
+            s
+            for s in (api_get(f"/api/software/laboratorios/{laboratorio_id}", token) or [])
+            if isinstance(s, dict)
+        ]
+    except ApiError:
+        sw_lab = []
+    prefijo = None
+    base = None
+    import re as _re
+
+    m = _re.search(r"(\d+)", nombre_lab)
+    if m and nombre_lab.upper().startswith("LAB"):
+        n = int(m.group(1))
+        prefijo, base = "SCPC ", n * 100
+    pcs_json = json.dumps(
+        {
+            "filas": int(pcs.get("filas") or 0),
+            "cols": int(pcs.get("cols") or 0),
+            "pcs": [
+                {
+                    "id": int(p.get("id") or 0),
+                    "nombre": str(p.get("nombre", "")),
+                    "fila": int(p.get("fila") or 0),
+                    "col": int(p.get("col") or 0),
+                    "activa": bool(p.get("activa", True)),
+                }
+                for p in (pcs.get("pcs") or [])
+                if isinstance(p, dict)
+            ],
+        }
+    )
+    meta_json = json.dumps({"prefijo": prefijo, "base": base})
+    return render(
+        request,
+        "atenciones/laboratorios_pcs.html",
+        {
+            "lab_id": laboratorio_id,
+            "lab_codigo": nombre_lab or f"Lab #{laboratorio_id}",
+            "pcs_json": pcs_json,
+            "meta_json": meta_json,
+            "ficha_json": json.dumps(ficha),
+            "sw_lab_json": json.dumps(sw_lab),
+            "puede_ficha": _rol(request) in ("Jefe", "Encargado"),
+            "quien": _quien_reporta(request),
+            "error": error,
+        },
+    )
+
+
+def _sw_desde_post(post: object) -> dict[str, object]:
+    def get(campo: str) -> str:
+        return str(post.get(campo, "") or "").strip()  # type: ignore[union-attr]
+
+    def marca(campo: str) -> bool:
+        return post.get(campo) in ("on", "1", "true", "True")  # type: ignore[union-attr]
+
+    return {
+        "nombre": get("nombre"),
+        "licencia": get("licencia") or "gratuita",
+        "uso": get("uso"),
+        "esencial": marca("esencial"),
+        "docentes": marca("docentes"),
+        "activo": marca("activo"),
+    }
+
+
+def _plantilla_desde_post(post: object) -> dict[str, object]:
+    def get(campo: str) -> str:
+        return str(post.get(campo, "") or "").strip()  # type: ignore[union-attr]
+
+    return {
+        "nombre": get("nombre"),
+        "categoria": get("categoria") or "SOFTWARE",
+        "descripcion": get("descripcion"),
+        "solucion": get("solucion"),
+        "turno": get("turno") or None,
+        "activa": post.get("activa") in ("on", "1", "true", "True"),  # type: ignore[union-attr]
+    }
+
+
+@con_login
+def software_vista(request: HttpRequest) -> HttpResponse:
+    token = str(request.session["jwt"])
+    error = ""
+    lab_sel = request.GET.get("lab", "").strip()
+    if request.method == "POST":
+        action = request.POST.get("action", "")
+        try:
+            if action == "crear":
+                api_post("/api/software", token, _sw_desde_post(request.POST))
+            elif action == "editar":
+                api_put(
+                    f"/api/software/{int(request.POST.get('id', 0))}",
+                    token,
+                    _sw_desde_post(request.POST),
+                )
+            elif action == "plantilla":
+                pid = int(request.POST.get("id", 0) or 0)
+                cuerpo = _plantilla_desde_post(request.POST)
+                if pid:
+                    api_put(f"/api/software/plantillas/{pid}", token, cuerpo)
+                else:
+                    api_post("/api/software/plantillas", token, cuerpo)
+            elif action == "matriz":
+                lab_id = int(request.POST.get("lab_id", 0))
+                ids = [
+                    int(v)
+                    for v in request.POST.getlist("software_ids")
+                    if str(v).strip()
+                ]
+                api_put(f"/api/software/laboratorios/{lab_id}", token, {"software_ids": ids})
+                lab_sel = str(lab_id)
+            else:
+                error = "Acción desconocida."
+        except ApiError as e:
+            error = str(e.detail) if e.detail else "No se pudo guardar"
+        except (TypeError, ValueError):
+            error = "Datos inválidos."
+        else:
+            if not error:
+                destino = reverse("software") + (f"?lab={lab_sel}" if lab_sel else "")
+                return redirect(destino)
+    sws: list[dict[str, object]] = []
+    plantillas: list[dict[str, object]] = []
+    try:
+        sws = [s for s in (api_get("/api/software", token) or []) if isinstance(s, dict)]
+    except ApiError as e:
+        error = str(e.detail) if e.detail else "No se pudo cargar"
+    try:
+        plantillas = [
+            p
+            for p in (api_get("/api/software/plantillas", token) or [])
+            if isinstance(p, dict)
+        ]
+    except ApiError:
+        plantillas = []
+    cards = _cards(token)
+    sw_lab_ids: list[int] = []
+    if lab_sel:
+        try:
+            sw_lab_ids = [
+                int(s.get("id") or 0)
+                for s in (api_get(f"/api/software/laboratorios/{int(lab_sel)}", token) or [])
+                if isinstance(s, dict)
+            ]
+        except (ApiError, ValueError):
+            sw_lab_ids = []
+    return render(
+        request,
+        "atenciones/software.html",
+        {
+            "sws": sws,
+            "plantillas": plantillas,
+            "sws_json": json.dumps(sws),
+            "plantillas_json": json.dumps(plantillas),
+            "labs": cards["activas"],
+            "lab_sel": lab_sel,
+            "sw_lab_ids": sw_lab_ids,
+            "categorias": _categorias(token),
+            "turnos": TURNOS,
+            "puede_editar": _rol(request) in ("Jefe", "Encargado"),
+            "quien": _quien_reporta(request),
+            "error": error,
+            "flash": request.session.pop("flash", None),
+        },
+    )
+
+
 @con_login
 def lab_export_csv_vista(request: HttpRequest) -> HttpResponse:
     if not (_puede_reportes(request) or _es_encargado(request)):
@@ -931,3 +1181,49 @@ def lab_export_csv_vista(request: HttpRequest) -> HttpResponse:
     resp = HttpResponse(res.text, content_type="text/csv")
     resp["Content-Disposition"] = "attachment; filename=lab_atenciones.csv"
     return resp
+
+
+@con_login
+def auditoria_vista(request: HttpRequest) -> HttpResponse:
+    """Rastro de cambios esenciales. Solo un Jefe lo ve; ni Encargado ni Auxiliar."""
+    if _rol(request) != "Jefe":
+        return redirect("lab_lista")
+    token = str(request.session["jwt"])
+    error = ""
+    params: dict[str, str] = {"limite": request.GET.get("limite", "200")}
+    for campo in ("entidad", "accion"):
+        valor = (request.GET.get(campo) or "").strip()
+        if valor:
+            params[campo] = valor
+    filas: list[dict[str, object]] = []
+    try:
+        datos = api_get("/api/auditoria", token, params)
+    except ApiError as e:
+        if e.status in (401, 403):
+            return redirect("lab_lista")
+        error = str(e.detail) if e.detail else "No se pudo cargar"
+    else:
+        if isinstance(datos, list):
+            filas = [f for f in datos if isinstance(f, dict)]
+    return render(
+        request,
+        "atenciones/auditoria.html",
+        {
+            "filas": filas,
+            "total": len(filas),
+            "entidad_sel": params.get("entidad", ""),
+            "accion_sel": params.get("accion", ""),
+            "entidades": (
+                "laboratorio",
+                "software",
+                "software_lab",
+                "pcs_lab",
+                "atencion",
+                "atencion_lab",
+                "categoria",
+            ),
+            "acciones": ("crear", "editar", "eliminar"),
+            "error": error,
+            "flash": request.session.pop("flash", None),
+        },
+    )

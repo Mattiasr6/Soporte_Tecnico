@@ -37,6 +37,7 @@ from app.schemas.atencion import (
     TecnicoFuera,
     TipoSolicitante,
 )
+from app.services.auditoria import registrar
 from app.services.categorias import CATEGORIAS_VALIDAS, normalizar_categoria
 from app.services.csv_import import parse_csv
 from app.services.horarios import esta_fuera_de_horario
@@ -625,6 +626,14 @@ def delete_atencion(atencion_id: int, db: DbSession, user: CurrentUser) -> None:
         raise not_found("Atención no encontrada")
     if a.usuario_id != user.id:
         raise forbidden("Solo el dueño puede eliminar la atención")
+    registrar(
+        db,
+        user,
+        "eliminar",
+        "atencion",
+        atencion_id,
+        f"{a.descripcion[:180]}",
+    )
     db.delete(a)
     db.commit()
 

@@ -1,0 +1,456 @@
+{% extends "atenciones/base.html" %}
+{% block titulo %}PCs de {{ lab_codigo }} — Soporte Técnico{% endblock %}
+{% block contenido %}
+<div class="page-wide">
+  <style>
+    .pcs-head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+    .pcs-head h1{margin:0}
+    .pcs-nav .btn{padding:6px 14px;font-size:13px;border-radius:999px}
+    .pcs-editor{display:flex;gap:18px;flex-wrap:wrap;margin-top:14px}
+    .pcs-herr{width:252px;min-width:230px}
+    .pcs-herr .card{background:var(--color-surface,#fff);border:1px solid #dfe7e2;border-radius:14px;padding:12px 14px;margin-bottom:12px}
+    .pcs-grilla-wrap{flex:1;min-width:300px;overflow:auto;border:1px dashed #9db8ad;border-radius:14px;background:#fdfcf9;padding:14px}
+    .pcs-grilla{display:grid;gap:12px;justify-content:start;user-select:none;-webkit-user-select:none}
+    .pcs-grilla .celda{touch-action:none}
+    #grilla.mover .celda{touch-action:pan-y}
+    .seg{display:flex;gap:6px}
+    .seg .btn.on{background:#1e3932;color:#fff;border-color:#1e3932}
+    .celda{width:96px;height:74px;border:2px dashed #b9cdc4;border-radius:10px;background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;font-size:12px;color:var(--muted)}
+    .celda.vacia:hover{border-color:var(--color-accent,#00754a);background:#e6f4ea;color:var(--color-accent)}
+    .celda.vacia::after{content:"＋ vacía";font-size:11px}
+    .celda.pc{border:2px solid var(--color-accent,#00754a);background:#e6f4ea;color:var(--house,#1e3932)}
+    .celda.pc b{font-size:12.5px}
+    .celda.pc small{font-size:10px;color:var(--color-accent,#00754a)}
+    .celda.off{border-color:#c9cccc;background:#f1f1f1;color:#999}
+    .celda.off small{color:#999}
+    .celda.sel{box-shadow:0 0 0 3px #3367d6;z-index:2}
+    .pcs-herr input[type=text],.pcs-herr input[type=number]{font:inherit;border:1.5px solid #9db8ad;border-radius:8px;padding:5px 7px;background:#fff;width:100%}
+    .pcs-herr .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:8px 0}
+    .pcs-herr .btn{padding:5px 11px;font-size:13px;border-radius:8px}
+    .pcs-herr .hint{font-size:12px;color:var(--muted,#888);margin-top:6px}
+    .pcs-leyenda{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted,#888);margin-top:10px}
+    .pcs-leyenda span{display:flex;align-items:center;gap:6px}
+    .sw{width:16px;height:16px;border-radius:4px;border:2px solid var(--color-accent,#00754a);background:#e6f4ea}
+    .sw.off{border-color:#c9cccc;background:#f1f1f1}
+    .sw.v{border-style:dashed;border-color:#b9cdc4;background:#fff}
+    .sw.s{border-color:#3367d6;background:#dce8fc}
+    #pcs-guardar{position:sticky;bottom:0;margin-top:14px;box-shadow:0 -4px 12px rgba(30,57,50,.10)}
+    .pcs-ok{color:var(--color-accent,#00754a);font-weight:700}
+    .ficha-campos{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+    .ficha-campos label{display:flex;flex-direction:column;gap:2px;font-size:11px;color:var(--muted,#888)}
+    .ficha-campos input{font:inherit;border:1.5px solid #9db8ad;border-radius:8px;padding:5px 7px;background:#fff;width:100%;box-sizing:border-box}
+    .ficha-campos input[readonly]{background:#f4f6f5;color:var(--muted,#666)}
+    .sw-chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:7px}
+    .sw-chip{font-size:11px;border:1px solid #dfe7e2;border-radius:999px;padding:2px 9px;background:#fdfcf9}
+    #estados-panel{margin-top:8px;border-top:1px dashed #dfe7e2;padding-top:8px}
+    #estados-panel .est-fila{display:flex;align-items:center;gap:6px;justify-content:space-between;padding:5px 0;border-bottom:1px solid #f1f5f3;font-size:12px}
+    #estados-panel .est-fila:last-child{border-bottom:0}
+    #estados-panel .est-nombre{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    #estados-panel .est-btns{display:flex;gap:3px;flex-shrink:0}
+    #estados-panel .est-btns button{font-size:10.5px;padding:2px 7px;border-radius:6px;border:1px solid #dfe7e2;background:#fff;cursor:pointer}
+    #estados-panel .est-btns button.on-instalado{background:#e6f4ea;border-color:#00754a;color:#00754a;font-weight:700}
+    #estados-panel .est-btns button.on-falta{background:#fef6e0;border-color:#b7791f;color:#8a5a00;font-weight:700}
+    #estados-panel .est-btns button.on-danado{background:#f3e8e8;border-color:#8b2e2e;color:#8b2e2e;font-weight:700}
+    @media (max-width:767px){
+      .pcs-editor{flex-direction:column}
+      .pcs-grilla-wrap{order:-1;min-width:0}
+      .pcs-grilla{gap:8px}
+      .celda{width:auto;min-height:44px;height:auto;aspect-ratio:16/10}
+      .celda b{font-size:8px;word-break:break-all;line-height:1.15}
+      .celda small{font-size:7px}
+      .celda.vacia::after{font-size:9px}
+      .pcs-herr{width:100%}
+      #pcs-guardar{position:static;box-shadow:none}
+    }
+  </style>
+
+  <div class="pcs-head">
+    <h1>{{ lab_codigo }} — PCs</h1>
+    <nav class="pcs-nav" aria-label="Navegación">
+      <a class="btn ghost" href="{% url 'lab_lista' %}">← Registros</a>
+      <a class="btn ghost" href="{% url 'software' %}">Software</a>
+    </nav>
+  </div>
+  <p class="sub">Dibujá la sala: clic en vacía crea PC · arrastrá para pintar (renombrar/inactivar/quitar desde el panel) · Guardá cuando termines.</p>
+
+  <div class="pcs-editor">
+    <aside class="pcs-herr">
+      <div class="card">
+        <b>Selección (<span id="ed-count">0</span>)</b>
+        <p class="hint" id="ed-info">Arrastrá para pintar PCs.</p>
+        <div class="row" id="ed-acciones" hidden>
+          <input type="text" id="ed-nombre" title="Renombrar (con 1 seleccionada)">
+          <button class="btn" id="ed-ren" type="button">Renombrar</button>
+          <button class="btn ghost" id="ed-off" type="button">Activar/Inactiva</button>
+          <button class="btn ghost" id="ed-del" type="button">Quitar</button>
+          <button class="btn ghost" id="ed-estados" type="button" hidden>Estados</button>
+        </div>
+        <div class="row"><button class="btn ghost" id="ed-clear" type="button">Limpiar selección</button></div>
+        <div class="row"><button class="btn ghost" id="ed-modo" type="button" aria-pressed="false">Modo borrar: off</button><button class="btn ghost" id="ed-undo" type="button" disabled>Deshacer</button></div>
+        <div class="row seg" role="group" aria-label="Modo táctil"><button class="btn ghost on" id="modo-pintar" type="button">Pintar</button><button class="btn ghost" id="modo-mover" type="button">Mover</button></div>
+        <div id="estados-panel" hidden></div>
+      </div>
+      <div class="card">
+        <b>Estructura</b>
+        <div class="row"><button class="btn ghost" id="col-mas" type="button">＋ Columna</button><button class="btn ghost" id="col-menos" type="button">－ Columna</button></div>
+        <div class="row"><button class="btn ghost" id="fila-mas" type="button">＋ Fila</button><button class="btn ghost" id="fila-menos" type="button">－ Fila</button></div>
+        <p class="hint">Las celdas sin PC quedan vacías (pasillos, puerta, mesón).</p>
+      </div>
+      <div class="card">
+        <b>Generar con patrón</b>
+        <div class="row"><label>Inicio <input type="number" value="1" size="3" id="pat-ini"></label><label>Cantidad <input type="number" value="0" size="3" id="pat-n"></label></div>
+        <div class="row"><button class="btn" id="pat-ok" type="button">Crear PCs en vacías</button></div>
+        <p class="hint" id="pat-nombre"></p>
+      </div>
+      <div class="card">
+        <b>Ficha del lab</b>
+        <div class="ficha-campos" id="ficha-campos">
+          <label>Procesador <input type="text" name="procesador" maxlength="200"></label>
+          <label>RAM <input type="text" name="ram" maxlength="100"></label>
+          <label>Disco <input type="text" name="disco" maxlength="100"></label>
+          <label>Marca <input type="text" name="marca" maxlength="100"></label>
+          <label>GPU <input type="text" name="gpu" maxlength="100"></label>
+          <label>Monitores <input type="text" name="monitores" maxlength="100"></label>
+          <label>Sillas <input type="number" name="sillas" min="0"></label>
+          <label>Capacidad <input type="number" name="capacidad" min="0"></label>
+          <label>PCs estudiantes <input type="number" name="pcs_estudiantes" min="0"></label>
+          <label>PCs docentes <input type="number" name="pcs_docentes" min="0"></label>
+        </div>
+        <div class="row" id="ficha-guardar-row"><button class="btn" id="ficha-guardar" type="button">Guardar ficha</button><span id="ficha-msg" class="sub"></span></div>
+        <b style="display:block;margin-top:10px;font-size:13px">Software del lab</b>
+        <div class="sw-chips" id="sw-chips"></div>
+        <p class="hint">La lista se edita en <a href="{% url 'software' %}?lab={{ lab_id }}">Software</a>.</p>
+      </div>
+    </aside>
+
+    <div class="pcs-grilla-wrap">
+      <div class="pcs-grilla" id="grilla"></div>
+      <div class="pcs-leyenda">
+        <span><i class="sw"></i> activa</span>
+        <span><i class="sw off"></i> inactiva</span>
+        <span><i class="sw v"></i> vacía</span>
+        <span><i class="sw s"></i> pintada</span>
+      </div>
+    </div>
+  </div>
+
+  <div id="pcs-guardar" class="row">
+    <button class="btn" id="btn-guardar" type="button">Guardar dibujo</button>
+    <span id="guardar-msg" class="sub"></span>
+  </div>
+</div>
+
+<form id="pcs-csrf" hidden>{% csrf_token %}</form>
+<script id="pcs-data" type="application/json">{{ pcs_json|safe }}</script>
+<script id="pcs-meta" type="application/json">{{ meta_json|safe }}</script>
+<script id="pcs-ficha" type="application/json">{{ ficha_json|safe }}</script>
+<script id="pcs-sw" type="application/json">{{ sw_lab_json|safe }}</script>
+<script>
+(function () {
+  var DATA = JSON.parse(document.getElementById("pcs-data").textContent || "{}");
+  var META = JSON.parse(document.getElementById("pcs-meta").textContent || "{}");
+  var FICHA = JSON.parse(document.getElementById("pcs-ficha").textContent || "{}");
+  var SWLAB = JSON.parse(document.getElementById("pcs-sw").textContent || "[]");
+  var FILAS = DATA.filas || 0;
+  var COLS = DATA.cols || 0;
+  if (FILAS < 1 || COLS < 1) { FILAS = 3; COLS = 4; }
+  var SEQ = 1;
+  var GRID = new Array(FILAS * COLS).fill(null);
+  DATA.pcs.forEach(function (p) {
+    GRID[p.fila * COLS + p.col] = { n: p.nombre, on: p.activa !== false, id: p.id || 0 };
+    var m = /(\d+)\s*$/.exec(p.nombre);
+    if (m) {
+      var num = parseInt(m[1], 10);
+      var rel = META.base != null ? num - META.base : num;
+      SEQ = Math.max(SEQ, rel + 1);
+    }
+  });
+  var sel = new Set();
+
+  /* ---- ficha + software del lab (solo lectura inicial) ---- */
+  var ro = {% if puede_ficha %}false{% else %}true{% endif %};
+  document.querySelectorAll("#ficha-campos input").forEach(function (inp) {
+    var v = FICHA[inp.name];
+    if (v !== undefined && v !== null) inp.value = v;
+    if (ro) inp.readOnly = true;
+  });
+  if (ro) {
+    var fr = document.getElementById("ficha-guardar-row");
+    if (fr) fr.hidden = true;
+  }
+  var chips = document.getElementById("sw-chips");
+  if (SWLAB.length) {
+    SWLAB.forEach(function (s) {
+      var el = document.createElement("span");
+      el.className = "sw-chip";
+      el.textContent = s.nombre || s.name || "";
+      chips.appendChild(el);
+    });
+  } else {
+    chips.innerHTML = '<span class="hint">Sin programas asignados.</span>';
+  }
+
+  function nombreSiguiente() {
+    if (META.base != null) return META.prefijo + (META.base + SEQ++);
+    return "PC " + (SEQ++);
+  }
+  function aplicarColumnas() {
+    var g = document.getElementById("grilla");
+    var movil = window.innerWidth < 768;
+    g.style.gridTemplateColumns = "repeat(" + COLS + "," + (movil ? "minmax(0,1fr)" : "96px") + ")";
+  }
+  window.addEventListener("resize", aplicarColumnas);
+  var modoMover = false;
+  function setModo(mover) {
+    modoMover = mover;
+    document.getElementById("modo-pintar").classList.toggle("on", !mover);
+    document.getElementById("modo-mover").classList.toggle("on", mover);
+    document.getElementById("grilla").classList.toggle("mover", mover);
+  }
+  document.getElementById("modo-pintar").addEventListener("click", function () { setModo(false); });
+  document.getElementById("modo-mover").addEventListener("click", function () { setModo(true); });
+  function pintar() {
+    var g = document.getElementById("grilla");
+    aplicarColumnas();
+    g.innerHTML = "";
+    for (var i = 0; i < FILAS * COLS; i++) {
+      var c = GRID[i];
+      var d = document.createElement("div");
+      d.className = "celda" + (c ? " pc" : " vacia") + (c && !c.on ? " off" : "") + (sel.has(i) ? " sel" : "");
+      if (c) d.innerHTML = "<b>" + c.n + "</b><small>" + (c.on ? "activa" : "inactiva") + "</small>";
+      d.dataset.i = i;
+      g.appendChild(d);
+    }
+    document.getElementById("ed-count").textContent = sel.size;
+    var info = document.getElementById("ed-info"), act = document.getElementById("ed-acciones");
+    var btnEst = document.getElementById("ed-estados");
+    var panel = document.getElementById("estados-panel");
+    if (sel.size === 0) { info.textContent = "Arrastrá para pintar PCs."; act.hidden = true; panel.hidden = true; }
+    else {
+      act.hidden = false;
+      var i0 = Array.from(sel)[0];
+      if (sel.size === 1 && GRID[i0]) {
+        info.textContent = "1 seleccionada";
+        document.getElementById("ed-nombre").value = GRID[i0].n;
+        document.getElementById("ed-nombre").disabled = false;
+        document.getElementById("ed-ren").disabled = false;
+        btnEst.hidden = !GRID[i0].id;
+        if (!GRID[i0].id) panel.hidden = true;
+      } else {
+        info.textContent = sel.size + " seleccionadas (pintadas)";
+        document.getElementById("ed-nombre").disabled = true;
+        document.getElementById("ed-ren").disabled = true;
+        btnEst.hidden = true;
+        panel.hidden = true;
+      }
+    }
+  }
+  /* historial para deshacer */
+  var modoBorrar = false;
+  var hist = [];
+  function foto() {
+    hist.push({
+      grid: GRID.map(function (c) { return c ? { n: c.n, on: c.on, id: c.id } : null; }),
+      sel: Array.from(sel), filas: FILAS, cols: COLS, seq: SEQ
+    });
+    if (hist.length > 30) hist.shift();
+    document.getElementById("ed-undo").disabled = false;
+  }
+  function deshacer() {
+    var h = hist.pop();
+    if (!h) return;
+    GRID = h.grid; FILAS = h.filas; COLS = h.cols; SEQ = h.seq;
+    sel = new Set(h.sel);
+    document.getElementById("ed-undo").disabled = hist.length === 0;
+    pintar();
+  }
+  document.getElementById("ed-undo").addEventListener("click", deshacer);
+  document.getElementById("ed-modo").addEventListener("click", function () {
+    modoBorrar = !modoBorrar;
+    var b = document.getElementById("ed-modo");
+    b.textContent = "Modo borrar: " + (modoBorrar ? "on" : "off");
+    b.setAttribute("aria-pressed", modoBorrar ? "true" : "false");
+  });
+  /* pintado: arrastrar = pintar/despintar; clic simple = solo esa */
+  var down = false, mode = true, sx = 0, sy = 0, movio = false, ultimo = -1;
+  var g = document.getElementById("grilla");
+  g.addEventListener("pointerdown", function (e) {
+    var c = e.target.closest(".celda");
+    if (!c || modoMover) return;
+    e.preventDefault();
+    down = true; movio = false; sx = e.clientX; sy = e.clientY;
+    ultimo = +c.dataset.i;
+    foto();
+    if (modoBorrar) { GRID[ultimo] = null; sel.delete(ultimo); }
+    else {
+      mode = !sel.has(ultimo);
+      if (mode && !GRID[ultimo]) GRID[ultimo] = { n: nombreSiguiente(), on: true };
+      if (mode) sel.add(ultimo); else sel.delete(ultimo);
+    }
+    pintar();
+  });
+  g.addEventListener("pointermove", function (e) {
+    if (!down) return;
+    if (!movio && Math.hypot(e.clientX - sx, e.clientY - sy) < 6) return;
+    movio = true;
+    var el = document.elementFromPoint(e.clientX, e.clientY);
+    if (!el || !el.classList || !el.classList.contains("celda")) return;
+    var i = +el.dataset.i;
+    if (i === ultimo || i < 0) return;
+    ultimo = i;
+    if (modoBorrar) { GRID[i] = null; sel.delete(i); }
+    else {
+      if (mode && !GRID[i]) GRID[i] = { n: nombreSiguiente(), on: true };
+      if (mode) sel.add(i); else sel.delete(i);
+    }
+    pintar();
+  });
+  window.addEventListener("pointerup", function () {
+    if (down && !movio && ultimo >= 0 && !modoBorrar) { sel.clear(); sel.add(ultimo); pintar(); }
+    down = false; ultimo = -1;
+  });
+  document.getElementById("ed-ren").addEventListener("click", function () {
+    if (sel.size !== 1) return;
+    foto();
+    var i = Array.from(sel)[0];
+    if (GRID[i]) GRID[i].n = document.getElementById("ed-nombre").value;
+    pintar();
+  });
+  document.getElementById("ed-off").addEventListener("click", function () {
+    foto();
+    sel.forEach(function (i) { if (GRID[i]) GRID[i].on = !GRID[i].on; });
+    pintar();
+  });
+  document.getElementById("ed-del").addEventListener("click", function () {
+    foto();
+    sel.forEach(function (i) { GRID[i] = null; });
+    sel.clear(); pintar();
+  });
+  document.getElementById("ed-clear").addEventListener("click", function () { sel.clear(); pintar(); });
+  function cols(d) {
+    foto();
+    if (COLS + d < 1 || COLS + d > 30) return;
+    var viejo = GRID.slice(), NC = COLS + d;
+    GRID = [];
+    for (var r = 0; r < FILAS; r++) for (var c = 0; c < NC; c++) GRID[r * NC + c] = viejo[r * COLS + c] || null;
+    COLS = NC; sel.clear(); pintar();
+  }
+  function filas(d) {
+    foto();
+    if (FILAS + d < 1 || FILAS + d > 30) return;
+    var NF = FILAS + d, nuevo = [];
+    for (var r = 0; r < NF; r++) for (var c = 0; c < COLS; c++) nuevo.push(GRID[r * COLS + c] || null);
+    GRID = nuevo; FILAS = NF; sel.clear(); pintar();
+  }
+  document.getElementById("col-mas").addEventListener("click", function () { cols(1); });
+  document.getElementById("col-menos").addEventListener("click", function () { cols(-1); });
+  document.getElementById("fila-mas").addEventListener("click", function () { filas(1); });
+  document.getElementById("fila-menos").addEventListener("click", function () { filas(-1); });
+  document.getElementById("pat-ok").addEventListener("click", function () {
+    foto();
+    var n = parseInt(document.getElementById("pat-n").value, 10) || 0;
+    var creadas = 0;
+    for (var i = 0; i < GRID.length && creadas < n; i++) {
+      if (!GRID[i]) { GRID[i] = { n: nombreSiguiente(), on: true }; creadas++; }
+    }
+    if (creadas < n) alert("Solo alcanzaron " + creadas + " vacías; sumá filas/columnas.");
+    pintar();
+  });
+  document.getElementById("pat-nombre").textContent = META.base != null
+    ? "Nombres: " + META.prefijo + (META.base + SEQ) + " en adelante"
+    : "Nombres: PC 1, PC 2…";
+  function csrf() { return document.querySelector("[name=csrfmiddlewaretoken]").value; }
+  function postJson(body) {
+    return fetch("", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-CSRFToken": csrf() },
+      body: JSON.stringify(body)
+    }).then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); });
+  }
+
+  /* ---- ficha del lab ---- */
+  var btnFicha = document.getElementById("ficha-guardar");
+  if (btnFicha) btnFicha.addEventListener("click", function () {
+    var cuerpo = { accion: "ficha" };
+    document.querySelectorAll("#ficha-campos input").forEach(function (inp) {
+      cuerpo[inp.name] = inp.type === "number"
+        ? (inp.value === "" ? "" : +inp.value)
+        : inp.value;
+    });
+    var msg = document.getElementById("ficha-msg");
+    btnFicha.disabled = true; msg.textContent = "Guardando…"; msg.className = "sub";
+    postJson(cuerpo).then(function (x) {
+      btnFicha.disabled = false;
+      if (x.ok) { msg.textContent = "Ficha guardada ✓"; msg.className = "sub pcs-ok"; }
+      else { msg.textContent = x.d.error || "No se pudo guardar"; msg.className = "error"; }
+    }).catch(function () { btnFicha.disabled = false; msg.textContent = "Sin conexión"; msg.className = "error"; });
+  });
+
+  /* ---- estados de software por PC ---- */
+  var pcEstadosActual = 0;
+  function pcSeleccionada() {
+    if (sel.size !== 1) return 0;
+    var c = GRID[Array.from(sel)[0]];
+    return c && c.id ? c.id : 0;
+  }
+  function renderEstados(lista) {
+    var panel = document.getElementById("estados-panel");
+    panel.innerHTML = "";
+    if (!lista.length) {
+      panel.innerHTML = '<p class="hint">Este lab no tiene software asignado.</p>';
+      panel.hidden = false;
+      return;
+    }
+    var fila, nom, btns, b;
+    lista.forEach(function (e) {
+      fila = document.createElement("div"); fila.className = "est-fila";
+      nom = document.createElement("span"); nom.className = "est-nombre"; nom.textContent = e.nombre;
+      btns = document.createElement("span"); btns.className = "est-btns";
+      [["instalado", "OK"], ["falta", "Falta"], ["dañado", "Dañado"]].forEach(function (par) {
+        b = document.createElement("button");
+        b.type = "button"; b.textContent = par[1];
+        b.className = e.estado === par[0] ? "on-" + (par[0] === "dañado" ? "danado" : par[0]) : "";
+        b.addEventListener("click", function () { marcarEstado(e.software_id, par[0]); });
+        btns.appendChild(b);
+      });
+      fila.appendChild(nom); fila.appendChild(btns);
+      panel.appendChild(fila);
+    });
+    panel.hidden = false;
+  }
+  function cargarEstados(pcId) {
+    var panel = document.getElementById("estados-panel");
+    panel.innerHTML = '<p class="hint">Cargando…</p>'; panel.hidden = false;
+    fetch("?estados=" + pcId).then(function (r) { return r.json(); })
+      .then(function (x) { renderEstados(x.estados || []); })
+      .catch(function () { panel.innerHTML = '<p class="hint">No se pudieron cargar los estados.</p>'; });
+  }
+  function marcarEstado(swId, estado) {
+    postJson({ accion: "marcar", pc_id: pcEstadosActual, software_id: swId, estado: estado })
+      .then(function (x) { if (x.ok) cargarEstados(pcEstadosActual); else alert(x.d.error || "No se pudo marcar"); })
+      .catch(function () { alert("Sin conexión"); });
+  }
+  document.getElementById("ed-estados").addEventListener("click", function () {
+    pcEstadosActual = pcSeleccionada();
+    if (pcEstadosActual) cargarEstados(pcEstadosActual);
+  });
+
+  document.getElementById("btn-guardar").addEventListener("click", function () {
+    var pcs = [];
+    for (var i = 0; i < GRID.length; i++) {
+      if (GRID[i]) pcs.push({ nombre: GRID[i].n, fila: Math.floor(i / COLS), col: i % COLS, activa: GRID[i].on });
+    }
+    var btn = document.getElementById("btn-guardar");
+    var msg = document.getElementById("guardar-msg");
+    btn.disabled = true; msg.textContent = "Guardando…"; msg.className = "sub";
+    postJson({ accion: "dibujo", filas: FILAS, cols: COLS, pcs: pcs })
+      .then(function (x) {
+        btn.disabled = false;
+        if (x.ok) { msg.textContent = "Guardado ✓ (" + pcs.length + " PCs)"; msg.className = "sub pcs-ok"; }
+        else { msg.textContent = x.d.error || "No se pudo guardar"; msg.className = "error"; }
+      }).catch(function () { btn.disabled = false; msg.textContent = "Sin conexión"; msg.className = "error"; });
+  });
+  pintar();
+})();
+</script>
+{% endblock %}

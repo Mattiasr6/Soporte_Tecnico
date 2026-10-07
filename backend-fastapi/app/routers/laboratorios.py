@@ -16,6 +16,7 @@ from app.core.errors import bad_request, conflict, forbidden, not_found, unautho
 from app.core.security import CurrentUser, is_privileged
 from app.db.session import DbSession
 from app.models.horario import Horario
+from app.models.lab_pc import LabPc
 from app.models.laboratorio import LabAtencion, LabCategoria, Laboratorio
 from app.models.usuario import Usuario
 from app.schemas.atencion import PorCategoria, PorMes
@@ -34,6 +35,7 @@ from app.schemas.laboratorio import (
     LaboratorioCreate,
     LaboratorioOut,
     LaboratorioUpdate,
+    LabPcsIn,
     LabStatsOut,
     PorAuxiliarFuera,
     PorLab,
@@ -41,6 +43,7 @@ from app.schemas.laboratorio import (
     PorTurnoFuera,
     TurnoHorario,
 )
+from app.services.auditoria import diff, registrar
 from app.services.horarios import esta_fuera_de_horario
 from app.services.lab_categorias import (
     buscar_categoria,
@@ -142,6 +145,7 @@ def _serializar(db: DbSession, rows: list[LabAtencion]) -> list[dict[str, object
             "categoria_id": r.categoria_id,
             "categoria": nombres_c.get(r.categoria_id, ""),
             "auxiliar_nombre": r.auxiliar_nombre,
+            "pc_nombre": r.pc_nombre,
             "turno": r.turno,
             "medio_solicitud": r.medio_solicitud or "Presencial",
             "descripcion": r.descripcion,
@@ -551,7 +555,7 @@ def get_cards(db: DbSession, user: CurrentUser) -> dict[str, list[LaboratorioOut
 
 @router.post("/", response_model=LaboratorioOut)
 def create_lab(dto: LaboratorioCreate, db: DbSession, user: CurrentUser):
-    _solo_jefe(user)
+    _gestiona_equipo(user)
     codigo = dto.codigo.strip()
     nombre = dto.nombre.strip()
     if not codigo or not nombre:
@@ -562,6 +566,9 @@ def create_lab(dto: LaboratorioCreate, db: DbSession, user: CurrentUser):
         codigo=codigo, nombre=nombre, activa=True, created_at=datetime.now(UTC)
     )
     db.add(lab)
+    # flush para tener el Id antes de registrar el rastro
+    db.flush()
+    registrar(db, user, "crear", "laboratorio", lab.id, f"{codigo} ({nombre})")
     db.commit()
     db.refresh(lab)
     return lab
@@ -569,10 +576,15 @@ def create_lab(dto: LaboratorioCreate, db: DbSession, user: CurrentUser):
 
 @router.put("/{lab_id}", status_code=204)
 def update_lab(lab_id: int, dto: LaboratorioUpdate, db: DbSession, user: CurrentUser):
-    _solo_jefe(user)
+    _gestiona_equipo(user)
     lab = db.get(Laboratorio, lab_id)
     if lab is None:
         raise not_found("Laboratorio no encontrado")
+    campos = (
+        "codigo", "nombre", "activa", "procesador", "ram", "disco", "marca",
+        "gpu", "monitores", "sillas", "capacidad", "pcs_estudiantes", "pcs_docentes",
+    )
+    antes = {c: getattr(lab, c) for c in campos}
     if dto.codigo is not None:
         codigo = dto.codigo.strip()
         if not codigo:
@@ -587,6 +599,16 @@ def update_lab(lab_id: int, dto: LaboratorioUpdate, db: DbSession, user: Current
         lab.nombre = dto.nombre.strip()
     if dto.activa is not None:
         lab.activa = dto.activa
+    for campo in (
+        "procesador", "ram", "disco", "marca", "gpu", "monitores",
+        "sillas", "capacidad", "pcs_estudiantes", "pcs_docentes",
+    ):
+        valor = getattr(dto, campo)
+        if valor is not None:
+            setattr(lab, campo, valor if isinstance(valor, int) else str(valor).strip() or None)
+    cambios = diff(antes, {c: getattr(lab, c) for c in campos})
+    if cambios:
+        registrar(db, user, "editar", "laboratorio", lab_id, cambios)
     db.commit()
 
 
@@ -604,7 +626,7 @@ def get_categorias(
 
 @router.post("/categorias", response_model=LabCategoriaOut)
 def create_categoria(dto: LabCategoriaCreate, db: DbSession, user: CurrentUser):
-    _solo_jefe(user)
+    _gestiona_equipo(user)
     nombre = dto.nombre.strip()
     if not nombre:
         raise bad_request("Nombre es obligatorio")
@@ -626,7 +648,7 @@ def create_categoria(dto: LabCategoriaCreate, db: DbSession, user: CurrentUser):
 def update_categoria(
     cat_id: int, dto: LabCategoriaUpdate, db: DbSession, user: CurrentUser
 ):
-    _solo_jefe(user)
+    _gestiona_equipo(user)
     cat = db.get(LabCategoria, cat_id)
     if cat is None:
         raise not_found("Categoria no encontrada")
@@ -681,6 +703,7 @@ def create_lab_atencion(dto: LabAtencionCreate, db: DbSession, user: CurrentUser
         laboratorio_id=lab.id,
         categoria_id=cat.id,
         auxiliar_nombre=aux_nombre,
+        pc_nombre=(dto.pc_nombre or "").strip() or None,
         turno=turno_val,
         medio_solicitud=_validar_medio(dto.medio_solicitud),
         descripcion=descripcion,
@@ -776,6 +799,15 @@ def delete_lab_atencion(atencion_id: int, db: DbSession, user: CurrentUser):
     if row is None:
         raise not_found("Atencion no encontrada")
     _dueño_o_jefe(row, user)
+    registrar(
+        db,
+        user,
+        "eliminar",
+        "atencion_lab",
+        atencion_id,
+        f"lab #{row.laboratorio_id}; PC {row.pc_nombre or '-'}; "
+        f"{row.descripcion[:180]}",
+    )
     db.delete(row)
     db.commit()
 
@@ -1092,3 +1124,125 @@ def _hoja_pdf(titulo: str, cabecera: list[str], filas: list[list[object]]) -> by
     partes.append(tabla)
     doc.build(partes)
     return buf.getvalue()
+
+
+# --- PCs por laboratorio (dibujo estilo sala de cine) ---
+
+_MAX_DIM_PC = 30
+_MAX_PCS = 200
+
+
+def _pcs_de(db: DbSession, lab_id: int) -> list[LabPc]:
+    return list(
+        db.scalars(
+            select(LabPc)
+            .where(LabPc.laboratorio_id == lab_id)
+            .order_by(LabPc.fila, LabPc.col, LabPc.id)
+        ).all()
+    )
+
+
+@router.get("/{lab_id}/pcs")
+def get_lab_pcs(lab_id: int, db: DbSession, user: CurrentUser) -> dict[str, Any]:
+    del user
+    lab = db.get(Laboratorio, lab_id)
+    if lab is None:
+        raise not_found("Laboratorio no encontrado")
+    return {
+        "filas": lab.filas_pc,
+        "cols": lab.cols_pc,
+        "pcs": [
+            {
+                "id": pc.id,
+                "nombre": pc.nombre,
+                "fila": pc.fila,
+                "col": pc.col,
+                "activa": pc.activa,
+            }
+            for pc in _pcs_de(db, lab_id)
+        ],
+    }
+
+
+@router.put("/{lab_id}/pcs")
+def put_lab_pcs(
+    lab_id: int, dto: LabPcsIn, db: DbSession, user: CurrentUser
+) -> dict[str, Any]:
+    _gestiona_equipo(user)
+    lab = db.get(Laboratorio, lab_id)
+    if lab is None:
+        raise not_found("Laboratorio no encontrado")
+    if not 0 <= dto.filas <= _MAX_DIM_PC or not 0 <= dto.cols <= _MAX_DIM_PC:
+        raise bad_request(f"Filas/columnas deben estar entre 0 y {_MAX_DIM_PC}")
+    if len(dto.pcs) > _MAX_PCS:
+        raise bad_request(f"Maximo {_MAX_PCS} PCs por laboratorio")
+    if dto.pcs and (dto.filas < 1 or dto.cols < 1):
+        raise bad_request("La grilla necesita filas y columnas para tener PCs")
+    import unicodedata
+
+    def _norm(s: str) -> str:
+        t = unicodedata.normalize("NFD", s.strip().casefold())
+        return "".join(c for c in t if unicodedata.category(c) != "Mn")
+
+    vistos: set[str] = set()
+    posiciones: set[tuple[int, int]] = set()
+    for pc in dto.pcs:
+        nombre = pc.nombre.strip()
+        if not nombre or len(nombre) > 50:
+            raise bad_request("Nombre de PC vacio o demasiado largo (max 50)")
+        if _norm(nombre) in vistos:
+            raise bad_request(f"PC '{nombre}' duplicada")
+        vistos.add(_norm(nombre))
+        if not (0 <= pc.fila < max(dto.filas, 1) and 0 <= pc.col < max(dto.cols, 1)):
+            raise bad_request(f"PC '{nombre}' fuera de la grilla (filas/columnas)")
+        if (pc.fila, pc.col) in posiciones:
+            raise bad_request(f"Dos PCs en la misma celda ({pc.fila},{pc.col})")
+        posiciones.add((pc.fila, pc.col))
+    pcs_previas = [
+        {"nombre": p.nombre} for p in _pcs_de(db, lab_id)
+    ]
+    db.query(LabPc).filter(LabPc.laboratorio_id == lab_id).delete()
+    previas = [p["nombre"] for p in pcs_previas]
+    nuevas = [pc.nombre.strip() for pc in dto.pcs]
+    if previas != sorted(nuevas) or len(previas) != len(nuevas):
+        quitadas = sorted(set(previas) - set(nuevas))
+        agregadas = sorted(set(nuevas) - set(previas))
+        registrar(
+            db,
+            user,
+            "editar",
+            "pcs_lab",
+            lab_id,
+            f"PCs {len(previas)} -> {len(nuevas)}; "
+            f"quitadas: {', '.join(quitadas) or '-'}; "
+            f"agregadas: {', '.join(agregadas) or '-'}",
+        )
+    ahora = datetime.now(UTC)
+    for pc in dto.pcs:
+        db.add(
+            LabPc(
+                laboratorio_id=lab_id,
+                nombre=pc.nombre.strip(),
+                fila=pc.fila,
+                col=pc.col,
+                activa=pc.activa,
+                created_at=ahora,
+            )
+        )
+    lab.filas_pc = dto.filas
+    lab.cols_pc = dto.cols
+    db.commit()
+    return {
+        "filas": lab.filas_pc,
+        "cols": lab.cols_pc,
+        "pcs": [
+            {
+                "id": pc.id,
+                "nombre": pc.nombre,
+                "fila": pc.fila,
+                "col": pc.col,
+                "activa": pc.activa,
+            }
+            for pc in _pcs_de(db, lab_id)
+        ],
+    }

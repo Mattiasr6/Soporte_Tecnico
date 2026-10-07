@@ -84,6 +84,17 @@ urlpatterns = [
     ),
     path("auxiliares/atenciones/", views_lab.lab_lista_vista, name="lab_lista"),
     path("auxiliares/atenciones/nueva/", views_lab.lab_nueva_vista, name="lab_nueva"),
+    path(
+        "auxiliares/laboratorios/<int:laboratorio_id>/pcs/",
+        views_lab.lab_pcs_vista,
+        name="lab_pcs",
+    ),
+    path("auxiliares/software/", views_lab.software_vista, name="software"),
+    path(
+        "auxiliares/auditoria/",
+        views_lab.auditoria_vista,
+        name="auditoria",
+    ),
     path("auxiliares/novedades/", views_lab.novedades_vista, name="novedades"),
     path(
         "auxiliares/novedades/<int:novedad_id>/foto/",
