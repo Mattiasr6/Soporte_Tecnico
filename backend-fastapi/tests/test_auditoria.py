@@ -12,7 +12,12 @@ client = TestClient(app)
 
 UID_JEFE = 8
 UID_TEC = 2
-EMAILS = {2: "diego.orihuela@upds.edu.bo", 8: "josue.huayllas@upds.edu.bo"}
+UID_MATTIAS = 1
+EMAILS = {
+    1: "mattias.ribera@upds.edu.bo",
+    2: "diego.orihuela@upds.edu.bo",
+    8: "josue.huayllas@upds.edu.bo",
+}
 ENCARGADO = "Encargado.Auxiliar@upds.edu.bo"
 _tokens: dict[int, str] = {}
 
@@ -75,7 +80,10 @@ def test_lectura_solo_jefe():
     r = client.get("/api/auditoria", headers=h(UID_JEFE))
     assert r.status_code == 200, r.text
     assert isinstance(r.json(), list)
-    # Tecnico: 403
+    # Tecnico con dashboard (el dev): 200
+    r = client.get("/api/auditoria", headers=h(UID_MATTIAS))
+    assert r.status_code == 200, r.text
+    # Tecnico comun: 403
     assert client.get("/api/auditoria", headers=h(UID_TEC)).status_code == 403
     # sin sesion: 401
     assert client.get("/api/auditoria").status_code == 401

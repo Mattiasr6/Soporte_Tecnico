@@ -70,7 +70,6 @@ def sesion(request):
     can_dashboard = rol == "Jefe" or bool((usuario or {}).get("can_view_dashboard"))
     es_auxiliar = rol == "Auxiliar"
     es_encargado = rol == "Encargado"
-    es_jefe = rol == "Jefe"
     # OJO: matchear sobre url_name (lab_lista, lab_nueva...), NO sobre pagina
     # mapeada ("laboratorios" no empieza con lab_ y rompe el sistema).
     _es_lab = (url_name or "").startswith("lab_")
@@ -87,7 +86,6 @@ def sesion(request):
         "can_dashboard": can_dashboard,
         "es_auxiliar": es_auxiliar,
         "es_encargado": es_encargado,
-        "es_jefe": es_jefe,
         "sistema": sistema,
         "asset_version": asset_version(),
     }

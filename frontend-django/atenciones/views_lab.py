@@ -1185,8 +1185,8 @@ def lab_export_csv_vista(request: HttpRequest) -> HttpResponse:
 
 @con_login
 def auditoria_vista(request: HttpRequest) -> HttpResponse:
-    """Rastro de cambios esenciales. Solo un Jefe lo ve; ni Encargado ni Auxiliar."""
-    if _rol(request) != "Jefe":
+    """Rastro de cambios esenciales. Solo Jefes (o con dashboard); ni Encargado ni Auxiliar."""
+    if not _puede_reportes(request):
         return redirect("lab_lista")
     token = str(request.session["jwt"])
     error = ""

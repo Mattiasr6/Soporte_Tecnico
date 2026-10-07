@@ -107,7 +107,7 @@
           <iconify-icon icon="mdi:package-variant-closed" aria-hidden="true"></iconify-icon>
           <span class="side-link-label">Software</span>
         </a>
-        {% if es_jefe %}
+        {% if can_dashboard %}
         <a class="side-link{% if nav_page == 'auditoria' %} active{% endif %}" href="{% url 'auditoria' %}" {% if nav_page == 'auditoria' %}aria-current="page"{% endif %} data-nav-page="auditoria">
           <iconify-icon icon="mdi:eye-outline" aria-hidden="true"></iconify-icon>
           <span class="side-link-label">Auditoría</span>
