@@ -221,6 +221,9 @@
   document.querySelectorAll('[data-volver]').forEach(function(b){
     b.addEventListener('click',function(){ocultarForms();ask.hidden=false;});
   });
-  ocultarForms();
+  // cada pestaña es su espacio: abre directo su formulario
+  var TAB = "{{ tab }}";
+  if (document.querySelector('.cform[data-form="' + TAB + '"]')) { mostrar(TAB); }
+  else { ocultarForms(); }
 })();</script>
 {% endblock %}
