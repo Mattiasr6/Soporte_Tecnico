@@ -1,13 +1,15 @@
 """Novedades: muro de turno para auxiliares (novedades, objetos, cierres)."""
 
+import io
 import uuid
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import Annotated, Any
 
 from fastapi import APIRouter, File, Form, UploadFile
 from fastapi.exceptions import HTTPException
 from fastapi.responses import FileResponse
+from PIL import Image, UnidentifiedImageError
 from sqlalchemy import select
 
 from app.core.errors import bad_request, not_found
@@ -25,7 +27,8 @@ ESTADO_INICIAL = {"novedad": "publicado", "objeto": "pendiente", "cierre": "pend
 
 _FOTOS_DIR = Path(__file__).resolve().parent.parent.parent / "data" / "aux_reportes"
 _MAX_FOTO = 5 * 1024 * 1024
-_FOTO_EXT = {"image/jpeg": "jpg", "image/png": "png", "image/webp": "webp"}
+_FOTO_TIPOS = ("image/jpeg", "image/png", "image/webp")
+_WEBP_CALIDAD = 80
 
 
 def _norm(s: str) -> str:
@@ -78,15 +81,25 @@ def _serializar(db: DbSession, rows: list[Novedad]) -> list[dict[str, object]]:
 
 
 def _guardar_foto(foto: UploadFile, contenido: bytes) -> str:
-    ext = _FOTO_EXT.get((foto.content_type or "").lower())
-    if ext is None:
+    """Guarda la foto convertida a WebP. Todo lo que entra (JPG/PNG/WEBP)
+    sale como .webp para que el volumen sea parejo y liviano."""
+    if (foto.content_type or "").lower() not in _FOTO_TIPOS:
         raise bad_request("Foto debe ser JPG, PNG o WEBP")
     if not contenido or len(contenido) > _MAX_FOTO:
         raise bad_request("Foto vacia o mayor a 5MB")
+    try:
+        with Image.open(io.BytesIO(contenido)) as img:
+            if img.mode not in ("RGB", "RGBA"):
+                img = img.convert("RGB")
+            buf = io.BytesIO()
+            img.save(buf, "WEBP", quality=_WEBP_CALIDAD)
+            webp = buf.getvalue()
+    except (UnidentifiedImageError, OSError, SyntaxError, ValueError):
+        raise bad_request("Foto inválida") from None
     carpeta = _FOTOS_DIR / datetime.now(UTC).strftime("%Y-%m")
     carpeta.mkdir(parents=True, exist_ok=True)
-    relativo = f"{carpeta.name}/{uuid.uuid4().hex}.{ext}"
-    (_FOTOS_DIR / relativo).write_bytes(contenido)
+    relativo = f"{carpeta.name}/{uuid.uuid4().hex}.webp"
+    (_FOTOS_DIR / relativo).write_bytes(webp)
     return relativo
 
 
@@ -96,6 +109,8 @@ def listar(
     user: CurrentUser,
     tipo: str | None = None,
     estado: str | None = None,
+    dias: int | None = None,
+    turno: str | None = None,
 ) -> Any:
     del user
     q = select(Novedad).order_by(Novedad.fecha_registro.desc(), Novedad.id.desc())
@@ -103,6 +118,16 @@ def listar(
         if tipo not in TIPOS:
             raise bad_request("tipo debe ser novedad, objeto o cierre")
         q = q.where(Novedad.tipo == tipo)
+    if dias is not None:
+        if dias < 1:
+            raise bad_request("dias debe ser >= 1")
+        q = q.where(
+            Novedad.fecha_registro >= datetime.now(UTC).date() - timedelta(days=dias)
+        )
+    if turno is not None:
+        if turno not in TURNOS:
+            raise bad_request(f"Turno debe ser uno de: {', '.join(TURNOS)}")
+        q = q.where(Novedad.turno == turno)
     filas = list(db.scalars(q).all())
     salida = _serializar(db, filas)
     if estado is not None:

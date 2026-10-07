@@ -36,6 +36,11 @@
     .est-rechazado{background:#f3e8e8;color:#8b2e2e}.est-publicado{background:#e8f0fe;color:#3367d6}
     .nov-actions{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
     .nov-actions .btn{padding:4px 12px;font-size:12px}
+    .nov-filtros{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:0 0 12px}
+    .nov-filtros label{font-size:12px;color:var(--color-muted,#888);display:flex;gap:6px;align-items:center}
+    .nov-filtros select{font:inherit;border:1.5px solid #9db8ad;border-radius:8px;padding:4px 6px;background:#fff}
+    .nov-filtros .btn{padding:4px 12px;font-size:12px;border-radius:999px}
+    .nov-filtros .hint{font-size:12px;color:var(--color-muted,#888)}
     @media (max-width:900px){
       .ccards{grid-template-columns:minmax(0,1fr)}
       .nov-kanban{grid-template-columns:minmax(0,1fr)}
@@ -165,6 +170,19 @@
   </form>
   {% endif %}
   {% else %}
+    {% if tab == 'novedades' %}
+    <form method="get" class="nov-filtros">
+      <input type="hidden" name="tab" value="novedades">
+      <label>Turno
+        <select name="f_turno" onchange="this.form.submit()">
+          <option value="">Todos</option>
+          {% for t in turnos %}<option value="{{ t }}" {% if f_turno == t %}selected{% endif %}>{{ t|capfirst }}</option>{% endfor %}
+        </select>
+      </label>
+      {% if f_turno %}<a class="btn ghost" href="{% url 'novedades' %}?tab=novedades">Limpiar</a>{% endif %}
+      <span class="hint">Se muestran los últimos {{ vigencia_dias }} días.</span>
+    </form>
+    {% endif %}
     {% for f in filas %}
     <article class="nov-card">
       <div>{{ f.texto }}<span class="nov-est est-{{ f.estado }}">{{ f.estado }}</span></div>

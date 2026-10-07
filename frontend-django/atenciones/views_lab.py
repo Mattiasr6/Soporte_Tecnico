@@ -4,6 +4,7 @@ import contextlib
 import datetime as _dt
 import json
 import logging
+from urllib.parse import quote
 
 import requests
 from django.conf import settings
@@ -242,6 +243,7 @@ def _quien_reporta(request: HttpRequest) -> str:
 
 NOV_TABS = ("novedades", "objetos", "cierres")
 NOV_TIPO = {"novedades": "novedad", "objetos": "objeto", "cierres": "cierre"}
+NOV_VIGENCIA_DIAS = 3
 
 
 def _detalle_res(res: object) -> object:
@@ -261,6 +263,9 @@ def novedades_vista(request: HttpRequest) -> HttpResponse:
     tab = (request.POST.get("tab") or request.GET.get("tab") or "novedades").strip()
     if tab not in NOV_TABS:
         tab = "novedades"
+    f_turno = (request.GET.get("f_turno") or "").strip()
+    if f_turno not in TURNOS:
+        f_turno = ""
     token = str(request.session["jwt"])
     error = ""
     puede_validar = _puede_reportes(request) or bool(
@@ -311,10 +316,18 @@ def novedades_vista(request: HttpRequest) -> HttpResponse:
         except (ValueError, requests.RequestException):
             error = "No se pudo procesar"
         else:
-            return redirect(f"{reverse('novedades')}?tab={tab}")
+            destino = f"{reverse('novedades')}?tab={tab}"
+            if tab == "novedades" and f_turno:
+                destino += f"&f_turno={quote(f_turno)}"
+            return redirect(destino)
     filas: list[dict[str, object]] = []
     try:
-        datos = api_get("/api/novedades", token, {"tipo": NOV_TIPO[tab]})
+        params: dict[str, str] = {"tipo": NOV_TIPO[tab]}
+        if tab == "novedades":
+            params["dias"] = str(NOV_VIGENCIA_DIAS)
+            if f_turno:
+                params["turno"] = f_turno
+        datos = api_get("/api/novedades", token, params)
     except ApiError as e:
         error = str(e.detail) if e.detail else "No se pudo cargar"
     else:
@@ -337,6 +350,8 @@ def novedades_vista(request: HttpRequest) -> HttpResponse:
             "turnos": TURNOS,
             "puede_validar": puede_validar,
             "quien": _quien_reporta(request),
+            "f_turno": f_turno,
+            "vigencia_dias": NOV_VIGENCIA_DIAS,
             "error": error,
             "flash": request.session.pop("flash", None),
         },
