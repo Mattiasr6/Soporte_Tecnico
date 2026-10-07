@@ -304,10 +304,18 @@ def novedades_vista(request: HttpRequest) -> HttpResponse:
                 if res.status_code >= 400:
                     raise ApiError(res.status_code, _detalle_res(res))
             elif action in ("devolver", "validar", "rechazar"):
+                cuerpo_accion: dict[str, object] = {
+                    "accion": action,
+                    "auxiliar_nombre": _quien_reporta(request),
+                }
+                if action == "devolver":
+                    cuerpo_accion["entregado_a"] = (
+                        request.POST.get("entregado_a") or ""
+                    ).strip()
                 api_patch(
                     f"/api/novedades/{int(request.POST.get('id', '0'))}",
                     token,
-                    {"accion": action, "auxiliar_nombre": _quien_reporta(request)},
+                    cuerpo_accion,
                 )
             elif action == "purgar":
                 api_post("/api/novedades/purga", token, {})

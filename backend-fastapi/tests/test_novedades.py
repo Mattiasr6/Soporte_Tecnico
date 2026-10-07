@@ -98,7 +98,7 @@ def test_crear_y_listar(limpio):
 
 
 def test_objeto_se_devuelve(limpio):
-    n = _crear("objeto", f"{MARK} cargador olvidado lab 8")
+    n = _crear("objeto", f"{MARK} cargador olvidado lab 8", foto=True)
     assert n["estado"] == "pendiente"
     r = client.patch(
         f"/api/novedades/{n['id']}",
@@ -111,8 +111,19 @@ def test_objeto_se_devuelve(limpio):
         json={"accion": "devolver", "auxiliar_nombre": f"{MARK}1"},
         headers=h(UID_TEC),
     )
+    assert r.status_code == 400, r.text
+    r = client.patch(
+        f"/api/novedades/{n['id']}",
+        json={
+            "accion": "devolver",
+            "auxiliar_nombre": f"{MARK}1",
+            "entregado_a": "Juan Perez",
+        },
+        headers=h(UID_TEC),
+    )
     assert r.status_code == 200, r.text
     assert r.json()["estado"] == "devuelto"
+    assert r.json()["entregado_a"] == "Juan Perez"
 
 
 def test_cierre_exige_foto_y_validacion(limpio):
@@ -179,6 +190,18 @@ def test_rechazos(limpio):
             "/api/novedades",
             data={"tipo": "objeto", "texto": "", "auxiliar_nombre": f"{MARK}1"},
             files={"foto": ("x.png", PNG, "image/png")},
+            headers=h(UID_TEC),
+        ).status_code
+        == 400
+    )
+    assert (
+        client.post(
+            "/api/novedades",
+            data={
+                "tipo": "objeto",
+                "texto": f"{MARK} sin foto",
+                "auxiliar_nombre": f"{MARK}1",
+            },
             headers=h(UID_TEC),
         ).status_code
         == 400

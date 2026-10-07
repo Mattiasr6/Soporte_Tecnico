@@ -35,5 +35,8 @@ class Novedad(Base):
     estado: Mapped[str] = mapped_column(
         "Estado", String(20), nullable=False, default="publicado"
     )
+    entregado_a: Mapped[str | None] = mapped_column(
+        "EntregadoA", String(255), nullable=True
+    )
     fecha_registro: Mapped[date] = mapped_column("FechaRegistro", Date, nullable=False)
     created_at: Mapped[datetime] = mapped_column("CreatedAt", DateTime(timezone=True))

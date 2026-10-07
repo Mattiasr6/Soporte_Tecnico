@@ -73,6 +73,7 @@ def _serializar(db: DbSession, rows: list[Novedad]) -> list[dict[str, object]]:
             "laboratorio": nombres.get(r.laboratorio_id or -1, ""),
             "tiene_foto": bool(r.foto_path),
             "estado": _estado_efectivo(r, hoy),
+            "entregado_a": r.entregado_a,
             "fecha_registro": r.fecha_registro,
             "created_at": r.created_at,
         }
@@ -170,6 +171,8 @@ async def crear(
         foto_path = _guardar_foto(foto, await foto.read())
     if tipo == "cierre" and not foto_path:
         raise bad_request("El cierre de turno exige foto de las llaves")
+    if tipo == "objeto" and not foto_path:
+        raise bad_request("El objeto exige foto")
     now = datetime.now(UTC)
     fila = Novedad(
         usuario_id=user.id,
@@ -201,6 +204,9 @@ def accionar(
     if accion == "devolver":
         if fila.tipo != "objeto" or _estado_efectivo(fila, hoy) != "pendiente":
             raise bad_request("Solo se puede devolver un objeto pendiente")
+        entregado = (dto.entregado_a or "").strip()
+        if not entregado:
+            raise bad_request("Falta a quién se entrega el objeto")
         es_gestion = True
         try:
             _gestiona_equipo(user)
@@ -211,6 +217,7 @@ def accionar(
         ):
             raise bad_request("Solo el reportante o un encargado puede devolver")
         fila.estado = "devuelto"
+        fila.entregado_a = entregado
     elif accion in ("validar", "rechazar"):
         if fila.tipo != "cierre" or fila.estado != "pendiente":
             raise bad_request("Solo se valida un cierre pendiente")

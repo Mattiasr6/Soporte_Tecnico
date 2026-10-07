@@ -36,6 +36,7 @@
     .est-rechazado{background:#f3e8e8;color:#8b2e2e}.est-publicado{background:#e8f0fe;color:#3367d6}
     .nov-actions{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
     .nov-actions .btn{padding:4px 12px;font-size:12px}
+    .nov-devolver input[type=text]{font:inherit;font-size:12px;border:1.5px solid #9db8ad;border-radius:7px;padding:3px 8px;background:#fff;flex:1;min-width:130px}
     .nov-filtros{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:0 0 12px}
     .nov-filtros label{font-size:12px;color:var(--color-muted,#888);display:flex;gap:6px;align-items:center}
     .nov-filtros select{font:inherit;border:1.5px solid #9db8ad;border-radius:8px;padding:4px 6px;background:#fff}
@@ -100,7 +101,7 @@
       <div class="row">
         <label>Turno <select name="turno"><option value="">—</option>{% for t in turnos %}<option value="{{ t }}">{{ t|capfirst }}</option>{% endfor %}</select></label>
         <label>Lab <select name="laboratorio_id"><option value="">—</option>{% for lab in labs %}<option value="{{ lab.id }}">{{ lab.nombre }}</option>{% endfor %}</select></label>
-        <label>Foto <input type="file" name="foto" accept="image/jpeg,image/png,image/webp" capture="environment"></label>
+        <label>Foto (obligatoria) <input type="file" name="foto" accept="image/jpeg,image/png,image/webp" capture="environment" required></label>
         <button type="submit" name="tab" value="objetos" class="btn">Publicar objeto</button>
       </div>
     </fieldset>
@@ -126,11 +127,12 @@
         <div>{{ f.texto }}</div>
         {% if f.tiene_foto %}<img src="{% url 'novedad_foto' f.id %}" alt="Foto del reporte" loading="lazy">{% endif %}
         <div class="nov-meta">{{ f.auxiliar_nombre }} · {{ f.fecha_registro }}{% if f.turno %} · {{ f.turno|capfirst }}{% endif %}{% if f.laboratorio %} · {{ f.laboratorio }}{% endif %}</div>
-        <form method="post" class="nov-actions">
+        <form method="post" class="nov-actions nov-devolver">
           {% csrf_token %}
           <input type="hidden" name="tab" value="objetos">
           <input type="hidden" name="action" value="devolver">
           <input type="hidden" name="id" value="{{ f.id }}">
+          <input type="text" name="entregado_a" required maxlength="150" placeholder="¿A quién se entrega?" title="¿A quién se entrega?">
           <button type="submit" class="btn ghost">Marcar devuelto</button>
         </form>
       </article>
@@ -143,6 +145,7 @@
       {% for f in grupos.devuelto %}
       <article class="nov-card">
         <div>{{ f.texto }}</div>
+        {% if f.entregado_a %}<div class="nov-meta">Entregado a: {{ f.entregado_a }}</div>{% endif %}
         <div class="nov-meta">{{ f.auxiliar_nombre }} · {{ f.fecha_registro }}</div>
       </article>
       {% empty %}
