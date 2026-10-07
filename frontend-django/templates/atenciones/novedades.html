@@ -101,7 +101,7 @@
       <div class="row">
         <label>Turno <select name="turno"><option value="">—</option>{% for t in turnos %}<option value="{{ t }}">{{ t|capfirst }}</option>{% endfor %}</select></label>
         <label>Lab <select name="laboratorio_id"><option value="">—</option>{% for lab in labs %}<option value="{{ lab.id }}">{{ lab.nombre }}</option>{% endfor %}</select></label>
-        <label>Foto (obligatoria) <input type="file" name="foto" accept="image/jpeg,image/png,image/webp" capture="environment" required></label>
+        <label>Foto (obligatoria) <input type="file" name="foto" accept="image/jpeg,image/png,image/webp" required></label>
         <button type="submit" name="tab" value="objetos" class="btn">Publicar objeto</button>
       </div>
     </fieldset>
@@ -112,7 +112,7 @@
       <textarea name="texto" maxlength="2000" required placeholder="Ej: turno concluido, llaves en su lugar, se revisaron labs 1-9"></textarea>
       <div class="row">
         <label>Turno <select name="turno"><option value="">—</option>{% for t in turnos %}<option value="{{ t }}">{{ t|capfirst }}</option>{% endfor %}</select></label>
-        <label>Foto de llaves (obligatoria) <input type="file" name="foto" accept="image/jpeg,image/png,image/webp" capture="environment" required></label>
+        <label>Foto de llaves (obligatoria) <input type="file" name="foto" accept="image/jpeg,image/png,image/webp" required></label>
         <button type="submit" name="tab" value="cierres" class="btn">Cerrar turno</button>
       </div>
     </fieldset>
