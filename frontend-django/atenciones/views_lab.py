@@ -420,19 +420,23 @@ def lab_nueva_vista(request: HttpRequest) -> HttpResponse:
             except (IndexError, ValueError):
                 error = "Índice inválido."
             else:
-                labs = [
-                    v
-                    for v in request.POST.getlist("laboratorio_id")
-                    if str(v).strip()
-                ]
-                copias = [
-                    {**origen, "laboratorio_id": int(v), "_forzar": True}
-                    for v in labs
-                ]
-                if not copias:
-                    error = "Elegí al menos un laboratorio."
+                pedidos: list[int] = []
+                for k, v in request.POST.items():
+                    if not k.startswith("copias_"):
+                        continue
+                    try:
+                        lab_id = int(k.split("_", 1)[1])
+                        n = int(str(v or "0"))
+                    except (IndexError, ValueError):
+                        continue
+                    pedidos.extend([lab_id] * min(max(n, 0), 99))
+                if not pedidos:
+                    error = "Poné cuántas copias querés en al menos un laboratorio."
                 else:
-                    batch[idx + 1 : idx + 1] = copias
+                    batch[idx + 1 : idx + 1] = [
+                        {**origen, "laboratorio_id": lab_id, "_forzar": True}
+                        for lab_id in pedidos
+                    ]
                     request.session["lab_batch"] = batch
                     return redirect("lab_nueva")
         elif action == "editar":
