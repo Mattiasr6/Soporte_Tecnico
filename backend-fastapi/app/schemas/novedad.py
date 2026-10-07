@@ -15,6 +15,7 @@ class NovedadOut(BaseModel):
     tiene_foto: bool = False
     estado: str
     entregado_a: str | None = None
+    dias: int = 0
     fecha_registro: date
     created_at: datetime | None = None
 

@@ -27,7 +27,7 @@
     .nov-card{border:1px solid #dfe7e2;border-radius:12px;padding:10px 12px;margin-bottom:10px;background:var(--color-surface,#fff)}
     .nov-meta{font-size:12px;color:var(--color-muted,#888);margin-top:6px}
     .nov-card img{max-width:220px;border-radius:8px;margin-top:8px;display:block}
-    .nov-kanban{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+    .nov-kanban{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px}
     .nov-col{background:#f4f8f5;border-radius:12px;padding:10px;min-width:0}
     .nov-col h3{margin:0 0 8px;font-size:13px}
     .nov-est{display:inline-block;font-size:11px;font-weight:700;border-radius:999px;padding:1px 10px;margin-left:6px}
@@ -37,6 +37,9 @@
     .nov-actions{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
     .nov-actions .btn{padding:4px 12px;font-size:12px}
     .nov-devolver input[type=text]{font:inherit;font-size:12px;border:1.5px solid #9db8ad;border-radius:7px;padding:3px 8px;background:#fff;flex:1;min-width:130px}
+    .nov-dias{display:inline-block;font-size:11px;font-weight:700;border-radius:999px;padding:1px 10px;margin-left:6px;background:#eef3f0;color:#3d5a50}
+    .nov-dias.viejo{background:#f0ddb0;color:#8a5a00}
+    .nov-card.nov-viejo{border-color:#f0ddb0;background:#fef9ec}
     .nov-filtros{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:0 0 12px}
     .nov-filtros label{font-size:12px;color:var(--color-muted,#888);display:flex;gap:6px;align-items:center}
     .nov-filtros select{font:inherit;border:1.5px solid #9db8ad;border-radius:8px;padding:4px 6px;background:#fff}
@@ -123,8 +126,8 @@
     <section class="nov-col">
       <h3>Pendientes ({{ grupos.pendiente|length }})</h3>
       {% for f in grupos.pendiente %}
-      <article class="nov-card">
-        <div>{{ f.texto }}</div>
+      <article class="nov-card{% if f.dias > 30 %} nov-viejo{% endif %}">
+        <div>{{ f.texto }}<span class="nov-dias{% if f.dias > 30 %} viejo{% endif %}">{% if f.dias %}hace {{ f.dias }} día{{ f.dias|pluralize }}{% else %}hoy{% endif %}</span></div>
         {% if f.tiene_foto %}<img src="{% url 'novedad_foto' f.id %}" alt="Foto del reporte" loading="lazy">{% endif %}
         <div class="nov-meta">{{ f.auxiliar_nombre }} · {{ f.fecha_registro }}{% if f.turno %} · {{ f.turno|capfirst }}{% endif %}{% if f.laboratorio %} · {{ f.laboratorio }}{% endif %}</div>
         <form method="post" class="nov-actions nov-devolver">
@@ -152,6 +155,7 @@
       <p class="sub">Nada acá.</p>
       {% endfor %}
     </section>
+    {% if grupos.vencido %}
     <section class="nov-col">
       <h3>Vencidos +90 días ({{ grupos.vencido|length }})</h3>
       {% for f in grupos.vencido %}
@@ -159,10 +163,9 @@
         <div>{{ f.texto }}</div>
         <div class="nov-meta">{{ f.auxiliar_nombre }} · {{ f.fecha_registro }}</div>
       </article>
-      {% empty %}
-      <p class="sub">Nada acá.</p>
       {% endfor %}
     </section>
+    {% endif %}
   </div>
   {% if puede_validar %}
   <form method="post" style="margin-top:12px">

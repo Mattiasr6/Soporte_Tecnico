@@ -258,7 +258,8 @@ def test_foto_invalida_rechaza(limpio):
 
 
 def test_filtro_dias_y_turno(limpio):
-    _crear("novedad", f"{MARK} hoy manana", turno="mañana")
+    n = _crear("novedad", f"{MARK} hoy manana", turno="mañana")
+    assert n["dias"] == 0
     _crear("novedad", f"{MARK} hoy noche", turno="noche")
     with SessionLocal() as db:
         db.add(

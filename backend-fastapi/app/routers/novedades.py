@@ -74,6 +74,7 @@ def _serializar(db: DbSession, rows: list[Novedad]) -> list[dict[str, object]]:
             "tiene_foto": bool(r.foto_path),
             "estado": _estado_efectivo(r, hoy),
             "entregado_a": r.entregado_a,
+            "dias": (hoy - r.fecha_registro).days,
             "fecha_registro": r.fecha_registro,
             "created_at": r.created_at,
         }
