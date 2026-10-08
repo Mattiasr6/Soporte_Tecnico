@@ -46,6 +46,7 @@ def sesion(request):
         "auditoria": "auditoria",
         "lab_reportes": "lab_reportes",
         "lab_dashboard": "lab_dashboard",
+        "lab_tablero": "tablero",
         "lab_export_csv": "laboratorios",
         "auxiliares": "auxiliares",
         "auxiliares_horarios": "auxiliares_horarios",

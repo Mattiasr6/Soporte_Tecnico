@@ -907,6 +907,109 @@ def lab_dashboard_vista(request: HttpRequest) -> HttpResponse:
 
 
 @con_login
+def lab_tablero_vista(request: HttpRequest) -> HttpResponse:
+    # ponytail: solo lectura, agrega 3 llamadas API y deriva el semáforo en Django.
+    if not (_puede_reportes(request) or _es_encargado(request)):
+        return redirect("lab_lista")
+    token = str(request.session["jwt"])
+    try:
+        cards = api_get("/api/laboratorios/cards", token)
+        atenciones = api_get("/api/laboratorios/atenciones", token)
+        objetos = api_get(
+            "/api/novedades", token, {"tipo": "objeto", "estado": "pendiente"}
+        )
+    except ApiError as e:
+        if e.status in (401, 403):
+            raise
+        _log.error("LAB-TABLERO fallo: %s", e.detail)
+        return render(
+            request, "atenciones/tablero.html", {"error": True}, status=502
+        )
+    labs = []
+    if isinstance(cards, dict):
+        labs = [
+            lab
+            for lab in (cards.get("activas") or [])
+            if isinstance(lab, dict)
+        ]
+    filas = (
+        [a for a in atenciones if isinstance(a, dict)]
+        if isinstance(atenciones, list)
+        else []
+    )
+    pendientes = (
+        [o for o in objetos if isinstance(o, dict)]
+        if isinstance(objetos, list)
+        else []
+    )
+    corte = (_dt.datetime.now(_dt.UTC).date() - _dt.timedelta(days=7)).isoformat()
+    tarjetas = []
+    for lab in labs:
+        lid = lab.get("id")
+        recientes = [
+            a
+            for a in filas
+            if a.get("laboratorio_id") == lid
+            and str(a.get("fecha_registro", "")) >= corte
+        ]
+        pcs_falla = sorted(
+            {
+                str(a.get("pc_nombre") or "").strip()
+                for a in recientes
+                if str(a.get("pc_nombre") or "").strip()
+            }
+        )
+        objs = [o for o in pendientes if o.get("laboratorio_id") == lid]
+        ultimas = sorted(
+            (a for a in filas if a.get("laboratorio_id") == lid),
+            key=lambda a: (str(a.get("fecha_registro", "")), int(a.get("id", 0) or 0)),
+            reverse=True,
+        )
+        ultima = ultimas[0] if ultimas else None
+        total_pcs = None
+        with contextlib.suppress(ApiError):
+            pcs = api_get(f"/api/laboratorios/{lid}/pcs", token)
+            if isinstance(pcs, dict):
+                total_pcs = len(pcs.get("pcs", []))
+        semaforo = "verde"
+        if objs:
+            semaforo = "rojo"
+        elif pcs_falla:
+            semaforo = "amarillo"
+        tarjetas.append(
+            {
+                "codigo": lab.get("codigo", ""),
+                "nombre": lab.get("nombre", ""),
+                "lab_id": lid,
+                "semaforo": semaforo,
+                "atenciones_7d": len(recientes),
+                "pcs_falla": pcs_falla,
+                "total_pcs": total_pcs,
+                "objetos": len(objs),
+                "ultima": (
+                    {
+                        "fecha": str(ultima.get("fecha_registro", "")),
+                        "auxiliar": str(ultima.get("auxiliar_nombre", "")),
+                        "categoria": str(ultima.get("categoria", "")),
+                    }
+                    if isinstance(ultima, dict)
+                    else None
+                ),
+            }
+        )
+    resumen = {
+        "rojos": sum(1 for t in tarjetas if t["semaforo"] == "rojo"),
+        "amarillos": sum(1 for t in tarjetas if t["semaforo"] == "amarillo"),
+        "verdes": sum(1 for t in tarjetas if t["semaforo"] == "verde"),
+    }
+    return render(
+        request,
+        "atenciones/tablero.html",
+        {"error": False, "tarjetas": tarjetas, "resumen": resumen},
+    )
+
+
+@con_login
 def horarios_export_xlsx_vista(request: HttpRequest) -> HttpResponse:
     token = str(request.session["jwt"])
     es_pdf = request.path.endswith(".pdf")

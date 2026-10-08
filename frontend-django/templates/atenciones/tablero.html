@@ -1,0 +1,103 @@
+{% extends "atenciones/base.html" %}
+{% block titulo %}Tablero de laboratorios — Soporte Técnico{% endblock %}
+{% block contenido %}
+<div class="page-wide rep">
+  {% if error %}
+  <div class="page-head">
+    <div>
+      <h1>Tablero — Laboratorios</h1>
+      <p class="sub">No se pudo cargar el tablero.</p>
+    </div>
+  </div>
+  <section class="bloque">
+    <p class="rep-error">No se pudo cargar el tablero. Reintentá.</p>
+    <a class="btn" href="{{ request.get_full_path }}">Reintentar</a>
+  </section>
+  {% else %}
+  <div class="page-head">
+    <div>
+      <h1>Tablero — Laboratorios</h1>
+      <p class="sub">Estado en vivo · se actualiza solo cada 2 minutos</p>
+    </div>
+    <div>
+      <a class="btn ghost no-print" href="{% url 'lab_dashboard' %}">Ver dashboard mensual</a>
+    </div>
+  </div>
+  <div class="kpis rep-kpis">
+    <div class="kpi sem-rojo">
+      <span>En rojo (objetos pendientes)</span>
+      <b>{{ resumen.rojos }}</b>
+    </div>
+    <div class="kpi sem-amarillo">
+      <span>En amarillo (PCs con reporte)</span>
+      <b>{{ resumen.amarillos }}</b>
+    </div>
+    <div class="kpi sem-verde">
+      <span>En verde (limpios)</span>
+      <b>{{ resumen.verdes }}</b>
+    </div>
+  </div>
+  <div class="tab-grid">
+    {% for t in tarjetas %}
+    <article class="tab-card sem-{{ t.semaforo }}">
+      <header>
+        <span class="tab-dot" aria-hidden="true"></span>
+        <div>
+          <h2>{% if t.codigo != t.nombre %}{{ t.codigo }} — {% endif %}{{ t.nombre }}</h2>
+          <p class="sub">
+            {% if t.semaforo == "rojo" %}Necesita atención: hay objetos sin devolver.
+            {% elif t.semaforo == "amarillo" %}Con reportes recientes en PCs.
+            {% else %}Sin pendientes.{% endif %}
+          </p>
+        </div>
+      </header>
+      <dl>
+        <div><dt>Atenciones (7 días)</dt><dd>{{ t.atenciones_7d }}</dd></div>
+        <div><dt>PCs con reporte</dt><dd>{% if t.total_pcs %}{{ t.pcs_falla|length }}/{{ t.total_pcs }}{% else %}{{ t.pcs_falla|length }}{% endif %}</dd></div>
+        <div><dt>Objetos pendientes</dt><dd>{{ t.objetos }}</dd></div>
+      </dl>
+      {% if t.pcs_falla %}
+      <p class="tab-pcs">PCs: {{ t.pcs_falla|join:", " }}</p>
+      {% endif %}
+      <footer>
+        {% if t.ultima %}
+        <span>Última: {{ t.ultima.fecha }} · {{ t.ultima.auxiliar }} · {{ t.ultima.categoria }}</span>
+        {% else %}
+        <span>Sin atenciones registradas.</span>
+        {% endif %}
+        <a class="btn ghost" href="{% url 'lab_pcs' t.lab_id %}">Ver sala →</a>
+      </footer>
+    </article>
+    {% empty %}
+    <p class="sub">No hay laboratorios activos.</p>
+    {% endfor %}
+  </div>
+  {% endif %}
+</div>
+<style>
+.tab-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px;margin-top:14px}
+.tab-card{border:1px solid #dfe7e2;border-radius:14px;padding:14px;background:#fff;border-top:6px solid #00754a}
+.tab-card.sem-rojo{border-top-color:#c0392b}
+.tab-card.sem-amarillo{border-top-color:#d4a017}
+.tab-card.sem-verde{border-top-color:#00754a}
+.tab-card header{display:flex;gap:10px;align-items:flex-start}
+.tab-card h2{margin:0;font-size:17px}
+.tab-dot{width:18px;height:18px;border-radius:50%;background:#00754a;flex:none;margin-top:2px}
+.sem-rojo .tab-dot{background:#c0392b}
+.sem-amarillo .tab-dot{background:#d4a017}
+.sem-verde .tab-dot{background:#00754a}
+.tab-card dl{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin:12px 0 0;padding:0}
+.tab-card dl div{background:#f4f8f5;border-radius:10px;padding:8px;text-align:center}
+.tab-card dt{font-size:11px;color:#5b6b62}
+.tab-card dd{margin:2px 0 0;font-size:20px;font-weight:700}
+.tab-pcs{font-size:12.5px;margin:8px 0 0}
+.tab-card footer{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:10px;font-size:12.5px;color:#5b6b62}
+.tab-card footer .btn{white-space:nowrap}
+.kpi.sem-rojo b{color:#c0392b}
+.kpi.sem-amarillo b{color:#9a6f0a}
+.kpi.sem-verde b{color:#00754a}
+</style>
+{% endblock %}
+{% block scripts %}
+<script>setTimeout(function(){location.reload();},120000);</script>
+{% endblock %}

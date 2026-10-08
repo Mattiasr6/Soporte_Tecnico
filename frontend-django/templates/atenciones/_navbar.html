@@ -86,6 +86,10 @@
           <iconify-icon icon="mdi:view-dashboard-outline" aria-hidden="true"></iconify-icon>
           <span class="side-link-label">Dashboard labs</span>
         </a>
+        <a class="side-link{% if nav_page == 'tablero' %} active{% endif %}" href="{% url 'lab_tablero' %}" {% if nav_page == 'tablero' %}aria-current="page"{% endif %} data-nav-page="tablero">
+          <iconify-icon icon="mdi:traffic-light-outline" aria-hidden="true"></iconify-icon>
+          <span class="side-link-label">Tablero</span>
+        </a>
         {% endif %}
         <a class="side-link{% if nav_page == 'auxiliares' %} active{% endif %}" href="{% url 'auxiliares' %}" {% if nav_page == 'auxiliares' %}aria-current="page"{% endif %} data-nav-page="auxiliares">
           <iconify-icon icon="mdi:account-supervisor-outline" aria-hidden="true"></iconify-icon>
