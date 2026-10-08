@@ -107,6 +107,10 @@
           <iconify-icon icon="mdi:forum-outline" aria-hidden="true"></iconify-icon>
           <span class="side-link-label">Novedades</span>
         </a>
+        <a class="side-link{% if nav_page == 'timeline' %} active{% endif %}" href="{% url 'lab_timeline' %}" {% if nav_page == 'timeline' %}aria-current="page"{% endif %} data-nav-page="timeline">
+          <iconify-icon icon="mdi:timeline-clock-outline" aria-hidden="true"></iconify-icon>
+          <span class="side-link-label">Línea del día</span>
+        </a>
         <a class="side-link{% if nav_page == 'software' %} active{% endif %}" href="{% url 'software' %}" {% if nav_page == 'software' %}aria-current="page"{% endif %} data-nav-page="software">
           <iconify-icon icon="mdi:package-variant-closed" aria-hidden="true"></iconify-icon>
           <span class="side-link-label">Software</span>

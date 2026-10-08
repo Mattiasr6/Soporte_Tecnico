@@ -1010,6 +1010,75 @@ def lab_tablero_vista(request: HttpRequest) -> HttpResponse:
 
 
 @con_login
+def lab_timeline_vista(request: HttpRequest) -> HttpResponse:
+    # ponytail: solo lectura, 2 llamadas API y orden cronológico en Django.
+    if _rol(request) in ("Auxiliar", "Encargado") and not (
+        request.session.get("auxiliar_nombre") or ""
+    ).strip():
+        return redirect(f"{reverse('auxiliares_soy')}?next={reverse('lab_timeline')}")
+    token = str(request.session["jwt"])
+    hoy = _dt.datetime.now(_dt.UTC).date().isoformat()
+    try:
+        atenciones = api_get("/api/laboratorios/atenciones", token)
+        novedades = api_get("/api/novedades", token, {"dias": "1"})
+    except ApiError as e:
+        if e.status in (401, 403):
+            raise
+        _log.error("LAB-TIMELINE fallo: %s", e.detail)
+        return render(
+            request, "atenciones/timeline.html", {"error": True}, status=502
+        )
+    eventos = []
+    for a in atenciones if isinstance(atenciones, list) else []:
+        if not isinstance(a, dict) or str(a.get("fecha_registro", "")) != hoy:
+            continue
+        eventos.append(
+            {
+                "hora": str(a.get("created_at", ""))[11:16],
+                "icono": "🧰",
+                "titulo": f"{a.get('laboratorio', '')} · {a.get('categoria', '')}",
+                "detalle": str(a.get("descripcion", "")),
+                "auxiliar": str(a.get("auxiliar_nombre", "")),
+                "foto_id": None,
+                "orden": str(a.get("created_at", "")),
+            }
+        )
+    for n in novedades if isinstance(novedades, list) else []:
+        if not isinstance(n, dict) or str(n.get("fecha_registro", "")) != hoy:
+            continue
+        tipo = str(n.get("tipo", ""))
+        estado = str(n.get("estado", ""))
+        if tipo == "objeto":
+            icono = "🎒✅" if estado == "devuelto" else "🎒"
+            titulo = f"Objeto {estado}: {n.get('texto', '')}"
+            if estado == "devuelto" and n.get("entregado_a"):
+                titulo += f" → {n.get('entregado_a')}"
+        elif tipo == "cierre":
+            icono = "🔑✅" if estado == "validado" else "🔑"
+            titulo = f"Cierre {estado}: {n.get('texto', '')}"
+        else:
+            icono = "📢"
+            titulo = str(n.get("texto", ""))
+        eventos.append(
+            {
+                "hora": str(n.get("created_at", ""))[11:16],
+                "icono": icono,
+                "titulo": titulo,
+                "detalle": str(n.get("laboratorio", "") or n.get("turno", "")),
+                "auxiliar": str(n.get("auxiliar_nombre", "")),
+                "foto_id": n.get("id") if n.get("tiene_foto") else None,
+                "orden": str(n.get("created_at", "")),
+            }
+        )
+    eventos.sort(key=lambda e: str(e["orden"]), reverse=True)
+    return render(
+        request,
+        "atenciones/timeline.html",
+        {"error": False, "eventos": eventos, "hoy": hoy},
+    )
+
+
+@con_login
 def horarios_export_xlsx_vista(request: HttpRequest) -> HttpResponse:
     token = str(request.session["jwt"])
     es_pdf = request.path.endswith(".pdf")

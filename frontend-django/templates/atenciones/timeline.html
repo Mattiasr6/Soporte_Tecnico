@@ -1,0 +1,61 @@
+{% extends "atenciones/base.html" %}
+{% block titulo %}Línea del día — Soporte Técnico{% endblock %}
+{% block contenido %}
+<div class="page-wide rep">
+  {% if error %}
+  <div class="page-head">
+    <div>
+      <h1>Línea del día</h1>
+      <p class="sub">No se pudo cargar la actividad de hoy.</p>
+    </div>
+  </div>
+  <section class="bloque">
+    <p class="rep-error">No se pudo cargar la línea del día. Reintentá.</p>
+    <a class="btn" href="{{ request.get_full_path }}">Reintentar</a>
+  </section>
+  {% else %}
+  <div class="page-head">
+    <div>
+      <h1>Línea del día</h1>
+      <p class="sub">{{ hoy }} · {{ eventos|length }} movimiento{{ eventos|length|pluralize }} · se actualiza sola cada 2 minutos</p>
+    </div>
+    <div>
+      <a class="btn ghost no-print" href="{% url 'novedades' %}">Ir a Novedades</a>
+    </div>
+  </div>
+  {% if eventos %}
+  <ol class="tl">
+    {% for e in eventos %}
+    <li class="tl-item">
+      <span class="tl-hora">{{ e.hora }}</span>
+      <span class="tl-icono" aria-hidden="true">{{ e.icono }}</span>
+      <div class="tl-cuerpo">
+        <p class="tl-titulo">{{ e.titulo }}</p>
+        <p class="sub">{% if e.detalle %}{{ e.detalle }} · {% endif %}{{ e.auxiliar }}</p>
+        {% if e.foto_id %}<img src="{% url 'novedad_foto' e.foto_id %}" alt="Foto del reporte" loading="lazy">{% endif %}
+      </div>
+    </li>
+    {% endfor %}
+  </ol>
+  {% else %}
+  <section class="bloque">
+    <p class="sub">Hoy todavía no hay movimiento. Cuando alguien registre una atención o novedad, aparece acá.</p>
+  </section>
+  {% endif %}
+  {% endif %}
+</div>
+<style>
+.tl{list-style:none;margin:14px 0 0;padding:0 0 0 8px;position:relative}
+.tl::before{content:"";position:absolute;left:52px;top:6px;bottom:6px;width:3px;background:#cfe0d5;border-radius:3px}
+.tl-item{display:flex;gap:12px;align-items:flex-start;margin:0 0 16px;position:relative}
+.tl-hora{flex:none;width:44px;text-align:right;font-weight:700;font-size:13px;color:#5b6b62;padding-top:8px}
+.tl-icono{flex:none;width:34px;height:34px;border-radius:50%;background:#fff;border:2px solid #00754a;display:flex;align-items:center;justify-content:center;font-size:17px;z-index:1}
+.tl-cuerpo{flex:1;background:#fff;border:1px solid #dfe7e2;border-radius:12px;padding:10px 12px}
+.tl-titulo{margin:0;font-weight:600}
+.tl-cuerpo .sub{margin:4px 0 0}
+.tl-cuerpo img{margin-top:8px;max-width:100%;border-radius:10px;max-height:280px;object-fit:cover}
+</style>
+{% endblock %}
+{% block scripts %}
+<script>setTimeout(function(){location.reload();},120000);</script>
+{% endblock %}

@@ -134,6 +134,7 @@ urlpatterns = [
     ),
     path("auxiliares/dashboard/", views_lab.lab_dashboard_vista, name="lab_dashboard"),
     path("auxiliares/tablero/", views_lab.lab_tablero_vista, name="lab_tablero"),
+    path("auxiliares/timeline/", views_lab.lab_timeline_vista, name="lab_timeline"),
     path("auxiliares/reportes/", views_lab.lab_reportes_vista, name="lab_reportes"),
     path(
         "auxiliares/export.csv",
