@@ -16,6 +16,8 @@ import {
   PEDIDOS_DOCENTE, RESULTADOS_CORRECTIVO, SUBTIPOS_TECNICO, textoDe, TIPOS_PERSONA, TIPOS_TICKET,
 } from '../../core/tickets';
 import { LaboratorioCroquisComponent } from '../panel/laboratorio-croquis.component';
+import { ClonarAtencionComponent, DatosClonado } from './clonar-atencion.component';
+import { TicketAtencionComponent } from './ticket-atencion.component';
 
 const PRIORIDADES: Record<number, { texto: string; clase: string }> = {
   1: { texto: 'Alta', clase: 'bg-red-100 text-red-700' },
@@ -29,6 +31,11 @@ const ESTADOS: Record<EstadoAtencion, { texto: string; clase: string }> = {
 };
 /** Tipos que se hacen sobre PCs: laboratorio y PCs obligatorios */
 const TIPOS_CON_PC: TipoAtencion[] = ['programas', 'preventivo', 'correctivo'];
+/**
+ * Types that can be cloned into other labs (Django `lab_clonar`). A correctivo
+ * changes PC states and a cambio_estado is automatic, so neither is copied.
+ */
+const TIPOS_CLONABLES: TipoAtencion[] = ['docente', 'programas', 'preventivo', 'personal'];
 
 /** Tickets creados juntos (mismo lote) se muestran como una sola fila */
 interface Grupo {
@@ -63,7 +70,10 @@ interface FormTicket extends Partial<Atencion> {
  */
 @Component({
   selector: 'app-atenciones-lista',
-  imports: [FormsModule, IconoComponent, ModalComponent, DatePipe, LaboratorioCroquisComponent, BuscadorComponent, FichasReparacionComponent],
+  imports: [
+    FormsModule, IconoComponent, ModalComponent, DatePipe, LaboratorioCroquisComponent, BuscadorComponent, FichasReparacionComponent,
+    TicketAtencionComponent, ClonarAtencionComponent,
+  ],
   template: `
     <!-- SOLICITUDES DE BAJA -->
     @if (solicitudes().length) {
@@ -215,6 +225,10 @@ interface FormTicket extends Partial<Atencion> {
                 {{ estados[g.estado].texto }}@if (g.tickets.length > 1 && g.estado !== 'resuelto') { · {{ g.resueltos }}/{{ g.tickets.length }} }
               </span>
               <div class="flex gap-0.5">
+                <button class="btn-fantasma btn-sm" (click)="ticketAbierto.set(g)" title="Ver e imprimir ticket"><app-icono nombre="imprimir" [tamano]="15" /></button>
+                @if (auth.puedeOperar() && clonable(g)) {
+                  <button class="btn-fantasma btn-sm" (click)="clonando.set(g.primero)" title="Clonar en otros laboratorios"><app-icono nombre="copiar" [tamano]="15" /></button>
+                }
                 @if (g.primero.tipo === 'cambio_estado') {
                   <!-- Registro automático del cambio de estado: no se edita; solo admin/encargado lo puede borrar -->
                   @if (auth.puedeGestionarAuxiliares()) {
@@ -257,6 +271,31 @@ interface FormTicket extends Partial<Atencion> {
         <p class="tarjeta py-10 text-center text-sm text-slate-500">No hay tickets con esos filtros.</p>
       }
     </div>
+
+    <!-- TICKET IMPRIMIBLE -->
+    <app-modal [abierto]="!!ticketAbierto()" [titulo]="'Ticket #' + (ticketAbierto()?.primero.id ?? '')" ancho="lg" (cerrar)="ticketAbierto.set(null)">
+      @if (ticketAbierto(); as g) {
+        <div class="zona-impresion">
+          <app-ticket-atencion [atencion]="g.primero" [tickets]="g.tickets" [colaboradores]="nombresCompletosColaboradores(g.primero)" />
+        </div>
+      }
+      <ng-container pie>
+        <button class="btn-secundario" (click)="ticketAbierto.set(null)">Cerrar</button>
+        <button class="btn-primario" (click)="imprimir()"><app-icono nombre="imprimir" [tamano]="16" /> Imprimir</button>
+      </ng-container>
+    </app-modal>
+
+    <!-- CLONAR EN N LABORATORIOS -->
+    <app-modal [abierto]="!!clonando()" titulo="Clonar atención" ancho="lg" (cerrar)="clonando.set(null)">
+      @if (clonando(); as origen) {
+        <app-clonar-atencion [origen]="origen" [laboratorios]="laboratorios()" formId="form-clonar"
+                             (confirmar)="clonar(origen, $event)" (aviso)="notificaciones.aviso($event)" />
+      }
+      <ng-container pie>
+        <button class="btn-secundario" (click)="clonando.set(null)">Cancelar</button>
+        <button class="btn-primario" type="submit" form="form-clonar" [disabled]="guardando()">{{ guardando() ? 'Creando…' : 'Crear copias' }}</button>
+      </ng-container>
+    </app-modal>
 
     <!-- FORMULARIO -->
     <app-modal [abierto]="!!form()" [titulo]="form()?.id ? 'Editar ticket' : 'Nuevo ticket'" ancho="xl" (cerrar)="form.set(null)">
@@ -538,7 +577,7 @@ export class AtencionesListaComponent implements OnInit {
   protected readonly auth = inject(AuthService);
   protected readonly catalogos = inject(CatalogosService);
   private readonly operacion = inject(OperacionService);
-  private readonly notificaciones = inject(NotificacionesService);
+  protected readonly notificaciones = inject(NotificacionesService);
 
   protected readonly tipos = TIPOS_TICKET;
   protected readonly categorias = CATEGORIAS_TICKET;
@@ -581,6 +620,10 @@ export class AtencionesListaComponent implements OnInit {
   protected readonly form = signal<FormTicket | null>(null);
   protected readonly guardando = signal(false);
   protected readonly abiertos = signal(new Set<string>());
+  /** Record whose printable ticket is open */
+  protected readonly ticketAbierto = signal<Grupo | null>(null);
+  /** Ticket being cloned into other labs */
+  protected readonly clonando = signal<Atencion | null>(null);
   /** Grupo que se está editando (para saber qué PCs agregar o quitar) */
   private grupoEditado: Grupo | null = null;
 
@@ -693,6 +736,58 @@ export class AtencionesListaComponent implements OnInit {
 
   protected nombresColaboradores(a: Atencion): string {
     return (a.colaboradores ?? []).map((id) => this.nombres().get(id)?.split(' ')[0] ?? '¿?').join(', ');
+  }
+
+  protected nombresCompletosColaboradores(a: Atencion): string {
+    return (a.colaboradores ?? []).map((id) => this.nombres().get(id) ?? '¿?').join(', ');
+  }
+
+  protected clonable(g: Grupo): boolean {
+    return TIPOS_CLONABLES.includes(g.primero.tipo);
+  }
+
+  /** Prints only the ticket (print CSS in styles.css hides the rest of the page) */
+  protected imprimir(): void {
+    document.body.classList.add('imprimiendo');
+    window.addEventListener('afterprint', () => document.body.classList.remove('imprimiendo'), { once: true });
+    window.print();
+  }
+
+  /**
+   * Creates one lab-level copy per chosen lab (Django `lab_clonar`), in a single
+   * bulk request: same type, details, requester and collaborators; texts and
+   * priority as edited. Copies belong to the current shift and the copier.
+   */
+  protected async clonar(origen: Atencion, datos: DatosClonado): Promise<void> {
+    const copia: Partial<Atencion> = {
+      tipo: origen.tipo,
+      alcance: 'individual',
+      descripcion: datos.descripcion,
+      solucion: datos.solucion || null,
+      detalles: origen.detalles ?? {},
+      prioridad: datos.prioridad,
+      docente_id: origen.docente_id,
+      solicitante: origen.solicitante,
+      colaboradores: origen.colaboradores ?? [],
+      estado: 'resuelto',
+      resuelto_por: this.auth.perfil()?.id ?? null,
+      resuelto_en: new Date().toISOString(),
+      turno_trabajo_id: this.operacion.turnoActual()?.id ?? null,
+      pc_id: null,
+      lote: null,
+    };
+    this.guardando.set(true);
+    try {
+      const creados = await this.operacion.crearAtenciones(datos.laboratorios.map((ambiente_id) => ({ ...copia, ambiente_id })));
+      const n = creados.length;
+      this.notificaciones.exito(`${n === 1 ? '1 copia creada' : n + ' copias creadas'}. Edita cada una para diferenciarla.`);
+      this.clonando.set(null);
+      await this.cargar();
+    } catch (e) {
+      this.notificaciones.error(e, 'No se pudo clonar');
+    } finally {
+      this.guardando.set(false);
+    }
   }
 
   protected solicitante(a: Atencion): string {

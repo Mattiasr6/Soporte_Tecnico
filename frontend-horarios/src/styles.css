@@ -167,3 +167,17 @@
   .tabla tbody tr:hover { @apply bg-slate-50; }
 }
 
+
+/*
+ * Printing one block of a page (e.g. an attention ticket): the page adds
+ * `imprimiendo` to <body> right before window.print() and removes it after,
+ * so only `.zona-impresion` is printed, in black on white even in dark mode.
+ * Without the body class, printing behaves as before.
+ */
+@media print {
+  body.imprimiendo * { visibility: hidden; }
+  body.imprimiendo .zona-impresion,
+  body.imprimiendo .zona-impresion * { visibility: visible; color: #000 !important; background: transparent !important; }
+  body.imprimiendo .zona-impresion { position: absolute; top: 0; left: 0; width: 100%; padding: 0; background: #fff !important; }
+  body.imprimiendo .no-imprimir { display: none !important; }
+}
