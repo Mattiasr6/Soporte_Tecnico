@@ -46,6 +46,7 @@ El frontend consulta tablas directo con supabase-js (90 `.from()`, 9 `.rpc()`,
 - [x] T5 Asignaciones, cesiones, reservas, reubicaciones + RPC de choques/ocupación.
 - [x] T6a Turnos y reportes de turno: turnos_programados, turnos_trabajo, horarios_turno, rotacion_sabados,
       perfiles de operación, fn_turno_vigente/fn_asignar_turno, reportes_turno + reporte_tareas + foto de cierre.
+- [x] U1 Integrar upstream d0d7ad1 (UI móvil + reubica en choques, SQL 34 → 0022).
 - [ ] T6b Operación: atenciones, fallas_pc, solicitudes_baja, objetos_perdidos (+ bucket), rpc_cambiar_estado_pcs,
       rpc_resolver_baja, rpc_registrar_reparaciones, fn_limpiar_fotos_objetos, `misBajasDesde` (ambiente_pcs) y
       los dos pendientes de T5 (`compartido/ocupacion-detalle`, `panel/laboratorio-detalle`).
@@ -165,6 +166,23 @@ El frontend consulta tablas directo con supabase-js (90 `.from()`, 9 `.rpc()`,
   base + horarios_schema + health` 75 passed en `soporte_upds_test` (sin filas residuales, horarios_turno restaurado,
   fotos en tmp_path); ruff check/format OK; `ng build` OK sin warnings; curl en api 5013 como Jefe: los 8 GET → 200,
   sin token 401.
+
+- U1 (delegado, writer): upstream ASIGNACION_DE-HORARIOS `d0d7ad1` aplicado con
+  `git format-patch` + `git apply -3 --directory=frontend-horarios`: los 17 archivos entraron sin conflictos
+  (styles.css y laboratorio-detalle por aplicación directa, blob ambiguo). Resolución: el único uso supabase nuevo
+  (`asignacion-form.cargarReubicaciones`, `.from('reubicaciones')`) pasa a `OcupacionService.listarReubicaciones`
+  → nuevo GET `/api/asignacion/reubicaciones?asignacion_horario_id=` (repetible, `fn_puede_ver` = RLS
+  `reubicaciones_ver`). Resto de cambios UI/móvil tomados tal cual (docentes/turno/auxiliares sin cambios de datos).
+  SQL 34 copiado a `frontend-horarios/supabase/` y portado en migración `0022_horarios_reubica_choques`
+  (`alembic/sql/0022_horarios/01_rpc_guardar_asignacion.sql`; downgrade restaura la versión 0021 desde
+  `down_01_...sql`): `rpc_guardar_asignacion` acepta `p.reubicaciones` y guarda los días ocupados en otro
+  laboratorio/aula en la misma transacción. Misma firma; el POST/PUT `/asignaciones` ya reenvía el JSON (sin cambio
+  de endpoint). Script 34 no tiene RLS/grants/auth/storage: nada descartado.
+  Evidencia: RED (test nuevo `test_asignacion_moves_busy_days_to_another_ambiente` falla en 0021) → GREEN;
+  upgrade/downgrade 0021 (vuelve a fallar)/upgrade OK en `soporte_upds_test`; `pytest test_asignacion_* +
+  horarios_schema + health` 76 passed; `soporte_upds` en 0022; ruff check/format OK; `ng build` OK sin warnings;
+  usos `.from/.rpc/.storage` iguales antes/después (ninguno nuevo); curl 5013 Jefe GET `/reubicaciones` 200, sin
+  token 401; proxy ng serve 4200 401 sin token.
 
 ## Siguiente paso
 T6b Operación (atenciones, fallas_pc, bajas, objetos perdidos + fotos, RPC de PCs/reparaciones) y los dos usos

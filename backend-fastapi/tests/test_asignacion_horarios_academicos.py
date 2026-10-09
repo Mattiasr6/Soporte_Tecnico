@@ -483,3 +483,113 @@ def test_vincular_docente_adds_without_replacing(make_usuario, catalogo) -> None
     body = r.json()
     assert body["docente_carreras"] == [{"carrera_id": catalogo["carrera"]}]
     assert body["docente_materias"] == [{"materia_id": catalogo["materia"]}]
+
+
+# --- SQL 34: save a class even if its laboratorio is busy some days -------------
+
+
+def test_asignacion_moves_busy_days_to_another_ambiente(make_usuario, catalogo) -> None:
+    """rpc_guardar_asignacion stores p.reubicaciones in the same operation."""
+    h = _auth(make_usuario("Jefe"))
+    with SessionLocal() as db:
+        otro_lab = int(
+            db.execute(
+                text(
+                    "insert into horarios.ambientes (codigo, nombre, tipo) "
+                    "values (:c, 'Lab destino', 'laboratorio') returning id"
+                ),
+                {"c": _name()},
+            ).scalar_one()
+        )
+        db.commit()
+
+    # An event already occupies the laboratorio on the first Monday.
+    r = client.post(
+        f"{API}/reservas",
+        json={
+            "tipo_id": 1,
+            "titulo": _name(),
+            "categoria": "taller",
+            "horarios": [
+                {
+                    "ambiente_id": catalogo["ambiente"],
+                    "fecha": LUNES,
+                    "hora_inicio": "07:00",
+                    "hora_fin": "09:00",
+                }
+            ],
+            "reubicaciones": [],
+        },
+        headers=h,
+    )
+    assert r.status_code == 201, r.text
+    reserva_id = r.json()["id"]
+
+    # Without saying where the class goes that day, the clash still blocks.
+    r = client.post(
+        f"{API}/asignaciones", json=_asignacion_payload(catalogo), headers=h
+    )
+    assert r.status_code == 422, r.text
+
+    reubicacion = {
+        "dia_semana": 1,
+        "hora_inicio": "07:00",
+        "ambiente_id": catalogo["ambiente"],
+        "fecha": LUNES,
+        "ambiente_destino_id": catalogo["ambiente"],
+        "aula_destino": None,
+        "reserva_id": reserva_id,
+        "motivo": "Laboratorio ocupado: evento",
+    }
+    # The destination must be a different ambiente.
+    r = client.post(
+        f"{API}/asignaciones",
+        json={**_asignacion_payload(catalogo), "reubicaciones": [reubicacion]},
+        headers=h,
+    )
+    assert r.status_code == 422, r.text
+    assert "otro laboratorio" in r.json()["detail"]["message"]
+
+    reubicacion["ambiente_destino_id"] = otro_lab
+    r = client.post(
+        f"{API}/asignaciones",
+        json={**_asignacion_payload(catalogo), "reubicaciones": [reubicacion]},
+        headers=h,
+    )
+    assert r.status_code == 201, r.text
+    creada = r.json()
+    horario_id = creada["horarios"][0]["id"]
+
+    guardadas = client.get(
+        f"{API}/reubicaciones?asignacion_horario_id={horario_id}", headers=h
+    )
+    assert guardadas.status_code == 200, guardadas.text
+    [guardada] = guardadas.json()
+    assert guardada["asignacion_horario_id"] == horario_id
+    assert guardada["fecha"] == LUNES
+    assert guardada["ambiente_destino_id"] == otro_lab
+    assert guardada["aula_destino"] is None
+    assert guardada["reserva_id"] == reserva_id
+
+    # Editing again with an aula instead upserts the same day.
+    payload = _asignacion_payload(catalogo)
+    payload["horarios"][0]["id"] = horario_id
+    payload["reubicaciones"] = [
+        {**reubicacion, "ambiente_destino_id": None, "aula_destino": "Aula 201"}
+    ]
+    r = client.put(f"{API}/asignaciones/{creada['id']}", json=payload, headers=h)
+    assert r.status_code == 200, r.text
+    [editada] = client.get(
+        f"{API}/reubicaciones?asignacion_horario_id={horario_id}", headers=h
+    ).json()
+    assert editada["ambiente_destino_id"] is None
+    assert editada["aula_destino"] == "Aula 201"
+
+    invitado = _auth(make_usuario("Tecnico"))
+    assert (
+        client.get(
+            f"{API}/reubicaciones?asignacion_horario_id={horario_id}",
+            headers=invitado,
+        ).status_code
+        == 403
+    )

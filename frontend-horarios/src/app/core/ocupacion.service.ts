@@ -84,8 +84,28 @@ export class OcupacionService {
     return (await this.api.post<{ id: number }>('/reubicaciones', datos)).id;
   }
 
+  /** Reubicaciones guardadas de esos horarios (destino de cada día movido) */
+  listarReubicaciones(horarioIds: readonly number[]): Promise<ReubicacionGuardada[]> {
+    if (!horarioIds.length) return Promise.resolve([]);
+    return this.api.get<ReubicacionGuardada[]>('/reubicaciones', { asignacion_horario_id: horarioIds });
+  }
+
   /** Quita una reubicación: la clase vuelve a su ambiente original ese día */
   eliminarReubicacion(id: number): Promise<void> {
     return this.api.delete(`/reubicaciones/${id}`);
   }
+}
+
+/** Fila de GET /reubicaciones */
+export interface ReubicacionGuardada {
+  id: number;
+  asignacion_horario_id: number;
+  fecha: string;
+  ambiente_destino_id: number | null;
+  aula_destino: string | null;
+  hora_inicio: string | null;
+  hora_fin: string | null;
+  motivo: string;
+  reserva_id: number | null;
+  cesion_id: number | null;
 }

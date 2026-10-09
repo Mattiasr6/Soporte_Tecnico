@@ -266,6 +266,25 @@ def delete_reserva(reserva_id: int, db: AsignacionDb) -> Response:
 # --- reubicaciones (move or suspend one class on one date) --------------------
 
 
+@router.get("/reubicaciones")
+def list_reubicaciones(
+    db: AsignacionDb,
+    asignacion_horario_id: Annotated[list[int] | None, Query()] = None,
+) -> list[dict]:
+    """Reubicaciones of the given horarios (the form reloads saved destinations)."""
+    require(db, Permission.VER)
+    sql = text(
+        """select u.id, u.asignacion_horario_id, u.fecha, u.ambiente_destino_id,
+                  u.aula_destino, u.hora_inicio, u.hora_fin, u.motivo,
+                  u.reserva_id, u.cesion_id
+             from horarios.reubicaciones u
+            where cast(:horarios as bigint[]) is null
+               or u.asignacion_horario_id = any(cast(:horarios as bigint[]))
+            order by u.fecha, u.id"""
+    )
+    return [dict(r) for r in rows(db, sql, {"horarios": asignacion_horario_id})]
+
+
 @router.post("/reubicaciones", response_model=IdOut, status_code=201)
 def reubicar_clase(body: RpcPayload, db: AsignacionDb) -> dict:
     """Upsert by (asignacion_horario_id, fecha); no destino = class suspended."""
