@@ -52,6 +52,14 @@ export const exigirDashboard: CanActivateFn = async () => {
   return auth.puedeVerDashboard() ? true : router.createUrlTree(['/']);
 };
 
+/** Atenciones de Soporte: Jefe, Técnico, Decano */
+export const exigirSoporte: CanActivateFn = async () => {
+  const auth = inject(AuthService);
+  const router = inject(Router);
+  await auth.inicializar();
+  return auth.puedeVerSoporte() ? true : router.createUrlTree(['/']);
+};
+
 /** Solo Jefe (administrador) */
 export const exigirAdmin: CanActivateFn = async () => {
   const auth = inject(AuthService);

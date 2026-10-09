@@ -94,6 +94,8 @@ export class AuthService {
   readonly puedeGestionarAuxiliares = computed(() => this.tieneRol('Jefe', 'Encargado'));
   /** Reportes y auditoría: Jefe o usuario con dashboard (backend `is_privileged`) */
   readonly puedeVerDashboard = computed(() => this.esAdmin() || this.perfil()?.can_view_dashboard === true);
+  /** Atenciones de Soporte: como Django, todos menos Auxiliar y Encargado (el Invitado ni entra) */
+  readonly puedeVerSoporte = computed(() => this.tieneRol('Jefe', 'Tecnico', 'Decano'));
   /** Cerrar turno: quien gestiona auxiliares, o el auxiliar en su turno (el técnico no tiene turno) */
   readonly puedeCerrarTurno = computed(() => this.puedeGestionarAuxiliares() || this.esAuxiliar());
 
@@ -125,6 +127,7 @@ export class AuthService {
     const role = KNOWN_ROLES.includes(me.role as RolSoporte) ? (me.role as RolSoporte) : 'Invitado';
     this.perfil.set({
       id: me.perfil_id,
+      usuario_id: me.usuario_id,
       nombre_completo: me.nombre_completo,
       correo: me.correo,
       rol,

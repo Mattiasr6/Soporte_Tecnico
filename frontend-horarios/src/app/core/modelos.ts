@@ -39,6 +39,8 @@ export type TurnoCodigo = 'M' | 'MD' | 'T' | 'N';
 /** Perfil del usuario del sistema */
 export interface Perfil {
   id: string;
+  /** Soporte user id (Usuarios.Id); only present in the own perfil */
+  usuario_id?: number;
   nombre_completo: string;
   correo: string;
   rol: Rol;
