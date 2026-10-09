@@ -1,5 +1,5 @@
 import { Injectable, signal } from '@angular/core';
-import { ErrorSistema } from './supabase.service';
+import { ErrorSistema } from './errores';
 
 /** Tipo visual de la notificación */
 export type TipoNotificacion = 'exito' | 'error' | 'aviso' | 'info';

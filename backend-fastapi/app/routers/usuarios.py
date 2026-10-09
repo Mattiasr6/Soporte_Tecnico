@@ -3,6 +3,7 @@ from datetime import UTC, datetime, time
 import bcrypt
 from fastapi import APIRouter
 from sqlalchemy import func, select
+from sqlalchemy.orm import Session
 
 from app.core.errors import bad_request, conflict, forbidden, not_found
 from app.core.security import CurrentUser, is_privileged
@@ -135,24 +136,45 @@ def get_me(db: DbSession, user: CurrentUser):
     )
 
 
-@router.post("", response_model=UsuarioOut, status_code=201)
-def crear_usuario(dto: UsuarioCreateIn, db: DbSession, user: CurrentUser):
-    if not is_privileged(user):
-        raise forbidden("Solo Jefe puede gestionar usuarios")
-    email = dto.email.strip().lower()
-    if not email:
-        raise bad_request("El email es obligatorio")
-    nombre = dto.display_name.strip()
+# --- User management -----------------------------------------------------------
+# Shared with the asignacion module (`routers/asignacion/usuarios.py`), so both
+# screens apply the same rules. They validate and mutate but never commit or check
+# permissions: callers do both.
+
+
+def buscar_usuario(db: Session, usuario_id: int) -> Usuario:
+    target = db.get(Usuario, usuario_id)
+    if target is None:
+        raise not_found("Usuario no encontrado")
+    return target
+
+
+def _validar_password(password: str) -> None:
+    if len(password) < MINIMO_PASSWORD:
+        raise bad_request(
+            f"La contraseña necesita al menos {MINIMO_PASSWORD} caracteres"
+        )
+
+
+def _validar_nombre(display_name: str) -> str:
+    nombre = display_name.strip()
     if not nombre:
         raise bad_request("El nombre es obligatorio")
     if len(nombre) > 255:
         raise bad_request("El nombre no puede superar 255 caracteres")
+    return nombre
+
+
+def crear(db: Session, dto: UsuarioCreateIn) -> Usuario:
+    """Validate and add a new user (flushed, so it already has an id)."""
+    email = dto.email.strip().lower()
+    if not email:
+        raise bad_request("El email es obligatorio")
+    nombre = _validar_nombre(dto.display_name)
     if dto.role not in ROLES_VALIDOS:
         raise bad_request(ROL_INVALIDO)
-    if dto.password is not None and len(dto.password) < MINIMO_PASSWORD:
-        raise bad_request(
-            f"La contraseña necesita al menos {MINIMO_PASSWORD} caracteres"
-        )
+    if dto.password is not None:
+        _validar_password(dto.password)
     existe = db.scalars(
         select(Usuario).where(func.lower(Usuario.email) == email)
     ).first()
@@ -174,31 +196,38 @@ def crear_usuario(dto: UsuarioCreateIn, db: DbSession, user: CurrentUser):
         updated_at=now,
     )
     db.add(nuevo)
-    db.commit()
-    db.refresh(nuevo)
-    return UsuarioOut(
-        id=nuevo.id,
-        display_name=nuevo.display_name,
-        especialidad=nuevo.especialidad,
-        role=nuevo.role,
-        estado_actual=nuevo.estado_actual,
-        activo=nuevo.activo,
-    )
+    db.flush()
+    return nuevo
 
 
-@router.patch("/{usuario_id}/activo", response_model=UsuarioOut)
-def cambiar_activo(usuario_id: int, dto: ActivoIn, db: DbSession, user: CurrentUser):
-    if not is_privileged(user):
-        raise forbidden("Solo Jefe puede gestionar usuarios")
-    if usuario_id == user.id and not dto.activo:
+def aplicar_activo(actor_id: int, target: Usuario, activo: bool) -> None:
+    if target.id == actor_id and not activo:
         raise bad_request("No puedes desactivar tu propio usuario")
-    target = db.get(Usuario, usuario_id)
-    if target is None:
-        raise not_found("Usuario no encontrado")
-    target.activo = dto.activo
+    target.activo = activo
     target.updated_at = datetime.now(UTC)
-    db.commit()
-    db.refresh(target)
+
+
+def aplicar_rol(actor_id: int, target: Usuario, role: str) -> None:
+    if target.id == actor_id:
+        raise bad_request("No puedes cambiar tu propio rol")
+    if role not in ROLES_VALIDOS:
+        raise bad_request(ROL_INVALIDO)
+    target.role = role
+    target.updated_at = datetime.now(UTC)
+
+
+def aplicar_password(target: Usuario, password: str) -> None:
+    _validar_password(password)
+    target.password_hash = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
+    target.updated_at = datetime.now(UTC)
+
+
+def aplicar_nombre(target: Usuario, display_name: str) -> None:
+    target.display_name = _validar_nombre(display_name)
+    target.updated_at = datetime.now(UTC)
+
+
+def _salida(target: Usuario) -> UsuarioOut:
     return UsuarioOut(
         id=target.id,
         display_name=target.display_name,
@@ -207,6 +236,29 @@ def cambiar_activo(usuario_id: int, dto: ActivoIn, db: DbSession, user: CurrentU
         estado_actual=target.estado_actual,
         activo=target.activo,
     )
+
+
+@router.post("", response_model=UsuarioOut, status_code=201)
+def crear_usuario(dto: UsuarioCreateIn, db: DbSession, user: CurrentUser):
+    if not is_privileged(user):
+        raise forbidden("Solo Jefe puede gestionar usuarios")
+    nuevo = crear(db, dto)
+    db.commit()
+    db.refresh(nuevo)
+    return _salida(nuevo)
+
+
+@router.patch("/{usuario_id}/activo", response_model=UsuarioOut)
+def cambiar_activo(usuario_id: int, dto: ActivoIn, db: DbSession, user: CurrentUser):
+    if not is_privileged(user):
+        raise forbidden("Solo Jefe puede gestionar usuarios")
+    if usuario_id == user.id and not dto.activo:
+        raise bad_request("No puedes desactivar tu propio usuario")
+    target = buscar_usuario(db, usuario_id)
+    aplicar_activo(user.id, target, dto.activo)
+    db.commit()
+    db.refresh(target)
+    return _salida(target)
 
 
 @router.patch("/{usuario_id}/rol", response_model=UsuarioOut)
@@ -217,21 +269,11 @@ def cambiar_rol(usuario_id: int, dto: RolIn, db: DbSession, user: CurrentUser):
         raise bad_request("No puedes cambiar tu propio rol")
     if dto.role not in ROLES_VALIDOS:
         raise bad_request(ROL_INVALIDO)
-    target = db.get(Usuario, usuario_id)
-    if target is None:
-        raise not_found("Usuario no encontrado")
-    target.role = dto.role
-    target.updated_at = datetime.now(UTC)
+    target = buscar_usuario(db, usuario_id)
+    aplicar_rol(user.id, target, dto.role)
     db.commit()
     db.refresh(target)
-    return UsuarioOut(
-        id=target.id,
-        display_name=target.display_name,
-        especialidad=target.especialidad,
-        role=target.role,
-        estado_actual=target.estado_actual,
-        activo=target.activo,
-    )
+    return _salida(target)
 
 
 @router.post("/{usuario_id}/reset-password", status_code=204)
@@ -240,17 +282,9 @@ def reset_password(
 ):
     if not is_privileged(user):
         raise forbidden("Solo Jefe puede gestionar usuarios")
-    if len(dto.password) < MINIMO_PASSWORD:
-        raise bad_request(
-            f"La contraseña necesita al menos {MINIMO_PASSWORD} caracteres"
-        )
-    target = db.get(Usuario, usuario_id)
-    if target is None:
-        raise not_found("Usuario no encontrado")
-    target.password_hash = bcrypt.hashpw(
-        dto.password.encode(), bcrypt.gensalt()
-    ).decode()
-    target.updated_at = datetime.now(UTC)
+    _validar_password(dto.password)
+    target = buscar_usuario(db, usuario_id)
+    aplicar_password(target, dto.password)
     db.commit()
 
 

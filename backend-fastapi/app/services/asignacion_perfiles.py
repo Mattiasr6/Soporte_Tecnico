@@ -22,6 +22,17 @@ ROLE_MAP: dict[str, str] = {
     "Tecnico": "invitado",
 }
 DEFAULT_ROL = "invitado"
+# perfiles.rol -> Usuarios.Role, used when the asignacion screen changes a rol.
+# Not the inverse of ROLE_MAP for Tecnico (it maps to invitado): callers only
+# write a Role when the requested rol differs from map_role(current Role), so a
+# Tecnico is never turned into Invitado by a save that keeps "invitado".
+ROL_TO_ROLE: dict[str, str] = {
+    "admin": "Jefe",
+    "encargado": "Encargado",
+    "auxiliar": "Auxiliar",
+    "decano": "Decano",
+    "invitado": "Invitado",
+}
 # perfiles_textos_check: nombre_completo is 1..120 chars after trim.
 NOMBRE_MAX = 120
 

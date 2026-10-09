@@ -2,12 +2,12 @@ import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
 import { firstValueFrom, Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
-import { ErrorSistema } from './supabase.service';
+import { ErrorSistema } from './errores';
 
 /** Base path of the asignacion module in the FastAPI backend */
 const BASE = `${environment.apiUrl}/asignacion`;
 
-/** Error body the API sends for DB/permission errors (same shape PostgREST used) */
+/** Error body the API sends for DB/permission errors: `{message, code, hint}` */
 interface ApiErrorDetail {
   message: string;
   code?: string | null;
@@ -16,8 +16,8 @@ interface ApiErrorDetail {
 
 /**
  * HTTP client for `/api/asignacion/...` that returns promises and turns API
- * errors into `ErrorSistema`, so pages keep showing the same messages they
- * showed with Supabase (duplicate, in use, no permission, trigger messages...).
+ * errors into `ErrorSistema`, so pages show readable messages (duplicate,
+ * in use, no permission, trigger messages...).
  */
 @Injectable({ providedIn: 'root' })
 export class ApiService {

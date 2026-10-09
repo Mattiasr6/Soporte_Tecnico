@@ -4,21 +4,22 @@ import { normalizar } from '../../compartido/buscador.component';
 import { IconoComponent } from '../../compartido/icono.component';
 import { ModalComponent } from '../../compartido/modal.component';
 import { AuthService } from '../../core/auth.service';
-import { Perfil, Rol } from '../../core/modelos';
+import { Rol, UsuarioSistema } from '../../core/modelos';
 import { NotificacionesService } from '../../core/notificaciones.service';
-import { ErrorSistema, SupabaseService } from '../../core/supabase.service';
+import { CambiosUsuario, UsuariosService } from '../../core/usuarios.service';
 
 /** Formulario de usuario nuevo */
 interface FormUsuario {
   nombre: string;
   correo: string;
   password: string;
-  rol: Rol;
+  rol: Exclude<Rol, 'invitado'>;
 }
 
 /**
  * Gestión de usuarios (solo admin): crear, cambiar rol, activar/desactivar
- * y restablecer contraseña.
+ * y restablecer contraseña. Son los usuarios de Soporte (una sola cuenta para
+ * ambos sistemas); el turno habitual es propio de este sistema.
  */
 @Component({
   selector: 'app-usuarios',
@@ -35,7 +36,7 @@ interface FormUsuario {
     @if (invitados().length) {
       <div class="tarjeta mb-3 flex flex-wrap items-center gap-2 border-l-4 border-l-amber-400 bg-amber-50/60 p-3 text-sm text-amber-900">
         <app-icono nombre="hora" [tamano]="16" />
-        <b>{{ invitados().length }}</b> cuenta(s) entraron con Google y esperan un rol. Elige su rol en la columna <b>Rol</b>.
+        <b>{{ invitados().length }}</b> cuenta(s) sin acceso a este sistema (Invitado o Técnico de Soporte). Para darles acceso, elige su rol en la columna <b>Rol</b>.
         <button class="btn-secundario btn-sm ml-auto" (click)="soloInvitados.set(!soloInvitados())">{{ soloInvitados() ? 'Ver todos' : 'Ver solo esas' }}</button>
       </div>
     }
@@ -51,7 +52,7 @@ interface FormUsuario {
         <tbody>
           @for (u of filtrados(); track u.id) {
             <tr [class.bg-amber-50]="u.rol === 'invitado'">
-              <td class="font-medium">{{ u.nombre_completo }} @if (u.id === auth.perfil()?.id) { <span class="chip bg-marca-50 text-marca-700">usted</span> }</td>
+              <td class="font-medium">{{ u.nombre_completo }} @if (u.id === auth.perfil()?.id) { <span class="chip bg-marca-50 text-marca-700">usted</span> } @if (u.role === 'Tecnico') { <span class="chip bg-slate-100 text-slate-600">Técnico de Soporte</span> }</td>
               <td>{{ u.correo }}</td>
               <td>
                 <select class="campo !w-36 !py-1" [ngModel]="u.rol" (ngModelChange)="actualizar(u, { rol: $event })" [disabled]="u.id === auth.perfil()?.id">
@@ -101,16 +102,16 @@ interface FormUsuario {
 })
 export class UsuariosComponent implements OnInit {
   protected readonly auth = inject(AuthService);
-  private readonly supabase = inject(SupabaseService);
+  private readonly servicio = inject(UsuariosService);
   private readonly notificaciones = inject(NotificacionesService);
 
-  protected readonly usuarios = signal<Perfil[]>([]);
+  protected readonly usuarios = signal<UsuarioSistema[]>([]);
   protected readonly form = signal<FormUsuario | null>(null);
   protected readonly guardando = signal(false);
 
   protected readonly busqueda = signal('');
   protected readonly soloInvitados = signal(false);
-  /** Cuentas que entraron con Google y esperan rol */
+  /** Cuentas sin acceso a este sistema (Invitado, o Técnico de Soporte) */
   protected readonly invitados = computed(() => this.usuarios().filter((u) => u.rol === 'invitado'));
   /** Invitados primero; filtro por nombre o correo (sin importar tildes) */
   protected readonly filtrados = computed(() => {
@@ -136,19 +137,18 @@ export class UsuariosComponent implements OnInit {
   }
 
   private async cargar(): Promise<void> {
-    const { data, error } = await this.supabase.cliente.from('perfiles').select('*').order('nombre_completo');
-    if (error) {
-      this.notificaciones.error(new ErrorSistema(error));
-      return;
+    try {
+      this.usuarios.set(await this.servicio.listar());
+    } catch (e) {
+      this.notificaciones.error(e);
     }
-    this.usuarios.set(data as Perfil[]);
   }
 
   protected nuevo(): void {
     this.form.set({ nombre: '', correo: '', password: '', rol: 'auxiliar' });
   }
 
-  /** Crea el usuario con la función segura de la base */
+  /** Crea el usuario en Soporte (puede entrar a ambos sistemas) */
   protected async crear(): Promise<void> {
     const f = this.form();
     if (!f) return;
@@ -158,7 +158,7 @@ export class UsuariosComponent implements OnInit {
     }
     this.guardando.set(true);
     try {
-      await this.supabase.rpc('fn_crear_usuario', { p_correo: f.correo, p_password: f.password, p_nombre: f.nombre.trim(), p_rol: f.rol });
+      await this.servicio.crear({ nombre_completo: f.nombre.trim(), correo: f.correo.trim(), password: f.password, rol: f.rol });
       this.notificaciones.exito('Usuario creado. Ya puede iniciar sesión.');
       this.form.set(null);
       await this.cargar();
@@ -169,19 +169,30 @@ export class UsuariosComponent implements OnInit {
     }
   }
 
-  /** Cambia rol o estado */
-  protected async actualizar(u: Perfil, cambios: Partial<Perfil>): Promise<void> {
-    const { error } = await this.supabase.cliente.from('perfiles').update(cambios).eq('id', u.id);
-    if (error) this.notificaciones.error(new ErrorSistema(error));
-    else this.notificaciones.exito('Usuario actualizado.');
+  /**
+   * Cambia rol, estado o turno. El rol y el estado son los de Soporte: a un
+   * Técnico se le confirma antes, porque deja de ser Técnico en Soporte.
+   */
+  protected async actualizar(u: UsuarioSistema, cambios: CambiosUsuario): Promise<void> {
+    if (cambios.rol && u.role === 'Tecnico'
+        && !confirm(`${u.nombre_completo} es Técnico de Soporte. Si cambia su rol aquí, también cambia en Soporte y deja de ser Técnico. ¿Continuar?`)) {
+      await this.cargar();
+      return;
+    }
+    try {
+      await this.servicio.actualizar(u.id, cambios);
+      this.notificaciones.exito('Usuario actualizado.');
+    } catch (e) {
+      this.notificaciones.error(e);
+    }
     await this.cargar();
   }
 
-  protected async cambiarPassword(u: Perfil): Promise<void> {
+  protected async cambiarPassword(u: UsuarioSistema): Promise<void> {
     const nueva = prompt(`Nueva contraseña para ${u.correo} (mínimo 8 caracteres):`);
     if (!nueva) return;
     try {
-      await this.supabase.rpc('fn_cambiar_password', { p_usuario: u.id, p_password: nueva });
+      await this.servicio.cambiarPassword(u.id, nueva);
       this.notificaciones.exito('Contraseña cambiada.');
     } catch (e) {
       this.notificaciones.error(e);

@@ -24,9 +24,11 @@ El frontend consulta tablas directo con supabase-js (90 `.from()`, 9 `.rpc()`,
 - Prefijo de API del módulo: `/api/asignacion` (NO `/api/horarios`, que ya sirve los
   horarios de técnicos).
 - Mapeo de roles (fuente única = `Usuarios.Role`, se re-sincroniza en cada request):
-  Jefe→admin, Encargado→encargado, Auxiliar→auxiliar, Tecnico→invitado (mínimo privilegio;
-  rol desconocido → invitado). `Usuarios.Activo=false` → perfil `activo=false`.
-  `decano` no tiene equivalente en Usuarios por ahora.
+  Jefe→admin, Encargado→encargado, Auxiliar→auxiliar, Decano→decano, Invitado→invitado,
+  Tecnico→invitado (mínimo privilegio; rol desconocido → invitado). `Usuarios.Activo=false` →
+  perfil `activo=false`. (T8: Soporte pasa a 6 roles; antes `decano` no tenía equivalente.)
+- Permisos de Decano/Invitado en Soporte: **pendientes de definir**. Hasta entonces ningún chequeo
+  les da nada: se comportan como el rol base (Técnico) sin privilegios y no figuran como técnicos.
 
 ## Alcance / restricciones
 - Rama `feat/sistemas-upds-dev`, worktree `stupds/Soporte_Tecnico2`.
@@ -51,7 +53,9 @@ El frontend consulta tablas directo con supabase-js (90 `.from()`, 9 `.rpc()`,
       rpc_resolver_baja, rpc_registrar_reparaciones, fn_limpiar_fotos_objetos, `misBajasDesde` (ambiente_pcs) y
       los dos pendientes de T5 (`compartido/ocupacion-detalle`, `panel/laboratorio-detalle`).
 - [x] T7 Dashboards (`fn_dashboard_*`).
-- [ ] T8 Quitar `@supabase/supabase-js` y `environment.supabase*`.
+- [x] T8 (alcance ampliado por el usuario 2026-10-09) Roles Decano e Invitado en Soporte (6 roles);
+      pantalla de usuarios de horarios sobre los usuarios de Soporte; quitar Supabase del frontend
+      (`@supabase/supabase-js`, `core/supabase.service.ts`, `environment.supabase*`).
 
 ## Progreso
 - 0ce5310 entorno aislado soporte-upds (migrado 0020 + seed).
@@ -229,5 +233,48 @@ El frontend consulta tablas directo con supabase-js (90 `.from()`, 9 `.rpc()`,
   (sin contraseña de prod en esta sesión).
   Supabase restante: `catalogos/usuarios.component.ts` (otro esfuerzo), `core/supabase.service.ts` (T8).
 
+- T8 (delegado, writer). Cambio de alcance aprobado por el usuario: además de quitar Supabase, (1) Soporte suma los
+  roles Decano e Invitado y (2) la pantalla `catalogos/usuarios` gestiona los usuarios de Soporte, porque `Usuarios`
+  es la única fuente de identidad y crear cuentas en `perfiles` ya no tiene sentido sin `auth.users`.
+  Commit 1 `0572374` feat(usuarios): `ROLES_VALIDOS` + `ROL_INVALIDO` (6 roles), `ROLE_MAP` Decano→decano,
+  Invitado→invitado; select de roles de Django (`usuarios_vista`); README tabla de roles (permisos pendientes).
+  Decano/Invitado sin privilegios en Soporte: no son `is_privileged`, ni Encargado ni Auxiliar; Django los trata
+  como el rol base (panel Soporte). Test-first: `tests/test_usuarios_roles.py` RED 7 fallan / 6 pasan (los 403 y
+  "no listado como técnico" ya pasaban: son guardas) → GREEN 13. Django: smoke con `manage.py shell` + test Client
+  y API mockeada como Decano/Invitado: `/`, `/atenciones/`, `/perfil/` 200; `/usuarios/`, `/dashboard/`,
+  `/auxiliares/` 302 → `/atenciones/` (sin crash). `manage.py test tests` 38 tests, 3 fallas iguales en la base.
+  Commit 2 feat(asignacion): `routers/asignacion/usuarios.py` + `schemas/asignacion_usuarios.py`. Endpoints
+  `/api/asignacion`: GET `/usuarios` (sincroniza un perfil por cada usuario de Soporte con `ensure_perfil`, un
+  savepoint por usuario; devuelve perfil + `usuario_id` + `role` de Soporte, ordenado por nombre; perfiles huérfanos
+  sin `usuario_id` no se muestran), POST `/usuarios` (rol admin|auxiliar|decano|encargado como `fn_crear_usuario`,
+  invitado → 422), PATCH `/usuarios/{perfil_id}` (rol, activo, nombre_completo → `Usuarios`; turno_habitual,
+  sabado_rotativo → `horarios.perfiles`; luego re-sync), POST `/usuarios/{perfil_id}/password` (204).
+  Decisión: endpoint fino en vez de llamar `/api/usuarios` desde Angular — la pantalla necesita perfil_id, correo y
+  campos de horarios junto a la identidad, y la traducción rol↔Role (con la regla del Técnico) vive en el servidor
+  junto a `ROLE_MAP`. Sin duplicar lógica: `routers/usuarios.py` expone `crear`, `aplicar_rol`, `aplicar_activo`,
+  `aplicar_password`, `aplicar_nombre`, `buscar_usuario` (validan y mutan; sin commit ni permisos) y los handlers de
+  `/api/usuarios` los usan también. Traducción `ROL_TO_ROLE`: admin↔Jefe, encargado↔Encargado, auxiliar↔Auxiliar,
+  decano↔Decano, invitado↔Invitado. Técnico: se muestra como `invitado` con chip "Técnico de Soporte"; el Role solo
+  se escribe si el rol pedido difiere de `map_role(Role actual)`, así guardar "invitado" (o solo el turno) no lo
+  degrada; cambiarlo a otro rol pide confirmación en la UI porque deja de ser Técnico en Soporte.
+  Permisos: admin (`fn_es_admin`) para listar, crear, editar y contraseña = `fn_crear_usuario`/`fn_cambiar_password`/
+  `perfiles_editar`; admin = Jefe, que también cumple la regla de Soporte (`is_privileged`). Listar también es solo
+  admin (antes `perfiles_ver` = `fn_puede_ver`): expone correos de todo Soporte y la pantalla ya era solo admin.
+  Propio rol / desactivarse → 400 (regla de Soporte; equivale a `fn_trg_proteger_admin`).
+  Front: `core/usuarios.service.ts` (listar/crear/actualizar/cambiarPassword), `UsuarioSistema` en `modelos.ts`,
+  `usuarios.component.ts` sin supabase (misma UI; aviso "entraron con Google" → "sin acceso a este sistema
+  (Invitado o Técnico de Soporte)"). Supabase fuera: `ErrorSistema` → `core/errores.ts` (sin los códigos `PGRST*`,
+  que ya nadie produce), `supabase.service.ts` borrado, `npm uninstall @supabase/supabase-js`, `environment.supabase*`
+  y aviso `sinConfigurar` del layout fuera, comentarios de `api.service.ts`/`modelos.ts` limpios.
+  Evidencia: RED `test_asignacion_usuarios.py` 23 fallan / 1 pasa (404 trivial) → GREEN 24; `pytest
+  test_asignacion_usuarios + test_usuarios_roles` 37 passed en `soporte_upds_test`; suite completa 211 passed, 90 failed,
+  39 errors = mismas 90+39 fallas que la base 57680e3 (174 passed) — usuarios sembrados de prod (id 8, correos) que
+  la base de test no tiene; `ruff check .` OK; `ruff format --check` OK en los 7 archivos Python tocados/nuevos;
+  `ng build` OK sin warnings; `rg -i supabase frontend-horarios/src frontend-horarios/package.json` vacío (lock sin
+  supabase); curl 5013 sin token → 401 en GET/POST `/usuarios`, PATCH `/usuarios/{id}`, POST `/usuarios/{id}/password`.
+  Smoke autenticado no hecho (sin contraseña de prod en esta sesión).
+  Pendiente: definir permisos de Decano/Invitado en Soporte; `frontend-horarios/supabase/` (SQL de referencia) queda.
+
 ## Siguiente paso
-T8 Quitar `@supabase/supabase-js`, `core/supabase.service.ts` (mover `ErrorSistema` fuera) y `environment.supabase*`.
+Feature completa (T1–T8). Siguiente: revisión manual en navegador (pantalla de usuarios con un Jefe), definir permisos
+de Decano/Invitado en Soporte, y decidir entrega (PRs encadenados por `ask-on-risk`).

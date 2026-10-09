@@ -22,6 +22,7 @@ from app.routers.asignacion import (
     operacion,
     reportes,
     turnos,
+    usuarios,
 )
 
 router = APIRouter(prefix="/api/asignacion", tags=["asignacion"])
@@ -33,6 +34,7 @@ router.include_router(reportes.router)
 router.include_router(operacion.router)
 router.include_router(objetos_perdidos.router)
 router.include_router(dashboards.router)
+router.include_router(usuarios.router)
 
 
 class PerfilOut(BaseModel):

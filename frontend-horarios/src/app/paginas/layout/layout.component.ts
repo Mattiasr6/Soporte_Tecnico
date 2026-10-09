@@ -6,7 +6,6 @@ import { TemaService } from '../../core/tema.service';
 import { AuthService } from '../../core/auth.service';
 import { CatalogosService } from '../../core/catalogos.service';
 import { PanelesService } from '../../core/paneles.service';
-import { environment } from '../../../environments/environment';
 
 /** Elemento del menú lateral */
 interface ItemMenu {
@@ -84,11 +83,7 @@ interface ItemMenu {
         </header>
 
         <main class="flex-1 overflow-y-auto p-4 lg:p-6">
-          @if (sinConfigurar) {
-            <div class="tarjeta flex items-center gap-2 border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
-              <app-icono nombre="alerta" /> Falta configurar Supabase en <code>src/environments/environment.ts</code> (URL y anon key).
-            </div>
-          } @else if (errorCarga()) {
+          @if (errorCarga()) {
             <div class="tarjeta border-red-300 bg-red-50 p-4 text-sm text-red-800">
               No se pudieron cargar los datos: {{ errorCarga() }}
               <button class="btn-secundario btn-sm ml-2" (click)="cargar()">Reintentar</button>
@@ -117,7 +112,6 @@ export class LayoutComponent implements OnInit {
 
   protected readonly menuAbierto = signal(false);
   protected readonly errorCarga = signal('');
-  protected readonly sinConfigurar = environment.supabaseUrl.includes('SU-PROYECTO');
 
   /** Menú corto; cada ítem puede depender del rol */
   private readonly items: ItemMenu[] = [
@@ -136,7 +130,7 @@ export class LayoutComponent implements OnInit {
   protected readonly menu = computed(() => this.items.filter((i) => !i.visible || i.visible(this.auth)));
 
   ngOnInit(): void {
-    if (!this.sinConfigurar) void this.cargar();
+    void this.cargar();
   }
 
   /** Iniciales del usuario para el avatar */

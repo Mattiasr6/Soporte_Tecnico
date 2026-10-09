@@ -1,10 +1,10 @@
 /**
- * Modelos (interfaces) que reflejan las tablas y funciones de Supabase.
+ * Modelos (interfaces) que reflejan las tablas y funciones del esquema `horarios`.
  * Los nombres de columnas vienen de la base (snake_case); las propiedades
  * propias del frontend usan camelCase.
  */
 
-/** 'invitado' = entró con Google y espera que el admin le asigne un rol */
+/** 'invitado' = sin acceso a este sistema (rol Invitado o Técnico en Soporte) */
 export type Rol = 'admin' | 'auxiliar' | 'decano' | 'encargado' | 'invitado';
 
 /** Código de turno de trabajo */
@@ -21,6 +21,14 @@ export interface Perfil {
   turno_habitual?: TurnoCodigo | null;
   /** Participa de la rotación del sábado */
   sabado_rotativo?: boolean;
+}
+
+/** Perfil con su usuario de Soporte (pantalla de gestión de usuarios) */
+export interface UsuarioSistema extends Perfil {
+  /** Id en `Usuarios` de Soporte (fuente única de identidad) */
+  usuario_id: number;
+  /** Rol en Soporte (Jefe, Encargado, Auxiliar, Decano, Invitado, Tecnico) */
+  role: string;
 }
 
 export interface Carrera {
