@@ -71,7 +71,7 @@ frontends already talk to the same FastAPI, so only the presentation layer must 
   - [x] G1 (S) Printable lab-attention ticket; clone an attention into N labs.
   - [x] G2 (S) Objetos "vencido" state (computed, 90 days); encargado toggle on the team screen.
   - [x] G3 (M) Turno code + `medio_solicitud` on `horarios.atenciones`; dashboard per lab × category/turno; reports turno filter.
-  - [ ] G4 (M) Tablero semáforo + day timeline (union over atenciones/reportes/objetos, no new table).
+  - [x] G4 (M) Tablero semáforo + day timeline (union over atenciones/reportes/objetos, no new table).
   - [ ] G5 (M) Novedades per lab + cierre validation (`ambiente_id`, `estado`, `validado_por` on `reportes_turno`).
   - [ ] G6 (M) Saturday hours per date and several auxiliares per turno; XLSX/PDF schedule export.
   - [ ] G7 (L) Software inventory (`horarios.software`, `ambiente_software`, `pc_software`, attention templates).
@@ -286,3 +286,53 @@ Strategy: ask-on-risk. Forecast M0–M2 ≈ 400 authored lines. RDD disabled for
     horarios), the 10 "recientes" rows of the Django dashboard, and Django's raw-rows CSV export
     for labs (the atenciones list CSV now carries turno and medio). GitNexus index is for another
     checkout (detect_changes not run).
+- 2026-10-09: G4 done (route: delegated, one writer; trigger: 2+ non-trivial files across API and
+  Angular). Commits `7bbc591` feat(asignacion): add lab traffic-light board and day timeline
+  endpoints, `e97413a` feat(horarios): add lab traffic-light board and day timeline pages.
+  - No migration and no SQL function: both are single SELECTs (the timeline a UNION ALL) in
+    `app/services/asignacion/tablero.py`; router `routers/asignacion/tablero.py`
+    (GET `/tablero-laboratorios`, GET `/timeline?fecha=`; fixed paths, no enum conflict).
+  - Permission: `fn_puede_ver` for both. Django showed the board to Jefe/dashboard/Encargado and
+    the timeline to everyone; in horarios every row both read is already VER-readable through
+    `/atenciones`, `/objetos-perdidos` and `/reportes-turno`, so a narrower gate would hide nothing.
+  - Semáforo rule (La Paz calendar days; labs `tipo = laboratorio`, `estado <> baja`):
+    **rojo** = at least one `objetos_perdidos` row `en_custodia` found at most 90 days ago
+    (`objetos_perdidos.ambiente_id` is NOT NULL; Django turned red on the lab's novedades with
+    effective estado "pendiente", which excludes vencidos); **amarillo** = a PC of the lab had an
+    attention with `pc_id` on or after today − 7 (Django's rule), or a PC in `mantenimiento` or
+    `baja`, or a `solicitudes_baja` row `pendiente`; **verde** = none. Lab-level attentions count
+    in `atenciones_7d` but do not turn it yellow. Note: a PC kept in `baja` keeps its lab yellow
+    until it is removed from the inventory (accepted per the task; revisit if noisy).
+  - Card: total/operativas/mantenimiento/baja PCs, PCs attended in 7 days, objects in custody and
+    vencidos, pending baja requests, last attention (date, author, tipo as "categoría").
+    Actions: Croquis (`PanelesService.abrirLaboratorio(..., 'croquis')`), Atenciones and Objetos
+    (`?lab=<id>`, bound with `withComponentInputBinding`; the attentions list also turns off
+    "solo míos" so the auxiliar sees the whole lab).
+  - Timeline: events `atencion` (creado_en), `reporte` (reportes_turno.creado_en, novedades),
+    `tarea_hecha` (reporte_tareas.hecha_en), `objeto_registrado` (encontrado_en) and
+    `objeto_entregado` (entregado_en, detalle = entregado_a), newest first like Django, hour
+    HH:MM in La Paz from SQL, limit 1000. `foto` names the existing endpoint
+    (`/objetos-perdidos/{id}/fotos/objeto|entrega`, `/reportes-turno/{id}/foto`); Angular downloads
+    blobs 3 at a time, a missing photo is just not shown. Date picker with previous/next/Hoy
+    (future days disabled).
+  - Angular: `tablero-laboratorios` + `tablero-laboratorios-vista`, `timeline` + `timeline-vista`
+    (container/presentational), routes `/tablero-laboratorios` and `/timeline` (no extra guard:
+    every Angular role has VER), menu "Tablero de labs" and "Actividad del día", icons `tablero`
+    (Gauge) and `actividad` (Activity).
+  - Tests: RED 7 failed (404) on new `tests/test_asignacion_tablero.py`; GREEN 7 passed; all
+    `tests/test_asignacion*` 176 passed; full suite (`--continue-on-collection-errors`) 90 failed /
+    255 passed / 39 errors (same failure counts as baseline, seed users). Host ruff check + format
+    clean on the 4 touched Python files.
+  - Checks: horarios image build → "Application bundle generation complete", no errors. Smoke on
+    :4213 as paul (Tecnico): board 200 all verde → POST atención on LAB-01 PC SCPC101 + object in
+    LAB-02 → LAB-01 amarillo (PCs atendidas SCPC101, última 18:08 docente, author Paul), LAB-02
+    rojo; timeline 200 with both events at 18:08, `?fecha=2026-01-01` 200, `?fecha=x` 422. Jefe
+    (minted) board 200. Browser: menu shows both entries; board summary 1 rojo/1 amarillo/8 verde;
+    Croquis opens the LAB-01 panel, Atenciones → `/atenciones?lab=1` with LAB-01 selected and the
+    smoke row, Objetos → `/objetos-perdidos?lab=2` with LAB-02 selected; timeline shows the photo
+    thumbnail (blob) and the modal, previous day shows the empty state; 0 console errors. Smoke
+    rows deleted (atención 204, objeto as Jefe 204, 0 left). No Angular spec files exist
+    (test-first exception for the Angular part).
+  - Left out: Django "cierre" events (G5 adds cierre validation), the auxiliar "soy" identity
+    redirect (Angular uses the logged-in perfil), and created-but-pending tasks as separate events
+    (they belong to their report).
