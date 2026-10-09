@@ -67,7 +67,16 @@ frontends already talk to the same FastAPI, so only the presentation layer must 
   "pending, no access" (/espera). Route: delegated with R1.
 - [x] M3 Auditoría (read-only, Jefe or dashboard flag): `/api/auditoria`. Route: delegated with M4.
 - [x] M4 Soporte attentions list + ticket (D5 resolved). Route: delegated with M3.
-- [ ] M5 Gap map for labs/auxiliares/novedades: Django-only features to port onto horarios.
+- [x] M5 Gap map (explorer, 2026-10-09; Engram #126). Ports onto horarios, smallest first:
+  - [ ] G1 (S) Printable lab-attention ticket; clone an attention into N labs.
+  - [ ] G2 (S) Objetos "vencido" state (computed, 90 days); encargado toggle on the team screen.
+  - [ ] G3 (M) Turno code + `medio_solicitud` on `horarios.atenciones`; dashboard per lab × category/turno; reports turno filter.
+  - [ ] G4 (M) Tablero semáforo + day timeline (union over atenciones/reportes/objetos, no new table).
+  - [ ] G5 (M) Novedades per lab + cierre validation (`ambiente_id`, `estado`, `validado_por` on `reportes_turno`).
+  - [ ] G6 (M) Saturday hours per date and several auxiliares per turno; XLSX/PDF schedule export.
+  - [ ] G7 (L) Software inventory (`horarios.software`, `ambiente_software`, `pc_software`, attention templates).
+  - [ ] G8 (L) Lab hardware sheet columns on `ambientes`; free fila/col room grid (or keep the 4-PC table layout).
+  - [ ] M4b Soporte "Nueva atención" (Django keeps a session batch draft + Wilmercito suggestion).
 - [ ] M6 Data migration: LabAtenciones (131) → `horarios.atenciones`, aux JSON → perfiles.
 - [ ] Later areas (dashboards, reports, jerarquía, IA) are added as tasks per slice.
 
