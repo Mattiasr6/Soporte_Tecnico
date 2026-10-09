@@ -1,4 +1,4 @@
-import { TipoAtencion } from './modelos';
+import { MedioSolicitud, TipoAtencion, TurnoCodigo } from './modelos';
 
 /**
  * Tipos de ticket en 3 categorías:
@@ -112,3 +112,14 @@ export interface DetallesTicket {
 export function textoDe(lista: { valor: string; texto: string }[], valor: string | undefined | null): string {
   return lista.find((x) => x.valor === valor)?.texto ?? '';
 }
+
+/** Turnos de un ticket (códigos de horarios_turno) */
+export const TURNOS_TICKET: { valor: TurnoCodigo; texto: string }[] = [
+  { valor: 'M', texto: 'Mañana' },
+  { valor: 'MD', texto: 'Mediodía' },
+  { valor: 'T', texto: 'Tarde' },
+  { valor: 'N', texto: 'Noche' },
+];
+
+/** Cómo llegó el pedido (mismos valores que Django) */
+export const MEDIOS_SOLICITUD: MedioSolicitud[] = ['Presencial', 'WhatsApp'];

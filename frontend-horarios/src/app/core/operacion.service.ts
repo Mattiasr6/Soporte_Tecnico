@@ -1,5 +1,5 @@
 import { inject, Injectable, signal } from '@angular/core';
-import { Atencion, EstadoAtencion, FallaPc, FichaReparacion, HorarioTurno, PcBajaCierre, Perfil, ReporteTurno, RotacionSabado, SolicitudBaja, TareaReporte, TurnoCodigo, TurnoProgramado, TurnoTrabajo } from './modelos';
+import { Atencion, EstadoAtencion, FallaPc, FichaReparacion, HorarioTurno, MedioSolicitud, PcBajaCierre, Perfil, ReporteTurno, RotacionSabado, SolicitudBaja, TareaReporte, TurnoCodigo, TurnoProgramado, TurnoTrabajo } from './modelos';
 import { AuthService } from './auth.service';
 import { ApiService } from './api.service';
 import { comprimirFoto } from './fotos';
@@ -54,6 +54,8 @@ export interface FiltroOperacion {
   ambienteId?: number | null;
   /** Tickets que registró o en los que colaboró este perfil */
   participante?: string;
+  turno?: TurnoCodigo | null;
+  medio?: MedioSolicitud | null;
 }
 
 /**
@@ -115,6 +117,8 @@ export class OperacionService {
     if (filtro.estado) params['estado'] = filtro.estado;
     if (filtro.ambienteId) params['ambiente_id'] = filtro.ambienteId;
     if (filtro.participante) params['participante'] = filtro.participante;
+    if (filtro.turno) params['turno'] = filtro.turno;
+    if (filtro.medio) params['medio_solicitud'] = filtro.medio;
     return this.api.get<Atencion[]>('/atenciones', params);
   }
 

@@ -35,6 +35,8 @@ export const ROL_DE_ROLE: Record<RolSoporte, Rol> = {
 
 /** Código de turno de trabajo */
 export type TurnoCodigo = 'M' | 'MD' | 'T' | 'N';
+/** How the attention was requested (Django LabAtenciones.MedioSolicitud) */
+export type MedioSolicitud = 'Presencial' | 'WhatsApp';
 
 /** Perfil del usuario del sistema */
 export interface Perfil {
@@ -311,6 +313,9 @@ export interface Atencion {
   creado_en: string;
   resuelto_por: string | null;
   resuelto_en: string | null;
+  /** Shift of the ticket; the DB fills it from the open shift or the ticket time */
+  turno: TurnoCodigo;
+  medio_solicitud: MedioSolicitud;
   /** Ficha de reparación (correctivo): fallas del catálogo, otra falla, pieza y estados */
   fallas?: number[];
   falla_otra?: string | null;

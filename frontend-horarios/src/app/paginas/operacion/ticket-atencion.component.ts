@@ -3,10 +3,12 @@ import { Component, computed, input } from '@angular/core';
 import { Atencion, EstadoAtencion } from '../../core/modelos';
 import {
   ACCIONES_PROGRAMA, CHECKLIST_PREVENTIVO, DetallesTicket, PEDIDOS_DOCENTE, RESULTADOS_CORRECTIVO, textoDe, TIPOS_PERSONA, TIPOS_TICKET,
+  TURNOS_TICKET,
 } from '../../core/tickets';
 
 const ESTADOS: Record<EstadoAtencion, string> = { pendiente: 'Pendiente', en_proceso: 'En proceso', resuelto: 'Resuelto' };
 const PRIORIDADES: Record<number, string> = { 1: 'Alta', 2: 'Media', 3: 'Baja' };
+const TURNOS: Record<string, string> = Object.fromEntries(TURNOS_TICKET.map((t) => [t.valor, t.texto]));
 
 /**
  * Printable ticket of one attention record (presentational), like Django's
@@ -32,6 +34,8 @@ const PRIORIDADES: Record<number, string> = { 1: 'Alta', 2: 'Media', 3: 'Baja' }
         <div><dt class="text-xs text-slate-500">Colaboradores</dt><dd>{{ colaboradores() || '—' }}</dd></div>
         <div><dt class="text-xs text-slate-500">Estado</dt><dd>{{ estado() }}</dd></div>
         <div><dt class="text-xs text-slate-500">Prioridad</dt><dd>{{ prioridades[a.prioridad] ?? '—' }}</dd></div>
+        <div><dt class="text-xs text-slate-500">Turno</dt><dd>{{ turnos[a.turno] ?? '—' }}</dd></div>
+        <div><dt class="text-xs text-slate-500">Medio de solicitud</dt><dd>{{ a.medio_solicitud || '—' }}</dd></div>
         @if (solicitante()) { <div><dt class="text-xs text-slate-500">Solicitante</dt><dd>{{ solicitante() }}</dd></div> }
         @if (pcs().length) { <div class="col-span-2 sm:col-span-3"><dt class="text-xs text-slate-500">PCs ({{ pcs().length }})</dt><dd class="font-mono">{{ pcs().join(', ') }}</dd></div> }
       </dl>
@@ -62,6 +66,7 @@ export class TicketAtencionComponent {
   readonly colaboradores = input('');
 
   protected readonly prioridades = PRIORIDADES;
+  protected readonly turnos = TURNOS;
   protected readonly tipo = computed(() => TIPOS_TICKET[this.atencion().tipo]?.texto ?? this.atencion().tipo);
 
   /** Batch state: resolved only when every ticket is */

@@ -8,12 +8,13 @@ import { ModalComponent } from '../../compartido/modal.component';
 import { AuthService } from '../../core/auth.service';
 import { CatalogosService } from '../../core/catalogos.service';
 import { descargarCsv } from '../../core/exportar';
-import { AmbientePc, Atencion, EstadoAtencion, Perfil, SolicitudBaja, TipoAtencion, TurnoCodigo } from '../../core/modelos';
+import { AmbientePc, Atencion, EstadoAtencion, MedioSolicitud, Perfil, SolicitudBaja, TipoAtencion, TurnoCodigo } from '../../core/modelos';
 import { NotificacionesService } from '../../core/notificaciones.service';
 import { FiltroOperacion, OperacionService } from '../../core/operacion.service';
 import {
   ACCIONES_PROGRAMA, CATEGORIAS_TICKET, CategoriaTicket, CHECKLIST_PREVENTIVO, COLOR_CATEGORIA, DetallesTicket,
-  PEDIDOS_DOCENTE, RESULTADOS_CORRECTIVO, SUBTIPOS_TECNICO, textoDe, TIPOS_PERSONA, TIPOS_TICKET,
+  MEDIOS_SOLICITUD, PEDIDOS_DOCENTE, RESULTADOS_CORRECTIVO, SUBTIPOS_TECNICO, textoDe, TIPOS_PERSONA, TIPOS_TICKET,
+  TURNOS_TICKET,
 } from '../../core/tickets';
 import { LaboratorioCroquisComponent } from '../panel/laboratorio-croquis.component';
 import { ClonarAtencionComponent, DatosClonado } from './clonar-atencion.component';
@@ -119,6 +120,20 @@ interface FormTicket extends Partial<Atencion> {
           </select>
         </div>
         <div>
+          <label class="etiqueta">Turno</label>
+          <select class="campo !w-32 !py-1.5" [(ngModel)]="filtroTurno" (ngModelChange)="cargar()">
+            <option [ngValue]="null">Todos</option>
+            @for (t of turnosTicket; track t.valor) { <option [ngValue]="t.valor">{{ t.texto }}</option> }
+          </select>
+        </div>
+        <div>
+          <label class="etiqueta">Medio</label>
+          <select class="campo !w-32 !py-1.5" [(ngModel)]="filtroMedio" (ngModelChange)="cargar()">
+            <option [ngValue]="null">Todos</option>
+            @for (m of medios; track m) { <option [ngValue]="m">{{ m }}</option> }
+          </select>
+        </div>
+        <div>
           <label class="etiqueta">Tickets de</label>
           <div class="flex rounded-lg bg-slate-100 p-0.5">
             <button type="button" class="rounded-md px-3 py-1 text-sm font-medium transition" [class]="soloMios ? 'bg-superficie text-marca-700 shadow-sm' : 'text-slate-500'"
@@ -155,6 +170,8 @@ interface FormTicket extends Partial<Atencion> {
                 <span class="chip" [class]="colorCategoria[tipos[g.primero.tipo].categoria]">{{ tipos[g.primero.tipo].texto }}</span>
                 <span class="font-semibold">{{ g.primero.ambiente?.codigo || 'Sin lab' }}</span>
                 @if (g.primero.prioridad === 1) { <span class="chip" [class]="prioridades[1].clase">Alta</span> }
+                @if (g.primero.turno) { <span class="chip bg-slate-100 text-slate-600">{{ nombreTurno[g.primero.turno] }}</span> }
+                @if (g.primero.medio_solicitud === 'WhatsApp') { <span class="chip bg-emerald-50 text-emerald-700">WhatsApp</span> }
               </p>
 
               @switch (g.primero.tipo) {
@@ -558,6 +575,25 @@ interface FormTicket extends Partial<Atencion> {
               <option [ngValue]="1">Alta</option><option [ngValue]="2">Media</option><option [ngValue]="3">Baja</option>
             </select>
           </div>
+
+          <!-- Turno y medio de solicitud (como en Django) -->
+          @if (f.tipo !== 'correctivo' || f.id) {
+            <div class="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
+              <div class="flex items-center gap-2">
+                <label class="text-slate-600" for="turno">Turno</label>
+                <select id="turno" class="campo !w-48 !py-1" [(ngModel)]="f.turno" name="turno">
+                  @if (!f.id) { <option [ngValue]="undefined">Automático (turno abierto u hora)</option> }
+                  @for (t of turnosTicket; track t.valor) { <option [ngValue]="t.valor">{{ t.texto }}</option> }
+                </select>
+              </div>
+              <div class="flex items-center gap-2">
+                <label class="text-slate-600" for="medio">Medio de solicitud</label>
+                <select id="medio" class="campo !w-36 !py-1" [(ngModel)]="f.medio_solicitud" name="medio">
+                  @for (m of medios; track m) { <option [ngValue]="m">{{ m }}</option> }
+                </select>
+              </div>
+            </div>
+          }
         </form>
       }
       <ng-container pie>
@@ -591,6 +627,8 @@ export class AtencionesListaComponent implements OnInit {
   protected readonly textoDe = textoDe;
   protected readonly prioridades = PRIORIDADES;
   protected readonly estados = ESTADOS;
+  protected readonly turnosTicket = TURNOS_TICKET;
+  protected readonly medios = MEDIOS_SOLICITUD;
 
   protected readonly lista = signal<Atencion[]>([]);
   protected readonly solicitudes = signal<SolicitudBaja[]>([]);
@@ -628,6 +666,8 @@ export class AtencionesListaComponent implements OnInit {
   private grupoEditado: Grupo | null = null;
 
   protected filtroLab: number | null = null;
+  protected filtroTurno: TurnoCodigo | null = null;
+  protected filtroMedio: MedioSolicitud | null = null;
   /** Por defecto, el auxiliar ve sus tickets (los que registró y en los que colaboró) */
   protected soloMios = this.auth.esAuxiliar();
   protected desde = '';
@@ -769,6 +809,7 @@ export class AtencionesListaComponent implements OnInit {
       docente_id: origen.docente_id,
       solicitante: origen.solicitante,
       colaboradores: origen.colaboradores ?? [],
+      medio_solicitud: origen.medio_solicitud,
       estado: 'resuelto',
       resuelto_por: this.auth.perfil()?.id ?? null,
       resuelto_en: new Date().toISOString(),
@@ -798,6 +839,7 @@ export class AtencionesListaComponent implements OnInit {
   protected async cargar(): Promise<void> {
     const filtro: FiltroOperacion = {
       participante: this.soloMios ? this.auth.perfil()?.id : undefined, desde: this.desde || undefined, hasta: this.hasta || undefined, ambienteId: this.filtroLab,
+      turno: this.filtroTurno, medio: this.filtroMedio,
     };
     try {
       const [lista, solicitudes] = await Promise.all([this.operacion.listarAtenciones(filtro), this.operacion.solicitudesBaja()]);
@@ -822,7 +864,7 @@ export class AtencionesListaComponent implements OnInit {
     this.form.set({
       categoria: 'docente', tipo: 'docente', det: {}, prioridad: 2, estado: 'resuelto',
       ambiente_id: this.filtroLab, docente_id: null, solicitante: '', descripcion: '', solucion: '',
-      turno_trabajo_id: this.operacion.turnoActual()?.id ?? null,
+      turno_trabajo_id: this.operacion.turnoActual()?.id ?? null, medio_solicitud: 'Presencial',
       pcs: [], colaboradores: [], verPcs: false, otroSolicitante: false,
     });
   }
@@ -947,6 +989,9 @@ export class AtencionesListaComponent implements OnInit {
       estado: 'resuelto',
       resuelto_por: f.resuelto_por ?? this.auth.perfil()?.id ?? null,
       resuelto_en: f.resuelto_en ?? new Date().toISOString(),
+      medio_solicitud: f.medio_solicitud ?? 'Presencial',
+      // Without a turno the DB takes the open shift's, or the one of the ticket time
+      ...(f.turno ? { turno: f.turno } : {}),
     };
 
     this.guardando.set(true);
@@ -1075,11 +1120,13 @@ export class AtencionesListaComponent implements OnInit {
         new Date(a.creado_en).toLocaleString('es-BO'),
         TIPOS_TICKET[a.tipo]?.texto ?? a.tipo, a.ambiente?.codigo ?? '', a.pc?.etiqueta ?? '', this.solicitante(a),
         PRIORIDADES[a.prioridad].texto, ESTADOS[a.estado].texto,
+        a.turno ? this.nombreTurno[a.turno] : '', a.medio_solicitud ?? '',
         a.descripcion, a.solucion ?? '', extra, a.autor?.nombre_completo ?? '',
         (a.colaboradores ?? []).map((id) => this.nombres().get(id) ?? '').join(', '),
       ];
     });
-    descargarCsv('tickets', ['Fecha', 'Tipo', 'Laboratorio', 'PC', 'Docente / persona', 'Prioridad', 'Estado', 'Motivo / falla',
+    descargarCsv('tickets', ['Fecha', 'Tipo', 'Laboratorio', 'PC', 'Docente / persona', 'Prioridad', 'Estado', 'Turno', 'Medio',
+      'Motivo / falla',
       'Solución', 'Detalles', 'Registró', 'Colaboradores'], filas);
   }
 }

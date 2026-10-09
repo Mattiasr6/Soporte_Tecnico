@@ -1,6 +1,7 @@
 import { DatePipe, DecimalPipe } from '@angular/common';
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { GraficoBarrasComponent } from '../../compartido/grafico-barras.component';
 import { GraficoLineasComponent } from '../../compartido/grafico-lineas.component';
 import { SerieGrafico } from '../../compartido/graficos';
@@ -123,7 +124,7 @@ function rangoMes(mes: string): { desde: string; hasta: string } {
  */
 @Component({
   selector: 'app-desempeno',
-  imports: [FormsModule, IconoComponent, DatePipe, DecimalPipe, GraficoLineasComponent, GraficoBarrasComponent],
+  imports: [FormsModule, RouterLink, IconoComponent, DatePipe, DecimalPipe, GraficoLineasComponent, GraficoBarrasComponent],
   template: `
     <header class="mb-4 flex flex-wrap items-end justify-between gap-3">
       <div>
@@ -138,6 +139,7 @@ function rangoMes(mes: string): { desde: string; hasta: string } {
         <button class="btn-secundario btn-sm" (click)="moverMes(-1)"><app-icono nombre="anterior" [tamano]="14" /> Anterior</button>
         <button class="btn-secundario btn-sm" (click)="cambiarMes(mesActual)" [disabled]="mes() === mesActual">Este mes</button>
         <button class="btn-secundario btn-sm" (click)="exportar()" [disabled]="!datos()"><app-icono nombre="descargar" [tamano]="14" /> Exportar</button>
+        <a class="btn-secundario btn-sm" routerLink="/dashboard-laboratorios"><app-icono nombre="laboratorio" [tamano]="14" /> Por laboratorio y turno</a>
       </div>
     </header>
 
