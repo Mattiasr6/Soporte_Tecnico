@@ -2,11 +2,12 @@ import { Component, inject, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { IconoComponent } from '../../compartido/icono.component';
 import { ModalComponent } from '../../compartido/modal.component';
-import { CategoriaFalla, FallaPc, HorarioTurno, Perfil, RotacionSabado, TurnoCodigo, TurnoProgramado } from '../../core/modelos';
+import { CategoriaFalla, FallaPc, HorarioTurno, Perfil, SabadoGuardar, SabadosMes, TurnoCodigo, TurnoProgramado } from '../../core/modelos';
 import { CATEGORIAS_FALLA } from '../../core/tickets';
 import { AuthService } from '../../core/auth.service';
 import { UsuariosService } from '../../core/usuarios.service';
 import { EncargadosEquipoComponent } from './encargados-equipo.component';
+import { PlanificadorSabadosComponent } from './planificador-sabados.component';
 import { NotificacionesService } from '../../core/notificaciones.service';
 import { OperacionService, turnosDeHoy } from '../../core/operacion.service';
 import { environment } from '../../../environments/environment';
@@ -17,11 +18,12 @@ const NOMBRE_TURNO: Record<string, string> = { M: 'Mañana', MD: 'Mediodía', T:
 /**
  * Apartado de Auxiliares (admin y encargado): el equipo con su turno actual
  * y próximo. Para cada uno se elige el turno y la fecha en que empieza a
- * correr; también la rotación del sábado.
+ * correr; también el plan de los sábados (varios auxiliares por turno y
+ * horario propio por fecha).
  */
 @Component({
   selector: 'app-auxiliares',
-  imports: [FormsModule, IconoComponent, ModalComponent, EncargadosEquipoComponent],
+  imports: [FormsModule, IconoComponent, ModalComponent, EncargadosEquipoComponent, PlanificadorSabadosComponent],
   template: `
     <header class="mb-4 flex flex-wrap items-end justify-between gap-3">
       <div>
@@ -182,45 +184,10 @@ const NOMBRE_TURNO: Record<string, string> = { M: 'Mañana', MD: 'Mediodía', T:
 
     <!-- ROTACIÓN DE SÁBADOS -->
     <section>
-      <h2 class="mb-2 text-lg font-semibold">Rotación de sábados</h2>
-      <div class="tarjeta mb-3 grid gap-3 p-3 sm:grid-cols-[auto_1fr_auto_1fr_auto] sm:items-end">
-        <div><label class="etiqueta">Sábado</label><input type="date" class="campo !w-44" [(ngModel)]="nueva.fecha"></div>
-        <div>
-          <label class="etiqueta">Auxiliar</label>
-          <select class="campo" [(ngModel)]="nueva.auxiliar_id">
-            <option [ngValue]="null">—</option>
-            @for (u of auxiliares(); track u.id) { <option [ngValue]="u.id">{{ u.nombre_completo }}</option> }
-          </select>
-        </div>
-        <div>
-          <label class="etiqueta">Turno</label>
-          <select class="campo !w-32" [(ngModel)]="nueva.turno">
-            <option [ngValue]="null">—</option>
-            <option value="M">Mañana</option><option value="MD">Mediodía</option><option value="T">Tarde</option><option value="N">Noche</option>
-          </select>
-        </div>
-        <div><label class="etiqueta">Nota</label><input maxlength="200" class="campo" [(ngModel)]="nueva.nota" placeholder="Opcional"></div>
-        <button class="btn-primario" (click)="agregarRotacion()" [disabled]="guardando()"><app-icono nombre="agregar" [tamano]="16" /> Agregar</button>
-      </div>
-
-      <div class="tarjeta overflow-x-auto">
-        <table class="tabla">
-          <thead><tr><th>Sábado</th><th>Auxiliar</th><th>Turno</th><th>Nota</th><th></th></tr></thead>
-          <tbody>
-            @for (r of rotacion(); track r.id) {
-              <tr>
-                <td class="font-medium">{{ r.fecha }}</td>
-                <td>{{ r.auxiliar?.nombre_completo || '—' }}</td>
-                <td>{{ r.turno ? nombreTurno[r.turno] : '—' }}</td>
-                <td class="text-sm text-slate-500">{{ r.nota || '—' }}</td>
-                <td class="text-right"><button class="btn-fantasma btn-sm text-red-600" (click)="eliminarRotacion(r)"><app-icono nombre="eliminar" [tamano]="15" /></button></td>
-              </tr>
-            } @empty {
-              <tr><td colspan="5" class="py-6 text-center text-sm text-slate-500">Aún no hay sábados en la rotación.</td></tr>
-            }
-          </tbody>
-        </table>
-      </div>
+      <h2 class="mb-1 text-lg font-semibold">Rotación de sábados</h2>
+      <p class="mb-2 text-sm text-slate-600">Elige el turno de cada persona en cada sábado del mes. Varios pueden cubrir el mismo turno; con el reloj cambias el horario de ese sábado.</p>
+      <app-planificador-sabados [plan]="sabados()" [equipo]="equipo()" [guardando]="guardando()"
+                                (mover)="moverMes($event)" (guardar)="guardarSabados($event)" (limpiar)="limpiarSabado($event)" />
     </section>
   `,
 })
@@ -235,7 +202,10 @@ export class AuxiliaresComponent implements OnInit {
   /** Active auxiliares and encargados, for the encargado toggle */
   protected readonly equipo = signal<Perfil[]>([]);
   protected readonly cambiandoRol = signal<string | null>(null);
-  protected readonly rotacion = signal<RotacionSabado[]>([]);
+  /** Saturdays of the month shown in the planner */
+  protected readonly sabados = signal<SabadosMes | null>(null);
+  /** Month of the planner */
+  private mesSabados = { anio: 0, mes: 0 };
   protected readonly turnosProgramados = signal<TurnoProgramado[]>([]);
   protected readonly guardando = signal(false);
 
@@ -252,21 +222,21 @@ export class AuxiliaresComponent implements OnInit {
   /** Turno nuevo elegido por auxiliar (los que no están, no cambian) */
   protected readonly elegidos = signal<Record<string, TurnoCodigo>>({});
 
-  protected nueva: { fecha: string; auxiliar_id: string | null; turno: TurnoCodigo | null; nota: string } =
-    { fecha: '', auxiliar_id: null, turno: null, nota: '' };
-
   ngOnInit(): void {
+    const [anio, mes] = fechaActual(environment.zonaHoraria).split('-').map(Number);
+    this.mesSabados = { anio, mes };
     void this.cargar();
   }
 
   private async cargar(): Promise<void> {
     try {
-      const [aux, rot, prog, equipo] = await Promise.all([
-        this.op.listarAuxiliares(), this.op.listarRotacion(), this.op.listarTurnosProgramados(), this.op.listarEquipo(),
+      const [aux, sabados, prog, equipo] = await Promise.all([
+        this.op.listarAuxiliares(), this.op.listarSabados(this.mesSabados.anio, this.mesSabados.mes),
+        this.op.listarTurnosProgramados(), this.op.listarEquipo(),
       ]);
       this.auxiliares.set(aux);
       this.equipo.set(equipo);
-      this.rotacion.set(rot);
+      this.sabados.set(sabados);
       this.turnosProgramados.set(prog);
     } catch (e) {
       this.notificaciones.error(e, 'No se cargaron los auxiliares');
@@ -403,40 +373,48 @@ export class AuxiliaresComponent implements OnInit {
     }
   }
 
-  protected async agregarRotacion(): Promise<void> {
-    if (!this.nueva.fecha) {
-      this.notificaciones.aviso('Elige la fecha del sábado.');
-      return;
-    }
-    if (new Date(this.nueva.fecha + 'T00:00:00').getDay() !== 6) {
-      this.notificaciones.aviso('La fecha elegida no es un sábado.');
-      return;
-    }
-    this.guardando.set(true);
+  private async cargarSabados(): Promise<void> {
     try {
-      await this.op.guardarRotacion({
-        fecha: this.nueva.fecha,
-        auxiliar_id: this.nueva.auxiliar_id,
-        turno: this.nueva.turno,
-        nota: this.nueva.nota.trim() || null,
-      });
-      this.nueva = { fecha: '', auxiliar_id: null, turno: null, nota: '' };
-      this.notificaciones.exito('Sábado agregado a la rotación.');
-      await this.cargar();
+      this.sabados.set(await this.op.listarSabados(this.mesSabados.anio, this.mesSabados.mes));
     } catch (e) {
-      this.notificaciones.error(e, 'No se guardó');
-    } finally {
-      this.guardando.set(false);
+      this.notificaciones.error(e, 'No se cargaron los sábados');
     }
   }
 
-  protected async eliminarRotacion(r: RotacionSabado): Promise<void> {
-    if (!confirm(`¿Quitar el sábado ${r.fecha} de la rotación?`)) return;
+  protected async moverMes({ paso, pendientes }: { paso: number; pendientes: number }): Promise<void> {
+    if (pendientes && !confirm(`Hay ${pendientes} sábado(s) sin guardar. ¿Cambiar de mes y perder esos cambios?`)) return;
+    const indice = this.mesSabados.anio * 12 + (this.mesSabados.mes - 1) + paso;
+    this.mesSabados = { anio: Math.floor(indice / 12), mes: (indice % 12) + 1 };
+    this.sabados.set(null);
+    await this.cargarSabados();
+  }
+
+  /** Saves every changed Saturday (each PUT replaces the whole date) */
+  protected async guardarSabados(planes: SabadoGuardar[]): Promise<void> {
+    for (const p of planes) {
+      const mal = p.turnos.find((t) => t.hora_inicio !== undefined && (!t.hora_inicio || !t.hora_fin || aMinutos(t.hora_fin) <= aMinutos(t.hora_inicio)));
+      if (mal) return this.notificaciones.aviso(`Sábado ${fechaCorta(p.fecha)}, ${NOMBRE_TURNO[mal.turno]}: la hora de fin debe ser después de la de inicio.`);
+    }
+    this.guardando.set(true);
     try {
-      await this.op.eliminarRotacion(r.id);
-      await this.cargar();
+      for (const p of planes) await this.op.guardarSabado(p);
+      this.notificaciones.exito(planes.length === 1 ? 'Sábado guardado.' : `${planes.length} sábados guardados.`);
     } catch (e) {
-      this.notificaciones.error(e);
+      this.notificaciones.error(e, 'No se guardaron los sábados');
+    } finally {
+      this.guardando.set(false);
+      await this.cargarSabados();
+    }
+  }
+
+  protected async limpiarSabado(fecha: string): Promise<void> {
+    if (!confirm(`¿Limpiar el sábado ${fechaCorta(fecha)}? Se quitan sus auxiliares, su horario propio y su nota.`)) return;
+    try {
+      await this.op.limpiarSabado(fecha);
+      this.notificaciones.exito(`Sábado ${fechaCorta(fecha)} limpio.`);
+      await this.cargarSabados();
+    } catch (e) {
+      this.notificaciones.error(e, 'No se limpió el sábado');
     }
   }
 }

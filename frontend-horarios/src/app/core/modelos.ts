@@ -478,15 +478,42 @@ export interface TurnoProgramado {
   perfil?: { nombre_completo: string } | null;
 }
 
-/** Sábado de la rotación mensual (quién cubre y en qué turno) */
-export interface RotacionSabado {
-  id: number;
+/** Saturday shifts (no night shift on Saturdays) */
+export type TurnoSabado = 'M' | 'MD' | 'T';
+
+/** One turno of a Saturday: its hours that day and who covers it */
+export interface TurnoDeSabado {
+  turno: TurnoCodigo;
+  /** 'HH:MM:SS' (own hours of the date, else the usual shift hours) */
+  hora_inicio: string;
+  hora_fin: string;
+  /** True when the date has its own hours for this turno */
+  personalizado: boolean;
+  auxiliares: { id: string; nombre_completo: string }[];
+}
+
+/** One Saturday of the planner (planned or not) */
+export interface SabadoPlan {
+  /** 'YYYY-MM-DD' */
   fecha: string;
-  auxiliar_id: string | null;
-  turno: TurnoCodigo | null;
+  planificado: boolean;
   nota: string | null;
-  /** Relación embebida */
-  auxiliar?: { nombre_completo: string } | null;
+  turnos: TurnoDeSabado[];
+}
+
+/** Saturdays of a month with the usual hours of M/MD/T */
+export interface SabadosMes {
+  anio: number;
+  mes: number;
+  horarios: HorarioTurno[];
+  sabados: SabadoPlan[];
+}
+
+/** Whole plan of one Saturday as it is saved (replaces the date) */
+export interface SabadoGuardar {
+  fecha: string;
+  nota: string | null;
+  turnos: { turno: TurnoSabado; hora_inicio?: string; hora_fin?: string; auxiliares: string[] }[];
 }
 
 /** Fila devuelta por fn_ocupaciones */

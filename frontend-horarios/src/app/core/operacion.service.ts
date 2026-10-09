@@ -1,5 +1,5 @@
 import { inject, Injectable, signal } from '@angular/core';
-import { Atencion, EstadoAtencion, FallaPc, FichaReparacion, HorarioTurno, MedioSolicitud, PcBajaCierre, Perfil, ReporteTurno, RotacionSabado, SolicitudBaja, TareaReporte, TurnoCodigo, TurnoProgramado, TurnoTrabajo } from './modelos';
+import { Atencion, EstadoAtencion, FallaPc, FichaReparacion, HorarioTurno, MedioSolicitud, PcBajaCierre, Perfil, ReporteTurno, SabadoGuardar, SabadoPlan, SabadosMes, SolicitudBaja, TareaReporte, TurnoCodigo, TurnoProgramado, TurnoTrabajo } from './modelos';
 import { AuthService } from './auth.service';
 import { ApiService } from './api.service';
 import { comprimirFoto } from './fotos';
@@ -350,16 +350,19 @@ export class OperacionService {
     await this.api.put(`/auxiliares/${usuarioId}/turno`, { turno, sabado });
   }
 
-  /** Rotación de sábados ordenada por fecha */
-  listarRotacion(): Promise<RotacionSabado[]> {
-    return this.api.get<RotacionSabado[]>('/rotacion-sabados');
+  /** Saturdays of a month with their plan (several auxiliares per turno, own hours) */
+  listarSabados(anio: number, mes: number): Promise<SabadosMes> {
+    return this.api.get<SabadosMes>('/sabados', { anio, mes });
   }
 
-  async guardarRotacion(fila: Partial<RotacionSabado>): Promise<void> {
-    const datos: Record<string, unknown> = {};
-    for (const k of ['fecha', 'auxiliar_id', 'turno', 'nota'] as const) if (k in fila) datos[k] = fila[k];
-    if (fila.id) await this.api.patch(`/rotacion-sabados/${fila.id}`, datos);
-    else await this.api.post('/rotacion-sabados', datos);
+  /** Replaces the plan of one Saturday; with nobody on it the date is cleared */
+  guardarSabado(plan: SabadoGuardar): Promise<SabadoPlan> {
+    const { fecha, ...cuerpo } = plan;
+    return this.api.put<SabadoPlan>(`/sabados/${fecha}`, cuerpo);
+  }
+
+  async limpiarSabado(fecha: string): Promise<void> {
+    await this.api.delete(`/sabados/${fecha}`);
   }
 
   /** Horario de cada turno, en orden de inicio */
@@ -389,9 +392,5 @@ export class OperacionService {
 
   async eliminarTurnoProgramado(id: number): Promise<void> {
     await this.api.delete(`/turnos-programados/${id}`);
-  }
-
-  async eliminarRotacion(id: number): Promise<void> {
-    await this.api.delete(`/rotacion-sabados/${id}`);
   }
 }

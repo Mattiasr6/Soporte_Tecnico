@@ -22,6 +22,7 @@ from app.routers.asignacion import (
     ocupacion,
     operacion,
     reportes,
+    sabados,
     tablero,
     turnos,
     usuarios,
@@ -32,6 +33,7 @@ router.include_router(catalogos.router)
 router.include_router(horarios_academicos.router)
 router.include_router(ocupacion.router)
 router.include_router(turnos.router)
+router.include_router(sabados.router)
 router.include_router(reportes.router)
 router.include_router(novedades.router)
 router.include_router(operacion.router)

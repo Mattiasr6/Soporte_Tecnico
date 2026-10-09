@@ -1,10 +1,12 @@
-"""Auxiliar shifts: programmed shifts, shift hours, Saturday rotation, work shifts.
+"""Auxiliar shifts: programmed shifts, shift hours, work shifts.
+
+The Saturday planner (rotacion_sabados) lives in `sabados.py`.
 
 Permissions follow the old RLS policies (99_rls_reference.sql):
 - read: fn_puede_ver (every role but invitado). That includes `perfiles`; the
   extra `perfiles_propio` rule (own row) is served by GET /me;
-- turnos_programados, rotacion_sabados (gestion = all writes) and horarios_turno
-  (update only): fn_puede_gestionar_auxiliares (admin/encargado);
+- turnos_programados (gestion = all writes) and horarios_turno (update only):
+  fn_puede_gestionar_auxiliares (admin/encargado);
 - fn_asignar_turno (perfiles.turno_habitual/sabado_rotativo): the same, checked
   here first so it answers 403 instead of the function's own exception;
 - turnos_trabajo create/update: fn_puede_operar (admin/encargado/auxiliar).
@@ -25,8 +27,6 @@ from app.schemas.asignacion_turnos import (
     AsignarTurnoIn,
     CerrarTurnoIn,
     HorarioTurnoIn,
-    RotacionCreate,
-    RotacionUpdate,
     TurnosProgramadosIn,
 )
 from app.services.asignacion.sql import (
@@ -36,7 +36,6 @@ from app.services.asignacion.sql import (
     not_found,
     require,
     rows,
-    update_by_id,
     writing,
 )
 
@@ -185,59 +184,6 @@ def asignar_turno(perfil_id: UUID, body: AsignarTurnoIn, db: AsignacionDb) -> Re
         db.execute(
             sql, {"perfil": perfil_id, "turno": body.turno, "sabado": body.sabado}
         )
-    return Response(status_code=204)
-
-
-# --- rotación de sábados ---------------------------------------------------------
-
-_ROTACION = f"""
-    select r.*, {nombre_de("p")} as auxiliar
-      from horarios.rotacion_sabados r
-      left join horarios.perfiles p on p.id = r.auxiliar_id
-"""
-
-
-def _rotacion(db: Session, rotacion_id: int) -> dict:
-    found = rows(db, text(f"{_ROTACION} where r.id = :id"), {"id": rotacion_id})
-    if not found:
-        raise not_found()
-    return dict(found[0])
-
-
-@router.get("/rotacion-sabados")
-def listar_rotacion(db: AsignacionDb) -> list[dict]:
-    require(db, Permission.VER)
-    return [dict(r) for r in rows(db, text(f"{_ROTACION} order by r.fecha desc"))]
-
-
-@router.post("/rotacion-sabados", status_code=201)
-def crear_rotacion(body: RotacionCreate, db: AsignacionDb) -> dict:
-    require(db, Permission.GESTIONAR_AUXILIARES)
-    values = body.model_dump()
-    values["nota"] = _texto(values["nota"])
-    with writing(db):
-        new_id = insert_returning_id(db, "rotacion_sabados", values)
-    return _rotacion(db, new_id)
-
-
-@router.patch("/rotacion-sabados/{rotacion_id}")
-def editar_rotacion(rotacion_id: int, body: RotacionUpdate, db: AsignacionDb) -> dict:
-    require(db, Permission.GESTIONAR_AUXILIARES)
-    values = body.model_dump(exclude_unset=True)
-    if "nota" in values:
-        values["nota"] = _texto(values["nota"])
-    with writing(db):
-        if not update_by_id(db, "rotacion_sabados", rotacion_id, values):
-            raise not_found()
-    return _rotacion(db, rotacion_id)
-
-
-@router.delete("/rotacion-sabados/{rotacion_id}", status_code=204)
-def eliminar_rotacion(rotacion_id: int, db: AsignacionDb) -> Response:
-    require(db, Permission.GESTIONAR_AUXILIARES)
-    with writing(db):
-        if not delete_by_id(db, "rotacion_sabados", rotacion_id):
-            raise not_found()
     return Response(status_code=204)
 
 

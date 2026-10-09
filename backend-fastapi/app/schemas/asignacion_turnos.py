@@ -8,9 +8,11 @@ from datetime import date, time
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 TurnoCodigo = Literal["M", "MD", "T", "N"]
+# Saturdays have no night shift (Django: mañana, mediodia, tarde).
+TurnoSabado = Literal["M", "MD", "T"]
 
 
 class _In(BaseModel):
@@ -40,18 +42,38 @@ class AsignarTurnoIn(_In):
     sabado: bool = False
 
 
-class RotacionCreate(_In):
-    fecha: date
-    auxiliar_id: UUID | None = None
-    turno: TurnoCodigo | None = None
-    nota: str | None = None
+class SabadoTurnoIn(_In):
+    """One turno of a planned Saturday: its auxiliares and optional own hours."""
+
+    turno: TurnoSabado
+    hora_inicio: time | None = None
+    hora_fin: time | None = None
+    auxiliares: list[UUID] = []
+
+    @model_validator(mode="after")
+    def _horas(self) -> "SabadoTurnoIn":
+        if (self.hora_inicio is None) != (self.hora_fin is None):
+            raise ValueError("Pon la hora de inicio y la de fin, o ninguna.")
+        if self.hora_inicio and self.hora_fin and self.hora_fin <= self.hora_inicio:
+            raise ValueError("La hora de fin debe ser después de la de inicio.")
+        return self
 
 
-class RotacionUpdate(_In):
-    fecha: date | None = None
-    auxiliar_id: UUID | None = None
-    turno: TurnoCodigo | None = None
-    nota: str | None = None
+class SabadoIn(_In):
+    """Whole plan of one Saturday (replaces what the date had)."""
+
+    nota: str | None = Field(default=None, max_length=200)
+    turnos: list[SabadoTurnoIn] = []
+
+    @model_validator(mode="after")
+    def _unicos(self) -> "SabadoIn":
+        codigos = [t.turno for t in self.turnos]
+        if len(codigos) != len(set(codigos)):
+            raise ValueError("Cada turno va una sola vez.")
+        ids = [a for t in self.turnos for a in t.auxiliares]
+        if len(ids) != len(set(ids)):
+            raise ValueError("Un auxiliar solo puede estar en un turno del sábado.")
+        return self
 
 
 class AbrirTurnoIn(_In):

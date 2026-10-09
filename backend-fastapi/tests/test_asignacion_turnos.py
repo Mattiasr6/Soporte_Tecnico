@@ -1,13 +1,13 @@
 """T6a: auxiliar shifts and shift reports of the asignacion module.
 
-Tables turnos_programados, horarios_turno, rotacion_sabados, turnos_trabajo,
+Tables turnos_programados, horarios_turno, turnos_trabajo,
 reportes_turno and reporte_tareas plus fn_turno_vigente, fn_asignar_turno and
 fn_limpiar_fotos_reporte. The closing photo (old Supabase bucket
 `reportes-turno`) is stored on disk by the API.
 
 Old RLS rules (99_rls_reference.sql) enforced by the API:
 - read everything here: fn_puede_ver (invitado -> 403);
-- turnos_programados, rotacion_sabados, horarios_turno, fn_asignar_turno:
+- turnos_programados, horarios_turno, fn_asignar_turno:
   fn_puede_gestionar_auxiliares (admin/encargado; auxiliar -> 403);
 - reportes_turno create: fn_puede_operar and (own report or gestionar) and
   fn_puede_cerrar_turno(turno); update/delete: fn_puede_editar_reporte (gestionar,
@@ -39,9 +39,6 @@ client = TestClient(app)
 API = "/api/asignacion"
 DOMAIN = "test-asignacion-tur.local"
 PREFIX = "ZZTUR-"
-# Far-future Saturdays (rotacion_sabados.fecha is unique).
-SABADO = "2034-01-07"
-SABADO_2 = "2034-01-14"
 
 
 def _hoy() -> datetime:
@@ -93,10 +90,6 @@ def _cleanup() -> None:
             text(f"delete from horarios.reportes_turno where id in ({mine})"), params
         )
         db.execute(text("set local session_replication_role = origin"))
-        db.execute(
-            text("delete from horarios.rotacion_sabados where fecha in (:a, :b)"),
-            {"a": SABADO, "b": SABADO_2},
-        )
         db.execute(
             text("delete from horarios.turnos_trabajo where notas_apertura like :p"),
             {"p": f"{PREFIX}%"},
@@ -221,7 +214,6 @@ def _reporte_de_ayer(perfil_id: str) -> int:
         "/turnos-programados",
         "/turnos/vigente",
         "/horarios-turno",
-        "/rotacion-sabados",
         "/auxiliares",
         "/reportes-turno",
         "/reporte-tareas/pendientes",
@@ -329,44 +321,6 @@ def test_shift_hours_are_edited_by_managers(make_usuario, horarios_restaurados) 
     invalid = [{"turno": "N", "hora_inicio": "22:00", "hora_fin": "18:00"}]
     bad = client.put(f"{API}/horarios-turno", json=invalid, headers=_auth(enc))
     assert bad.status_code == 422
-
-
-def test_saturday_rotation_crud(make_usuario) -> None:
-    aux, enc = make_usuario("Auxiliar"), make_usuario("Encargado")
-    pid = _perfil_id(aux)
-    body = {"fecha": SABADO, "auxiliar_id": pid, "turno": "M", "nota": "cubre"}
-    assert (
-        client.post(
-            f"{API}/rotacion-sabados", json=body, headers=_auth(aux)
-        ).status_code
-        == 403
-    )
-
-    r = client.post(f"{API}/rotacion-sabados", json=body, headers=_auth(enc))
-    assert r.status_code == 201, r.text
-    rid = r.json()["id"]
-    dup = client.post(f"{API}/rotacion-sabados", json=body, headers=_auth(enc))
-    assert dup.status_code == 409
-
-    p = client.patch(
-        f"{API}/rotacion-sabados/{rid}",
-        json={"fecha": SABADO_2, "turno": "T"},
-        headers=_auth(enc),
-    )
-    assert p.status_code == 200, p.text
-    lista = client.get(f"{API}/rotacion-sabados", headers=_auth(aux)).json()
-    fila = next(x for x in lista if x["id"] == rid)
-    assert fila["fecha"] == SABADO_2
-    assert fila["auxiliar"]["nombre_completo"] == "Prueba Auxiliar"
-
-    assert (
-        client.delete(f"{API}/rotacion-sabados/{rid}", headers=_auth(aux)).status_code
-        == 403
-    )
-    assert (
-        client.delete(f"{API}/rotacion-sabados/{rid}", headers=_auth(enc)).status_code
-        == 204
-    )
 
 
 # --- turnos de trabajo ---------------------------------------------------------
