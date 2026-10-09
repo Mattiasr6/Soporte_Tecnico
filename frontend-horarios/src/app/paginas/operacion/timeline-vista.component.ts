@@ -3,7 +3,9 @@ import { IconoComponent } from '../../compartido/icono.component';
 import { TipoAtencion, TurnoCodigo } from '../../core/modelos';
 import { TIPOS_TICKET, TURNOS_TICKET } from '../../core/tickets';
 
-export type TipoEvento = 'atencion' | 'reporte' | 'tarea_hecha' | 'objeto_registrado' | 'objeto_entregado';
+export type TipoEvento =
+  | 'atencion' | 'reporte' | 'tarea_hecha' | 'objeto_registrado' | 'objeto_entregado'
+  | 'novedad' | 'cierre_validado' | 'cierre_rechazado';
 
 /** One event of GET /timeline (newest first) */
 export interface EventoTimeline {
@@ -12,13 +14,13 @@ export interface EventoTimeline {
   momento: string;
   /** HH:MM in La Paz, computed by the API */
   hora: string;
-  /** atencion: tipo; reporte: turno; objetos: object name */
+  /** atencion: tipo; reporte, novedad and cierre: turno; objetos: object name */
   titulo: string | null;
-  /** atencion: descripción; reporte: novedades; tarea: descripción; entrega: who received it */
+  /** atencion: descripción; reporte/cierre: novedades; novedad: texto; tarea: descripción; entrega: who received it */
   detalle: string | null;
   pc: string | null;
   /** Which photo endpoint applies (see rutaFoto), null when there is none */
-  foto: 'objeto' | 'entrega' | 'reporte' | null;
+  foto: 'objeto' | 'entrega' | 'reporte' | 'novedad' | null;
   ambiente_id: number | null;
   ambiente_codigo: string | null;
   ambiente_color: string | null;
@@ -28,6 +30,7 @@ export interface EventoTimeline {
 /** API path of the event's photo, served by the existing photo endpoints */
 export function rutaFoto(e: EventoTimeline): string | null {
   if (e.foto === 'reporte') return `/reportes-turno/${e.ref_id}/foto`;
+  if (e.foto === 'novedad') return `/novedades/${e.ref_id}/foto`;
   if (e.foto) return `/objetos-perdidos/${e.ref_id}/fotos/${e.foto}`;
   return null;
 }
@@ -38,6 +41,9 @@ const ICONOS: Record<TipoEvento, { icono: string; clase: string }> = {
   tarea_hecha: { icono: 'ok', clase: 'bg-emerald-50 text-emerald-700' },
   objeto_registrado: { icono: 'objeto', clase: 'bg-amber-50 text-amber-800' },
   objeto_entregado: { icono: 'entregar', clase: 'bg-emerald-50 text-emerald-700' },
+  novedad: { icono: 'novedad', clase: 'bg-sky-50 text-sky-700' },
+  cierre_validado: { icono: 'cierre', clase: 'bg-emerald-50 text-emerald-700' },
+  cierre_rechazado: { icono: 'cierre', clase: 'bg-red-50 text-red-700' },
 };
 
 const NOMBRE_TURNO = Object.fromEntries(TURNOS_TICKET.map((t) => [t.valor, t.texto])) as Record<TurnoCodigo, string>;
@@ -108,6 +114,13 @@ export class TimelineVistaComponent {
         return `Objeto registrado: ${e.titulo ?? ''}`;
       case 'objeto_entregado':
         return `Objeto entregado: ${e.titulo ?? ''}`;
+      case 'novedad':
+        return `Novedad · turno ${(NOMBRE_TURNO[e.titulo as TurnoCodigo] ?? e.titulo ?? '').toLowerCase()}`;
+      case 'cierre_validado':
+      case 'cierre_rechazado': {
+        const turno = (NOMBRE_TURNO[e.titulo as TurnoCodigo] ?? e.titulo ?? '').toLowerCase();
+        return `Cierre de turno ${turno} ${e.evento === 'cierre_validado' ? 'validado' : 'rechazado'}`;
+      }
     }
   }
 

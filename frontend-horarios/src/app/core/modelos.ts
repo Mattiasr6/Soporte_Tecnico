@@ -402,9 +402,32 @@ export interface ReporteTurno {
   /** Foto del cierre (armario de llaves); se borra a las 12:00 siguientes */
   foto_path?: string | null;
   foto_expira?: string | null;
+  /** Validación del cierre (Jefe/Encargado, nunca el autor); editarlo lo vuelve a pendiente */
+  estado?: EstadoCierre;
+  validado_por?: string | null;
+  validado_en?: string | null;
   /** Relaciones embebidas */
   autor?: { nombre_completo: string } | null;
+  validador?: { nombre_completo: string } | null;
   tareas?: TareaReporte[];
+}
+
+/** Estado de validación de un cierre de turno (reportes_turno.estado) */
+export type EstadoCierre = 'pendiente' | 'validado' | 'rechazado';
+
+/** Novedad de turno (horarios.novedades): aviso libre, opcionalmente de un laboratorio y con foto */
+export interface Novedad {
+  id: number;
+  /** 'YYYY-MM-DD' en La Paz; se muestran 3 días */
+  fecha: string;
+  turno: TurnoCodigo;
+  ambiente_id: number | null;
+  texto: string;
+  foto_path: string | null;
+  autor_id: string | null;
+  creado_en: string;
+  autor?: { nombre_completo: string } | null;
+  ambiente?: { codigo: string; nombre: string; color: string } | null;
 }
 
 /** Falla del catálogo para la ficha de reparación */

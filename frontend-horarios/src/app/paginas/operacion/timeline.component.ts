@@ -17,7 +17,7 @@ interface Timeline {
 
 /**
  * Day timeline (container), ported from Django `lab_timeline_vista`: the
- * attentions, shift reports, done tasks and lost objects (registered and
+ * attentions, novedades, shift reports and their validation, done tasks and lost objects (registered and
  * delivered) of one La Paz day, newest first. Unlike Django it can show any
  * day. Photos are downloaded as blobs from the existing photo endpoints (an
  * <img src> cannot send the session token); one that fails is just not shown.
@@ -30,7 +30,7 @@ interface Timeline {
       <div>
         <h1 class="text-2xl font-bold">Actividad del día</h1>
         <p class="mt-0.5 text-sm text-slate-600">
-          {{ titulo() }}: atenciones, reportes de turno, tareas hechas y objetos perdidos.
+          {{ titulo() }}: atenciones, novedades, reportes y cierres de turno, tareas hechas y objetos perdidos.
           <a routerLink="/tablero-laboratorios" class="text-marca-600 hover:underline">Ver tablero</a>
         </p>
       </div>

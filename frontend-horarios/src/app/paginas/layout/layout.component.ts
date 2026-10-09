@@ -137,6 +137,8 @@ export class LayoutComponent implements OnInit {
     { ruta: '/horario', texto: 'Horario', icono: 'calendario', visible: (a) => a.esAuxiliar() },
     { ruta: '/atenciones', texto: 'Atenciones', icono: 'registros', visible: (a) => a.puedeOperar() },
     { ruta: '/objetos-perdidos', texto: 'Objetos perdidos', icono: 'objeto', visible: (a) => a.puedeOperar() },
+    { ruta: '/novedades', texto: 'Novedades', icono: 'novedad' },
+    { ruta: '/cierres', texto: 'Cierres de turno', icono: 'cierre', visible: (a) => a.puedeGestionarAuxiliares() },
     { ruta: '/tablero-laboratorios', texto: 'Tablero de labs', icono: 'tablero' },
     { ruta: '/timeline', texto: 'Actividad del día', icono: 'actividad' },
     { ruta: '/desempeno', texto: 'Desempeño', icono: 'grafico', visible: (a) => a.puedeGestionarAuxiliares() },

@@ -205,6 +205,13 @@ function horaLaPaz(): string {
               } @else if (r.minutos_retraso === 0) {
                 <span class="chip bg-emerald-100 text-emerald-700">Cerrado a tiempo</span>
               }
+              @if (r.estado === 'validado') {
+                <span class="chip bg-emerald-100 text-emerald-700" [title]="'Por ' + (r.validador?.nombre_completo || '—')">Cierre validado</span>
+              } @else if (r.estado === 'rechazado') {
+                <span class="chip bg-red-100 text-red-700" [title]="'Por ' + (r.validador?.nombre_completo || '—')">Cierre rechazado: corrígelo y vuelve a revisión</span>
+              } @else if (r.estado === 'pendiente') {
+                <span class="chip bg-slate-100 text-slate-600">Cierre por validar</span>
+              }
               <span class="text-sm font-semibold">{{ r.creado_en | date: 'EEEE dd/MM/yyyy HH:mm' }}</span>
               <span class="text-sm text-slate-500">· {{ r.autor?.nombre_completo || '—' }}</span>
               <span class="ml-auto flex items-center gap-0.5">
