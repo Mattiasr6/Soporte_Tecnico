@@ -133,6 +133,12 @@ export class CatalogosService {
     await this.recargar('docentes');
   }
 
+  /** Adds carreras/materias to a docente, keeping the ones it has, and refreshes the list */
+  async vincularDocente(docenteId: number, carreras: number[], materias: number[]): Promise<void> {
+    await this.api.post(`/docentes/${docenteId}/vinculos`, { carreras, materias });
+    await this.recargar('docentes');
+  }
+
   /** Nombre "Apellidos Nombres" de un docente */
   nombreDocente(id: number | null | undefined): string {
     if (!id) return '';

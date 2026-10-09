@@ -3,6 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { BuscadorComponent, normalizar, OpcionBuscador } from '../../compartido/buscador.component';
 import { IconoComponent } from '../../compartido/icono.component';
 import { SelectorFechasComponent } from '../../compartido/selector-fechas.component';
+import { AsignacionesService } from '../../core/asignaciones.service';
 import { CatalogosService } from '../../core/catalogos.service';
 import {
   DIAS_CORTOS, DIAS_SEMANA, diaIso, fechaActual, fechaCorta, fechaLarga, hhmm, rangoFechas, seSolapan, sumarDias,
@@ -13,7 +14,6 @@ import { Ambiente, Asignacion, CandidatoChoque, Choque, SistemaAcademico } from 
 import { NotificacionesService } from '../../core/notificaciones.service';
 import { OcupacionService } from '../../core/ocupacion.service';
 import { PanelesService, PrellenadoAsignacion } from '../../core/paneles.service';
-import { ErrorSistema, SupabaseService } from '../../core/supabase.service';
 import { agruparHorarios } from './asignaciones-lista.component';
 
 /** Una fila de horario: varios días de la semana con la misma hora y ambiente */
@@ -266,7 +266,7 @@ export class AsignacionFormComponent implements OnInit {
   protected readonly catalogos = inject(CatalogosService);
   protected readonly paneles = inject(PanelesService);
   private readonly ocupacion = inject(OcupacionService);
-  private readonly supabase = inject(SupabaseService);
+  private readonly datos = inject(AsignacionesService);
   private readonly notificaciones = inject(NotificacionesService);
 
   /** id a editar (null = nueva) y datos para prellenar */
@@ -415,13 +415,13 @@ export class AsignacionFormComponent implements OnInit {
 
   /** Carga una asignación existente */
   private async cargarAsignacion(id: number): Promise<void> {
-    const { data, error } = await this.supabase.cliente.from('asignaciones')
-      .select('*, horarios:asignacion_horarios(*), fechas:asignacion_fechas(fecha)').eq('id', id).single();
-    if (error) {
-      this.notificaciones.error(new ErrorSistema(error));
+    let a: Asignacion;
+    try {
+      a = await this.datos.obtener(id);
+    } catch (e) {
+      this.notificaciones.error(e);
       return;
     }
-    const a = data as Asignacion;
     this.sistemaId.set(a.sistema_id);
     this.fechasMarcadas.set((a.fechas ?? []).map((f) => f.fecha).sort());
     this.fechaInicio.set(a.fecha_inicio);
@@ -648,17 +648,15 @@ export class AsignacionFormComponent implements OnInit {
   private async vincularDocente(): Promise<void> {
     const docenteId = this.docenteId()!;
     const docente = this.catalogos.mapaDocentes().get(docenteId);
-    const cliente = this.supabase.cliente;
-    const tareas: PromiseLike<unknown>[] = [];
-    if (!docente?.docente_materias?.some((m) => m.materia_id === this.materiaId())) {
-      tareas.push(cliente.from('docente_materias').upsert({ docente_id: docenteId, materia_id: this.materiaId() }, { ignoreDuplicates: true }));
-    }
-    if (!docente?.docente_carreras?.some((c) => c.carrera_id === this.facultadId())) {
-      tareas.push(cliente.from('docente_carreras').upsert({ docente_id: docenteId, carrera_id: this.facultadId() }, { ignoreDuplicates: true }));
-    }
-    if (tareas.length) {
-      await Promise.all(tareas);
-      await this.catalogos.recargar('docentes');
+    const materiaId = this.materiaId();
+    const facultadId = this.facultadId();
+    const materias = materiaId && !docente?.docente_materias?.some((m) => m.materia_id === materiaId) ? [materiaId] : [];
+    const carreras = facultadId && !docente?.docente_carreras?.some((c) => c.carrera_id === facultadId) ? [facultadId] : [];
+    if (!materias.length && !carreras.length) return;
+    try {
+      await this.catalogos.vincularDocente(docenteId, carreras, materias);
+    } catch {
+      // Best effort, as before: the asignación is already saved
     }
   }
 }

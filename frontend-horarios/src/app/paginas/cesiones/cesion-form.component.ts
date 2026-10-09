@@ -9,12 +9,7 @@ import { Asignacion, AsignacionHorario, CandidatoChoque, Cesion, Choque } from '
 import { NotificacionesService } from '../../core/notificaciones.service';
 import { OcupacionService } from '../../core/ocupacion.service';
 import { PanelesService } from '../../core/paneles.service';
-import { ErrorSistema, SupabaseService } from '../../core/supabase.service';
-import { SELECT_CESION } from './cesiones-lista.component';
-
-/** Consulta de asignaciones con lo necesario para ceder */
-const SELECT_ASIGNACION =
-  '*, docente:docentes(id,nombres,apellidos), materia:materias(id,nombre), horarios:asignacion_horarios(*), fechas:asignacion_fechas(fecha)';
+import { AsignacionesService } from '../../core/asignaciones.service';
 
 /**
  * Cesión de laboratorio (panel lateral).
@@ -153,7 +148,7 @@ export class CesionFormComponent implements OnInit {
   protected readonly catalogos = inject(CatalogosService);
   protected readonly paneles = inject(PanelesService);
   private readonly ocupacion = inject(OcupacionService);
-  private readonly supabase = inject(SupabaseService);
+  private readonly datos = inject(AsignacionesService);
   private readonly notificaciones = inject(NotificacionesService);
 
   readonly id = input<number | null | undefined>(null);
@@ -255,16 +250,14 @@ export class CesionFormComponent implements OnInit {
       this.yaCedidas.set([]);
       return;
     }
-    let consulta = this.supabase.cliente.from('cesiones')
-      .select('id, asignacion_horario_id, receptor:docentes(nombres,apellidos), fechas:cesion_fechas(fecha)')
-      .in('asignacion_horario_id', horarioIds);
-    if (lote) consulta = consulta.neq('lote', lote);
-    const { data } = await consulta;
+    let filas: Cesion[];
+    try {
+      filas = await this.datos.listarCesiones({ horarioIds, excluirLote: lote });
+    } catch {
+      filas = [];
+    }
     if (horarioIds !== this.horarioIds()) return;
-    const filas = (data ?? []) as unknown as {
-      asignacion_horario_id: number; receptor: { nombres: string; apellidos: string } | null; fechas: { fecha: string }[];
-    }[];
-    this.yaCedidas.set(filas.flatMap((c) => c.fechas.map((f) => ({
+    this.yaCedidas.set(filas.flatMap((c) => (c.fechas ?? []).map((f) => ({
       horarioId: c.asignacion_horario_id, fecha: f.fecha,
       receptor: `${c.receptor?.apellidos ?? ''} ${c.receptor?.nombres ?? ''}`.trim(),
     }))).sort((x, y) => x.fecha.localeCompare(y.fecha)));
@@ -303,30 +296,28 @@ export class CesionFormComponent implements OnInit {
 
   /** Asignaciones vigentes (o la de la cesión que se edita) */
   private async cargarAsignaciones(): Promise<void> {
-    let consulta = this.supabase.cliente.from('asignaciones').select(SELECT_ASIGNACION);
-    if (!this.id()) consulta = consulta.gte('fecha_fin', hoyIso());
-    const { data, error } = await consulta;
-    if (error) {
-      this.notificaciones.error(new ErrorSistema(error));
+    let data: Asignacion[];
+    try {
+      data = await this.datos.listar(this.id() ? {} : { finDesde: hoyIso() });
+    } catch (e) {
+      this.notificaciones.error(e);
       return;
     }
-    this.asignaciones.set(((data ?? []) as Asignacion[]).sort((a, b) => (a.materia?.nombre ?? '').localeCompare(b.materia?.nombre ?? '')));
+    this.asignaciones.set(data.sort((a, b) => (a.materia?.nombre ?? '').localeCompare(b.materia?.nombre ?? '')));
   }
 
   /** Carga la cesión y las demás de su lote (los otros horarios cedidos junto con ella) */
   private async cargarCesion(id: number): Promise<void> {
-    const { data, error } = await this.supabase.cliente.from('cesiones').select(SELECT_CESION).eq('id', id).single();
-    if (error) {
-      this.notificaciones.error(new ErrorSistema(error));
+    let c: Cesion;
+    let delLote: Cesion[];
+    try {
+      c = await this.datos.obtenerCesion(id);
+      delLote = await this.datos.listarCesiones({ lote: c.lote });
+    } catch (e) {
+      this.notificaciones.error(e);
       return;
     }
-    const c = data as unknown as Cesion;
-    const { data: delLote, error: errorLote } = await this.supabase.cliente.from('cesiones').select(SELECT_CESION).eq('lote', c.lote);
-    if (errorLote) {
-      this.notificaciones.error(new ErrorSistema(errorLote));
-      return;
-    }
-    const cesiones = (delLote ?? [c]) as unknown as Cesion[];
+    const cesiones = delLote.length ? delLote : [c];
     this.cesionesLote.set(cesiones);
     this.lote.set(c.lote);
     this.asignacionId.set(c.horario?.asignacion?.id ?? null);

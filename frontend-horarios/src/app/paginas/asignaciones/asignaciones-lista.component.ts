@@ -2,13 +2,13 @@ import { Component, computed, effect, inject, signal, untracked } from '@angular
 import { FormsModule } from '@angular/forms';
 import { IconoComponent } from '../../compartido/icono.component';
 import { AuthService } from '../../core/auth.service';
+import { AsignacionesService } from '../../core/asignaciones.service';
 import { CatalogosService } from '../../core/catalogos.service';
 import { descargarCsv } from '../../core/exportar';
 import { DIAS_CORTOS, fechaCorta, hhmm, hoyIso } from '../../core/fechas';
 import { Asignacion, AsignacionHorario } from '../../core/modelos';
 import { NotificacionesService } from '../../core/notificaciones.service';
 import { PanelesService } from '../../core/paneles.service';
-import { ErrorSistema, SupabaseService } from '../../core/supabase.service';
 
 /** Horarios agrupados: mismas horas y ambiente, varios días */
 export interface GrupoHorario {
@@ -121,7 +121,7 @@ export class AsignacionesListaComponent {
   protected readonly auth = inject(AuthService);
   protected readonly catalogos = inject(CatalogosService);
   protected readonly paneles = inject(PanelesService);
-  private readonly supabase = inject(SupabaseService);
+  private readonly datos = inject(AsignacionesService);
   private readonly notificaciones = inject(NotificacionesService);
 
   protected readonly hhmm = hhmm;
@@ -154,16 +154,15 @@ export class AsignacionesListaComponent {
 
   protected async cargar(): Promise<void> {
     this.cargando.set(true);
-    let consulta = this.supabase.cliente.from('asignaciones')
-      .select('*, docente:docentes(id,nombres,apellidos), materia:materias(id,nombre), carrera:carreras(id,nombre,sigla,color), horarios:asignacion_horarios(*), fechas:asignacion_fechas(fecha)');
-    if (this.soloVigentes()) consulta = consulta.gte('fecha_fin', hoyIso());
-    const { data, error } = await consulta;
-    this.cargando.set(false);
-    if (error) {
-      this.notificaciones.error(new ErrorSistema(error));
+    let lista: Asignacion[];
+    try {
+      lista = await this.datos.listar(this.soloVigentes() ? { finDesde: hoyIso() } : {});
+    } catch (e) {
+      this.notificaciones.error(e);
       return;
+    } finally {
+      this.cargando.set(false);
     }
-    const lista = (data ?? []) as Asignacion[];
     lista.sort((a, b) => (a.materia?.nombre ?? '').localeCompare(b.materia?.nombre ?? ''));
     this.asignaciones.set(lista);
   }
@@ -186,9 +185,10 @@ export class AsignacionesListaComponent {
 
   protected async eliminar(a: Asignacion): Promise<void> {
     if (!confirm(`¿Eliminar la asignación "${a.materia?.nombre}" de ${a.docente?.apellidos}? También se eliminan sus cesiones y reubicaciones.`)) return;
-    const { error } = await this.supabase.cliente.from('asignaciones').delete().eq('id', a.id);
-    if (error) {
-      this.notificaciones.error(new ErrorSistema(error));
+    try {
+      await this.datos.eliminar(a.id);
+    } catch (e) {
+      this.notificaciones.error(e);
       return;
     }
     this.notificaciones.exito('Asignación eliminada.');

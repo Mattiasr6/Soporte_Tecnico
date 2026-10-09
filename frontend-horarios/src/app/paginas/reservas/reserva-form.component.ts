@@ -9,7 +9,7 @@ import { Ambiente, Asignacion, CandidatoChoque, Choque, Reserva } from '../../co
 import { NotificacionesService } from '../../core/notificaciones.service';
 import { OcupacionService } from '../../core/ocupacion.service';
 import { PanelesService, PrellenadoReserva } from '../../core/paneles.service';
-import { ErrorSistema, SupabaseService } from '../../core/supabase.service';
+import { AsignacionesService } from '../../core/asignaciones.service';
 
 /** Clase que choca con la reserva y debe reubicarse (agrupada por horario) */
 interface ClaseAfectada {
@@ -254,7 +254,7 @@ type Destino =
 export class ReservaFormComponent implements OnInit {
   protected readonly catalogos = inject(CatalogosService);
   private readonly ocupacion = inject(OcupacionService);
-  private readonly supabase = inject(SupabaseService);
+  private readonly datos = inject(AsignacionesService);
   private readonly notificaciones = inject(NotificacionesService);
   protected readonly paneles = inject(PanelesService);
 
@@ -361,13 +361,13 @@ export class ReservaFormComponent implements OnInit {
 
   /** Carga una reserva existente */
   private async cargarReserva(id: number): Promise<void> {
-    const { data, error } = await this.supabase.cliente.from('reservas')
-      .select('*, horarios:reserva_horarios(*), reubicaciones(*)').eq('id', id).single();
-    if (error) {
-      this.notificaciones.error(new ErrorSistema(error));
+    let r: Reserva;
+    try {
+      r = await this.datos.obtenerReserva(id);
+    } catch (e) {
+      this.notificaciones.error(e);
       return;
     }
-    const r = data as Reserva;
     this.tipoId.set(r.tipo_id);
     this.titulo.set(r.titulo);
     this.responsable.set(r.responsable ?? '');
@@ -395,10 +395,11 @@ export class ReservaFormComponent implements OnInit {
   }
 
   private async cargarClases(): Promise<void> {
-    const { data } = await this.supabase.cliente.from('asignaciones')
-      .select('id, grupo, sistema_id, fecha_inicio, fecha_fin, materia:materias(nombre), docente:docentes(nombres,apellidos), horarios:asignacion_horarios(*), fechas:asignacion_fechas(fecha)')
-      .gte('fecha_fin', hoyIso());
-    this.clases.set((data ?? []) as unknown as Asignacion[]);
+    try {
+      this.clases.set(await this.datos.listar({ finDesde: hoyIso() }));
+    } catch {
+      this.clases.set([]);
+    }
   }
 
   /**

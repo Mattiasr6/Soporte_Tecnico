@@ -43,7 +43,7 @@ El frontend consulta tablas directo con supabase-js (90 `.from()`, 9 `.rpc()`,
       mapeo de roles, `GET /api/asignacion/me`.
 - [x] T3 Auth en Angular: login contra `/api/auth/login`, interceptor JWT, proxy dev a 5013.
 - [x] T4 Catálogos (ambientes, ambiente_pcs, materias, carreras, docentes, feriados, bloques…).
-- [ ] T5 Asignaciones, cesiones, reservas, reubicaciones + RPC de choques/ocupación.
+- [x] T5 Asignaciones, cesiones, reservas, reubicaciones + RPC de choques/ocupación.
 - [ ] T6 Operación: turnos, reportes de turno, atenciones, fallas, bajas, objetos perdidos, fotos.
 - [ ] T7 Dashboards (`fn_dashboard_*`).
 - [ ] T8 Quitar `@supabase/supabase-js` y `environment.supabase*`.
@@ -111,5 +111,32 @@ El frontend consulta tablas directo con supabase-js (90 `.from()`, 9 `.rpc()`,
   `panel/laboratorio-equipos` + `operacion.service` (T6), `catalogos/usuarios.component.ts` (gestión de
   usuarios = Soporte_Tecnico, otro agente). `ErrorSistema` sigue en `supabase.service.ts`: moverlo en T8.
 
+- T5 (delegado, writer): `routers/asignacion/horarios_academicos.py` + `ocupacion.py`, `schemas/asignacion_horarios.py`,
+  `services/asignacion/sql.py::call_rpc` (payload JSON ligado como un solo `jsonb`, nombre de función literal).
+  Escrituras = RPC SQL existentes (no se reimplementa lógica) dentro de `writing()` → el commit dispara los
+  triggers anti-choque diferidos y su error vuelve como 422 `P0001` con el mensaje del trigger.
+  Endpoints `/api/asignacion`: GET `/asignaciones` (`?fin_desde=` fecha del cliente, `?ambiente_id=` estilo `!inner`),
+  GET/PUT/DELETE `/asignaciones/{id}`, POST `/asignaciones` (`rpc_guardar_asignacion`); GET `/cesiones`
+  (`?lote=`, `?excluir_lote=`, `?asignacion_horario_id=` repetible), GET/DELETE `/cesiones/{id}`, POST `/cesiones/lotes`,
+  PUT `/cesiones/lotes/{lote}` (`rpc_guardar_cesiones`); GET/POST `/reservas`, GET/PUT/DELETE `/reservas/{id}`
+  (`rpc_guardar_reserva`); POST `/reubicaciones` (`rpc_reubicar_clase`), DELETE `/reubicaciones/{id}`;
+  GET `/ocupaciones`, `/conflictos`, `/estado-ambientes`; POST `/choques/verificar`, `/ambientes-libres`,
+  `/ambientes-libres/fechas` (cuerpo tipado, solo lectura); POST `/docentes/{id}/vinculos` (agrega sin reemplazar,
+  para `vincularDocente`). Embeds iguales a los selects PostgREST (docente, materia, carrera, horarios, fechas;
+  receptor, horario.asignacion; tipo, reubicaciones).
+  Permisos = RLS: leer `fn_puede_ver`, escribir/borrar `fn_puede_editar` (las RPC no validan rol; auxiliar → 403).
+  Front: `core/ocupacion.service.ts` (misma API pública + `eliminarReubicacion`), nuevo `core/asignaciones.service.ts`
+  (listas/detalle/borrado de asignaciones, cesiones, reservas), `catalogos.service.vincularDocente`; páginas
+  asignaciones/cesiones/reservas sin supabase.
+  Evidencia: RED 14 fallan (404) → GREEN; `pytest test_asignacion_horarios_academicos + catalogos + base +
+  horarios_schema + health` 56 passed en `soporte_upds_test` (sin filas residuales); ruff check/format OK;
+  `ng build` OK sin warnings; `ng serve` + proxy como Jefe: GET asignaciones/cesiones/reservas/ocupaciones/
+  conflictos/estado-ambientes y POST ambientes-libres/choques → 200, sin token 401.
+  Tamaño: ~1.2k líneas (mitad tests); excede la heurística de 400 de forma natural (5 tablas + 6 funciones).
+  Pendiente fuera de superficie: `compartido/ocupacion-detalle.component.ts` (borra `reubicaciones` vía supabase →
+  usar `ocupacion.eliminarReubicacion(id)`) y `panel/laboratorio-detalle.component.ts` (`.from('asignaciones')` con
+  `!inner` por ambiente → `AsignacionesService.listar({ ambienteId, finDesde: hoyIso() })`).
+
 ## Siguiente paso
-T5 Asignaciones, cesiones, reservas, reubicaciones + RPC de choques/ocupación.
+T6 Operación (turnos, reportes, atenciones, fallas, bajas, objetos perdidos, fotos); incluir los dos
+usos supabase pendientes de T5 (`compartido/ocupacion-detalle`, `panel/laboratorio-detalle`).

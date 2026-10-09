@@ -13,10 +13,12 @@ from sqlalchemy import text
 from app.core.errors import forbidden
 from app.core.security import CurrentUser
 from app.db.asignacion import AsignacionDb
-from app.routers.asignacion import catalogos
+from app.routers.asignacion import catalogos, horarios_academicos, ocupacion
 
 router = APIRouter(prefix="/api/asignacion", tags=["asignacion"])
 router.include_router(catalogos.router)
+router.include_router(horarios_academicos.router)
+router.include_router(ocupacion.router)
 
 
 class PerfilOut(BaseModel):

@@ -7,12 +7,7 @@ import { CatalogosService } from '../../core/catalogos.service';
 import { DIAS_SEMANA, fechaCorta, hhmm, hoyIso } from '../../core/fechas';
 import { Cesion } from '../../core/modelos';
 import { NotificacionesService } from '../../core/notificaciones.service';
-import { ErrorSistema, SupabaseService } from '../../core/supabase.service';
-
-/** Consulta con todas las relaciones necesarias para mostrar una cesión */
-export const SELECT_CESION =
-  '*, receptor:docentes(id,nombres,apellidos), fechas:cesion_fechas(fecha), ' +
-  'horario:asignacion_horarios!cesiones_asignacion_horario_id_fkey(*, asignacion:asignaciones(id, grupo, docente_id, docente:docentes(id,nombres,apellidos), materia:materias(nombre)))';
+import { AsignacionesService } from '../../core/asignaciones.service';
 
 /**
  * Lista de cesiones: quién cede, a quién, qué días y dónde pasa el que cede.
@@ -87,7 +82,7 @@ export class CesionesListaComponent {
   protected readonly auth = inject(AuthService);
   protected readonly catalogos = inject(CatalogosService);
   protected readonly paneles = inject(PanelesService);
-  private readonly supabase = inject(SupabaseService);
+  private readonly datos = inject(AsignacionesService);
   private readonly notificaciones = inject(NotificacionesService);
 
   protected readonly hhmm = hhmm;
@@ -121,13 +116,13 @@ export class CesionesListaComponent {
 
   protected async cargar(): Promise<void> {
     this.cargando.set(true);
-    const { data, error } = await this.supabase.cliente.from('cesiones').select(SELECT_CESION).order('id', { ascending: false });
-    this.cargando.set(false);
-    if (error) {
-      this.notificaciones.error(new ErrorSistema(error));
-      return;
+    try {
+      this.cesiones.set(await this.datos.listarCesiones());
+    } catch (e) {
+      this.notificaciones.error(e);
+    } finally {
+      this.cargando.set(false);
     }
-    this.cesiones.set((data ?? []) as unknown as Cesion[]);
   }
 
   protected fechasOrdenadas(c: Cesion): string[] {
@@ -137,9 +132,10 @@ export class CesionesListaComponent {
 
   protected async eliminar(c: Cesion): Promise<void> {
     if (!confirm('¿Eliminar esta cesión? El docente volverá a su laboratorio en esas fechas.')) return;
-    const { error } = await this.supabase.cliente.from('cesiones').delete().eq('id', c.id);
-    if (error) {
-      this.notificaciones.error(new ErrorSistema(error));
+    try {
+      await this.datos.eliminarCesion(c.id);
+    } catch (e) {
+      this.notificaciones.error(e);
       return;
     }
     this.notificaciones.exito('Cesión eliminada.');

@@ -7,7 +7,7 @@ import { CatalogosService } from '../../core/catalogos.service';
 import { fechaCorta, hhmm, hoyIso } from '../../core/fechas';
 import { Reserva } from '../../core/modelos';
 import { NotificacionesService } from '../../core/notificaciones.service';
-import { ErrorSistema, SupabaseService } from '../../core/supabase.service';
+import { AsignacionesService } from '../../core/asignaciones.service';
 import { CATEGORIAS_EVENTO } from './reserva-form.component';
 
 /**
@@ -79,7 +79,7 @@ export class ReservasListaComponent {
   protected readonly auth = inject(AuthService);
   protected readonly catalogos = inject(CatalogosService);
   protected readonly paneles = inject(PanelesService);
-  private readonly supabase = inject(SupabaseService);
+  private readonly datos = inject(AsignacionesService);
   private readonly notificaciones = inject(NotificacionesService);
 
   protected readonly hhmm = hhmm;
@@ -116,16 +116,16 @@ export class ReservasListaComponent {
 
   protected async cargar(): Promise<void> {
     this.cargando.set(true);
-    const { data, error } = await this.supabase.cliente.from('reservas')
-      .select('*, tipo:tipos_reserva(*), horarios:reserva_horarios(*), reubicaciones(id)')
-      .order('id', { ascending: false });
-    this.cargando.set(false);
-    if (error) {
-      this.notificaciones.error(new ErrorSistema(error));
+    let lista: Reserva[];
+    try {
+      lista = await this.datos.listarReservas();
+    } catch (e) {
+      this.notificaciones.error(e);
       return;
+    } finally {
+      this.cargando.set(false);
     }
     // Ordena por la primera fecha
-    const lista = (data ?? []) as Reserva[];
     lista.sort((a, b) => (this.horariosOrdenados(a)[0]?.fecha ?? '').localeCompare(this.horariosOrdenados(b)[0]?.fecha ?? ''));
     this.reservas.set(lista);
   }
@@ -136,9 +136,10 @@ export class ReservasListaComponent {
 
   protected async eliminar(r: Reserva): Promise<void> {
     if (!confirm(`¿Eliminar "${r.titulo}"? Las clases reubicadas por esta reserva vuelven a su laboratorio.`)) return;
-    const { error } = await this.supabase.cliente.from('reservas').delete().eq('id', r.id);
-    if (error) {
-      this.notificaciones.error(new ErrorSistema(error));
+    try {
+      await this.datos.eliminarReserva(r.id);
+    } catch (e) {
+      this.notificaciones.error(e);
       return;
     }
     this.notificaciones.exito('Reserva eliminada.');

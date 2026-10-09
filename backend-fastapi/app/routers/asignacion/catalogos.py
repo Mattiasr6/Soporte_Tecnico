@@ -234,21 +234,38 @@ def replace_docente_relaciones(
         db.execute(
             text("delete from horarios.docente_materias where docente_id = :id"), params
         )
-        db.execute(
-            text(
-                "insert into horarios.docente_carreras (docente_id, carrera_id) "
-                "select :id, unnest(cast(:ids as bigint[])) on conflict do nothing"
-            ),
-            {**params, "ids": sorted(set(body.carreras))},
-        )
-        db.execute(
-            text(
-                "insert into horarios.docente_materias (docente_id, materia_id) "
-                "select :id, unnest(cast(:ids as bigint[])) on conflict do nothing"
-            ),
-            {**params, "ids": sorted(set(body.materias))},
-        )
+        _add_relaciones(db, docente_id, body)
     return _one(db, _DOCENTES, "d.", docente_id)
+
+
+@router.post("/docentes/{docente_id}/vinculos", response_model=DocenteOut)
+def add_docente_vinculos(
+    docente_id: int, body: DocenteRelaciones, db: AsignacionDb
+) -> dict:
+    """Add carreras/materias to the docente, keeping the ones it already has.
+
+    Used when an asignacion links a docente to a new materia/facultad.
+    """
+    require(db, Permission.EDITAR)
+    _one(db, _DOCENTES, "d.", docente_id)
+    with writing(db):
+        _add_relaciones(db, docente_id, body)
+    return _one(db, _DOCENTES, "d.", docente_id)
+
+
+def _add_relaciones(db: Session, docente_id: int, body: DocenteRelaciones) -> None:
+    """Insert the given links; existing ones are left as they are."""
+    for table, column, ids in (
+        ("docente_carreras", "carrera_id", body.carreras),
+        ("docente_materias", "materia_id", body.materias),
+    ):
+        db.execute(
+            text(
+                f"insert into horarios.{table} (docente_id, {column}) "
+                "select :id, unnest(cast(:ids as bigint[])) on conflict do nothing"
+            ),
+            {"id": docente_id, "ids": sorted(set(ids))},
+        )
 
 
 # --- ambientes ----------------------------------------------------------------

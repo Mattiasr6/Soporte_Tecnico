@@ -10,6 +10,7 @@ returned as `detail = {message, code, hint}` (the PostgREST error shape), so the
 Angular `ErrorSistema` keeps translating them exactly as before.
 """
 
+import json
 from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
 from enum import StrEnum
@@ -136,3 +137,15 @@ def rows(
     db: Session, sql: Any, params: Mapping[str, Any] | None = None
 ) -> list[RowMapping]:
     return list(db.execute(sql, dict(params or {})).mappings().all())
+
+
+def call_rpc(db: Session, function: str, payload: Mapping[str, Any]) -> Any:
+    """Call `horarios.<function>(p jsonb)` with `payload` bound as one JSON value.
+
+    `function` must be a literal from the code (never user input); the payload
+    is serialized here and only ever travels as a bound parameter.
+    """
+    if not function.isidentifier():
+        raise ValueError(f"invalid function name: {function!r}")
+    sql = text(f"select horarios.{function}(cast(:p as jsonb))")
+    return db.execute(sql, {"p": json.dumps(payload, default=str)}).scalar_one()
