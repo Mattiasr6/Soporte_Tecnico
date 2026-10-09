@@ -1,17 +1,67 @@
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { computed, inject, Injectable, signal } from '@angular/core';
-import { Session } from '@supabase/supabase-js';
-import { Perfil } from './modelos';
-import { SupabaseService } from './supabase.service';
+import { Router } from '@angular/router';
+import { firstValueFrom } from 'rxjs';
+import { environment } from '../../environments/environment';
+import { Perfil, Rol } from './modelos';
+
+/** localStorage key that holds the JWT issued by the backend */
+export const TOKEN_KEY = 'upds.token';
+
+/** Response of POST /api/auth/login */
+interface LoginResponse {
+  token: string;
+  user: { id: number; display_name: string; role: string; email: string };
+}
+
+/** Response of GET /api/asignacion/me */
+interface MeResponse {
+  usuario_id: number;
+  perfil_id: string;
+  nombre_completo: string;
+  correo: string;
+  rol: string | null;
+  activo: boolean;
+  turno_habitual: Perfil['turno_habitual'];
+  sabado_rotativo: boolean;
+}
+
+const KNOWN_ROLES: readonly Rol[] = ['admin', 'auxiliar', 'decano', 'encargado', 'invitado'];
+
+/** Reads the stored token; storage may be unavailable (private mode) */
+function readToken(): string | null {
+  try {
+    return localStorage.getItem(TOKEN_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function writeToken(token: string | null): void {
+  try {
+    if (token) localStorage.setItem(TOKEN_KEY, token);
+    else localStorage.removeItem(TOKEN_KEY);
+  } catch {
+    /* storage unavailable: the session only lives in memory */
+  }
+}
+
+/** Extracts the backend error message (`{ detail }`) from an HTTP error */
+function backendMessage(error: unknown): string | null {
+  if (error instanceof HttpErrorResponse && typeof error.error?.detail === 'string') return error.error.detail;
+  return null;
+}
 
 /**
- * Manejo de sesión y rol del usuario actual.
+ * Manejo de sesión y rol del usuario actual (JWT del backend FastAPI).
  */
 @Injectable({ providedIn: 'root' })
 export class AuthService {
-  private readonly supabase = inject(SupabaseService);
+  private readonly http = inject(HttpClient);
+  private readonly router = inject(Router);
 
-  /** Sesión de Supabase (null = sin sesión) */
-  readonly sesion = signal<Session | null>(null);
+  /** JWT de la sesión (null = sin sesión) */
+  readonly sesion = signal<string | null>(readToken());
   /** Perfil del usuario (rol, nombre…) */
   readonly perfil = signal<Perfil | null>(null);
   /** true cuando ya se leyó la sesión guardada */
@@ -37,51 +87,72 @@ export class AuthService {
   inicializar(): Promise<void> {
     if (!this.inicializacion) {
       this.inicializacion = (async () => {
-        const { data } = await this.supabase.cliente.auth.getSession();
-        await this.aplicarSesion(data.session);
-        // Escucha cambios (login, logout, renovación de token)
-        this.supabase.cliente.auth.onAuthStateChange((_evento, sesion) => {
-          if (sesion?.user.id !== this.sesion()?.user.id) void this.aplicarSesion(sesion);
-          else this.sesion.set(sesion);
-        });
+        if (this.sesion()) {
+          try {
+            await this.cargarPerfil();
+          } catch {
+            this.limpiar();
+          }
+        }
         this.listo.set(true);
       })();
     }
     return this.inicializacion;
   }
 
-  /** Guarda la sesión y carga el perfil correspondiente */
-  private async aplicarSesion(sesion: Session | null): Promise<void> {
-    this.sesion.set(sesion);
-    if (!sesion) {
-      this.perfil.set(null);
-      return;
-    }
-    const { data } = await this.supabase.cliente.from('perfiles').select('*').eq('id', sesion.user.id).maybeSingle();
-    this.perfil.set((data as Perfil) ?? null);
+  /** Lee el perfil del usuario autenticado desde el backend */
+  private async cargarPerfil(): Promise<void> {
+    const me = await firstValueFrom(this.http.get<MeResponse>(`${environment.apiUrl}/asignacion/me`));
+    const rol = KNOWN_ROLES.includes(me.rol as Rol) ? (me.rol as Rol) : 'invitado';
+    this.perfil.set({
+      id: me.perfil_id,
+      nombre_completo: me.nombre_completo,
+      correo: me.correo,
+      rol,
+      activo: me.activo,
+      turno_habitual: me.turno_habitual,
+      sabado_rotativo: me.sabado_rotativo,
+    });
   }
 
   /** Vuelve a leer el perfil (ej. para ver si el admin ya asignó un rol) */
   async recargarPerfil(): Promise<void> {
-    await this.aplicarSesion(this.sesion());
-  }
-
-  /** Inicia sesión con Google: va a Google y vuelve a la app ya con sesión */
-  async iniciarConGoogle(): Promise<void> {
-    const { error } = await this.supabase.cliente.auth.signInWithOAuth({
-      provider: 'google',
-      options: { redirectTo: window.location.origin, queryParams: { prompt: 'select_account' } },
-    });
-    if (error) throw new Error(error.message);
+    if (!this.sesion()) {
+      this.perfil.set(null);
+      return;
+    }
+    try {
+      await this.cargarPerfil();
+    } catch {
+      this.perfil.set(null);
+    }
   }
 
   /** Inicia sesión con correo y contraseña */
   async iniciarSesion(correo: string, password: string): Promise<void> {
-    const { data, error } = await this.supabase.cliente.auth.signInWithPassword({ email: correo.trim(), password });
-    if (error) {
-      throw new Error(error.message === 'Invalid login credentials' ? 'Correo o contraseña incorrectos.' : error.message);
+    let respuesta: LoginResponse;
+    try {
+      respuesta = await firstValueFrom(
+        this.http.post<LoginResponse>(`${environment.apiUrl}/auth/login`, { email: correo.trim(), password }),
+      );
+    } catch (e) {
+      if (e instanceof HttpErrorResponse && (e.status === 401 || e.status === 403)) {
+        throw new Error(e.status === 403 ? 'Su usuario no está activo. Solicite al administrador que lo habilite.' : 'Correo o contraseña incorrectos.');
+      }
+      throw new Error(backendMessage(e) ?? 'No se pudo conectar con el servidor.');
     }
-    await this.aplicarSesion(data.session);
+    this.sesion.set(respuesta.token);
+    writeToken(respuesta.token);
+    try {
+      await this.cargarPerfil();
+    } catch (e) {
+      this.limpiar();
+      throw new Error(
+        e instanceof HttpErrorResponse && e.status === 403
+          ? 'Su usuario no tiene acceso al sistema de laboratorios.'
+          : (backendMessage(e) ?? 'No se pudo cargar su perfil.'),
+      );
+    }
     const perfil = this.perfil();
     if (!perfil || !perfil.activo) {
       await this.cerrarSesion();
@@ -89,9 +160,20 @@ export class AuthService {
     }
   }
 
-  /** Cierra la sesión */
+  /** Cierra la sesión (el backend no tiene logout: el JWT solo se descarta) */
   async cerrarSesion(): Promise<void> {
-    await this.supabase.cliente.auth.signOut();
+    this.limpiar();
+  }
+
+  /** Called by the HTTP interceptor when the API answers 401: drop the session and go to login */
+  sesionExpirada(): void {
+    if (!this.sesion() && !this.perfil()) return;
+    this.limpiar();
+    void this.router.navigateByUrl('/login');
+  }
+
+  private limpiar(): void {
+    writeToken(null);
     this.sesion.set(null);
     this.perfil.set(null);
   }

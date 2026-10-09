@@ -7,7 +7,7 @@ import { AuthService } from '../../core/auth.service';
 const REVISAR_CADA_MS = 15000;
 
 /**
- * Pantalla del invitado: entró con Google pero todavía no tiene rol.
+ * Pantalla del invitado: inició sesión pero todavía no tiene rol.
  * No puede hacer nada; cada 15 s se revisa su perfil y, apenas el admin le
  * asigna un rol, entra solo al sistema con lo que ese rol le permite.
  */

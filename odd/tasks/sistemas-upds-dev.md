@@ -41,7 +41,7 @@ El frontend consulta tablas directo con supabase-js (90 `.from()`, 9 `.rpc()`,
       Check: `alembic upgrade head` en soporte-upds + tests de triggers anti-choque.
 - [x] T2 API base: CORS para Angular dev, dependencia de sesión con contexto de usuario,
       mapeo de roles, `GET /api/asignacion/me`.
-- [ ] T3 Auth en Angular: login contra `/api/auth/login`, interceptor JWT, proxy dev a 5013.
+- [x] T3 Auth en Angular: login contra `/api/auth/login`, interceptor JWT, proxy dev a 5013.
 - [ ] T4 Catálogos (ambientes, ambiente_pcs, materias, carreras, docentes, feriados, bloques…).
 - [ ] T5 Asignaciones, cesiones, reservas, reubicaciones + RPC de choques/ocupación.
 - [ ] T6 Operación: turnos, reportes de turno, atenciones, fallas, bajas, objetos perdidos, fotos.
@@ -71,5 +71,21 @@ El frontend consulta tablas directo con supabase-js (90 `.from()`, 9 `.rpc()`,
   `soporte_upds_test`; ruff check/format OK; smoke en api 5013: login 200, /me sin token 401,
   /me Jefe 200 rol=admin, preflight Origin :4200 → allow-origin + credentials, origen ajeno 400.
 
+- T3 (delegado, writer): `core/auth.service.ts` reescrito contra FastAPI (POST `/api/auth/login`,
+  JWT en localStorage `upds.token`, perfil desde GET `/api/asignacion/me` → `Perfil` con
+  `id = perfil_id`, rol null/desconocido → `invitado`; API pública igual: `sesion`, `perfil`,
+  `listo`, `es*`, `puede*`, `inicializar`, `recargarPerfil`, `iniciarSesion`, `cerrarSesion`;
+  nuevo `sesionExpirada()`), `core/auth.interceptor.ts` (Bearer solo a `apiUrl`; 401 fuera de
+  login → limpia token y va a /login), `provideHttpClient(withInterceptors)` en app.config,
+  `environment.apiUrl = '/api'`, `proxy.conf.json` `/api` → 127.0.0.1:5013 en `serve.options`.
+  Backend sin logout: cerrar sesión = descartar JWT.
+  Decisión: login con Google eliminado (Soporte_Tecnico no tiene OAuth); solo correo+contraseña.
+  Quedan textos "entraron con Google" en `catalogos/usuarios.component.ts` y `modelos.ts` (T4).
+  Test-first: excepción — el proyecto no tiene runner (sin target `test` en angular.json ni
+  vitest instalado); checks funcionales. Evidencia: `npm ci` OK; `ng build` OK sin warnings;
+  `ng serve` + proxy: `/api/asignacion/me` sin token 401, login Jefe 200, `/me` con token 200
+  (rol=admin); UI (Playwright): `/` → `/login`, sin botón Google, contraseña errónea →
+  "Correo o contraseña incorrectos." sin redirección.
+
 ## Siguiente paso
-T3 Auth en Angular.
+T4 Catálogos (migrar servicios de catálogos de Supabase a la API).
