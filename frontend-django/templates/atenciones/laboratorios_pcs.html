@@ -84,6 +84,7 @@
           <button class="btn ghost" id="ed-off" type="button">Activar/Inactiva</button>
           <button class="btn ghost" id="ed-del" type="button">Quitar</button>
           <button class="btn ghost" id="ed-estados" type="button" hidden>Estados</button>
+          <a class="btn" id="ed-reportar" href="#" hidden>Reportar</a>
         </div>
         <div class="row"><button class="btn ghost" id="ed-clear" type="button">Limpiar selección</button></div>
         <div class="row"><button class="btn ghost" id="ed-modo" type="button" aria-pressed="false">Modo borrar: off</button><button class="btn ghost" id="ed-undo" type="button" disabled>Deshacer</button></div>
@@ -224,8 +225,9 @@
     document.getElementById("ed-count").textContent = sel.size;
     var info = document.getElementById("ed-info"), act = document.getElementById("ed-acciones");
     var btnEst = document.getElementById("ed-estados");
+    var btnRep = document.getElementById("ed-reportar");
     var panel = document.getElementById("estados-panel");
-    if (sel.size === 0) { info.textContent = "Arrastrá para pintar PCs."; act.hidden = true; panel.hidden = true; }
+    if (sel.size === 0) { info.textContent = "Arrastrá para pintar PCs."; act.hidden = true; panel.hidden = true; btnRep.hidden = true; }
     else {
       act.hidden = false;
       var i0 = Array.from(sel)[0];
@@ -236,12 +238,16 @@
         document.getElementById("ed-ren").disabled = false;
         btnEst.hidden = !GRID[i0].id;
         if (!GRID[i0].id) panel.hidden = true;
+        var nm = (GRID[i0].n || "").trim();
+        if (nm) { btnRep.hidden = false; btnRep.href = "{% url 'lab_nueva' %}?lab={{ lab_id }}&pc=" + encodeURIComponent(nm); }
+        else btnRep.hidden = true;
       } else {
         info.textContent = sel.size + " seleccionadas (pintadas)";
         document.getElementById("ed-nombre").disabled = true;
         document.getElementById("ed-ren").disabled = true;
         btnEst.hidden = true;
         panel.hidden = true;
+        btnRep.hidden = true;
       }
     }
   }

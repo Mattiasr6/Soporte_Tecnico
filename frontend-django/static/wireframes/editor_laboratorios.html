@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wireframe — Editor de PCs por laboratorio</title>
+<style>
+  :root{--house:#1e3932;--accent:#00754a;--bg:#faf6ee;--surface:#fff;--muted:rgba(0,0,0,.58);--border:#dfe7e2}
+  *{box-sizing:border-box}
+  body{margin:0;font:15px/1.5 system-ui,sans-serif;background:var(--bg);color:rgba(0,0,0,.87);padding:24px}
+  h1{font-size:22px;margin:0 0 4px;color:var(--house)}
+  h2{font-size:16px;margin:26px 0 8px;color:var(--house)}
+  .sub{color:var(--muted);font-size:13px;margin:0 0 18px}
+  .tag{display:inline-block;background:#e8f0fe;color:#3367d6;border-radius:999px;font-size:11px;font-weight:700;padding:2px 10px;margin-left:8px;vertical-align:middle}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px 18px;margin-bottom:14px}
+  .btn{display:inline-block;background:var(--accent);color:#fff;border:0;border-radius:10px;padding:8px 16px;font:inherit;font-weight:600;cursor:pointer}
+  .btn.ghost{background:#fff;color:var(--house);border:1.5px solid #9db8ad}
+  .btn.mini{padding:4px 10px;font-size:12px;border-radius:8px}
+  .btn:disabled{opacity:.45;cursor:default}
+  .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:10px 0}
+  input,select{font:inherit;border:1.5px solid #9db8ad;border-radius:8px;padding:6px 8px}
+  label{font-size:13px;color:var(--muted)}
+  .lab-card{display:flex;justify-content:space-between;align-items:center;gap:10px}
+  .lab-card b{color:var(--house)}
+  .pill{display:inline-block;background:#eef4f1;border:1.5px solid var(--border);border-radius:999px;padding:4px 12px;font-size:13px;margin:3px 4px 0 0}
+  .fase{display:inline-block;font-size:11px;font-weight:700;border-radius:999px;padding:2px 10px;background:#fef6e0;color:#8a5a00}
+  .editor{display:flex;gap:18px;flex-wrap:wrap}
+  .grilla-wrap{flex:1;min-width:300px;overflow:auto;border:1px dashed #9db8ad;border-radius:14px;background:#fdfcf9;padding:14px}
+  .grilla{display:grid;gap:8px;justify-content:start;user-select:none;-webkit-user-select:none;touch-action:none}
+  .celda{width:96px;height:74px;border:2px dashed #b9cdc4;border-radius:10px;background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;font-size:12px;color:var(--muted)}
+  .celda.vacia:hover{border-color:var(--accent);background:#e6f4ea;color:var(--accent)}
+  .celda.vacia::after{content:"＋ vacía";font-size:11px}
+  .celda.pc{border:2px solid var(--accent);background:#e6f4ea;color:var(--house)}
+  .celda.pc b{font-size:12.5px}
+  .celda.pc small{font-size:10px;color:var(--accent)}
+  .celda.off{border-color:#c9cccc;background:#f1f1f1;color:#999}
+  .celda.off small{color:#999}
+  .celda.sel{box-shadow:0 0 0 3px #3367d6;z-index:2}
+  .herramientas{width:252px;min-width:230px}
+  .herramientas .card{padding:12px 14px}
+  .hint{font-size:12px;color:var(--muted);margin-top:6px}
+  .leyenda{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-top:10px}
+  .leyenda span{display:flex;align-items:center;gap:6px}
+  .sw{width:16px;height:16px;border-radius:4px;border:2px solid var(--accent);background:#e6f4ea}
+  .sw.off{border-color:#c9cccc;background:#f1f1f1}
+  .sw.v{border-style:dashed;border-color:#b9cdc4;background:#fff}
+  .sw.s{border-color:#3367d6;background:#dce8fc}
+  .nota{border-left:4px solid var(--accent);background:#f0f7f3;padding:10px 14px;border-radius:0 10px 10px 0;font-size:13.5px;margin:14px 0}
+  .flujo{counter-reset:p;display:flex;gap:10px;flex-wrap:wrap;margin-top:8px}
+  .flujo div{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:8px 12px;font-size:13px}
+  .flujo div::before{counter-increment:p;content:counter(p) ".";font-weight:700;color:var(--accent);margin-right:6px}
+  .banda{display:none;gap:12px;flex-wrap:wrap;align-items:center;background:var(--house);color:#fff;border-radius:12px;padding:10px 14px;margin-top:12px;box-shadow:0 4px 16px rgba(0,0,0,.25)}
+  .banda.on{display:flex}
+  .banda b{font-size:15px}
+  .banda select,.banda input{border-radius:8px;padding:5px 8px}
+  .banda .btn{padding:6px 14px}
+  .pista{font-size:12px;color:var(--muted);margin:6px 0 0}
+  @media (max-width:767px){.celda{width:74px;height:64px}.herramientas{width:100%}}
+</style>
+</head>
+<body>
+
+<h1>Editor de laboratorios <span class="tag">WIREFRAME — fase 1</span></h1>
+<p class="sub">Cada laboratorio es un dibujo real (filas y columnas como el aula) y las PCs se marcan <b>pintando con el cursor</b>: donde pasa la mano, se selecciona.</p>
+
+<div class="nota">🖱️ <b>Probá:</b> apretá y <b>arrastrá</b> sobre las celdas — por donde pase el cursor se pintan o se despintan las PCs. Clic simple sobre una PC abre su panel. En la fase 2 es exacto el mismo gesto para elegir las máquinas.</div>
+
+<h2>1 · Pantalla Laboratorios (la que ya existe) — botón nuevo</h2>
+<div class="card lab-card">
+  <div><b>LAB-09</b> <span class="fase">8 PCs cargadas</span><br><span class="pill">SCPC 901</span><span class="pill">SCPC 902</span><span class="pill">…</span></div>
+  <div class="row" style="margin:0">
+    <button class="btn ghost">Ver PCs</button>
+    <button class="btn">Editar dibujo</button>
+  </div>
+</div>
+<div class="card lab-card">
+  <div><b>LAB-10</b> <span class="fase" style="background:#f1f1f1;color:#666">sin PCs</span></div>
+  <button class="btn">Editar dibujo</button>
+</div>
+
+<h2>2 · Editor del dibujo — LAB-09 <span class="fase">fase 1</span></h2>
+<p class="pista">Pintá arrastrando · clic en vacía = crear PC · clic en PC = panel (renombrar / inactivar / quitar).</p>
+<div class="editor">
+  <div class="herramientas">
+    <div class="card">
+      <b>Selección (<span id="ed-count">0</span>)</b>
+      <p class="hint" id="ed-info">Arrastrá para pintar PCs.</p>
+      <div class="row" id="ed-acciones" hidden>
+        <input type="text" id="ed-nombre" size="9" title="Renombrar (con 1 seleccionada)">
+        <button class="btn mini" id="ed-ren">Renombrar</button>
+        <button class="btn ghost mini" id="ed-off">Activar/Inactiva</button>
+        <button class="btn ghost mini" id="ed-del">Quitar</button>
+      </div>
+      <div class="row"><button class="btn ghost mini" id="ed-clear">Limpiar selección</button></div>
+    </div>
+    <div class="card">
+      <b>Estructura</b>
+      <div class="row"><button class="btn ghost mini" id="col-mas">＋ Columna</button><button class="btn ghost mini" id="col-menos">－ Columna</button></div>
+      <div class="row"><button class="btn ghost mini" id="fila-mas">＋ Fila</button><button class="btn ghost mini" id="fila-menos">－ Fila</button></div>
+      <p class="hint">Las celdas sin PC quedan vacías (pasillos, puerta, mesón).</p>
+    </div>
+    <div class="card">
+      <b>Generar con patrón</b>
+      <div class="row"><label>Inicio <input type="number" value="1" size="3" id="pat-ini"></label><label>Cantidad <input type="number" value="8" size="3" id="pat-n"></label></div>
+      <div class="row"><button class="btn" id="pat-ok">Crear SCPC 9xx</button></div>
+      <p class="hint">Rellena vacías en orden; nombres editables si el dominio real difiere.</p>
+    </div>
+  </div>
+
+  <div class="grilla-wrap">
+    <div class="grilla" id="grilla" style="grid-template-columns:repeat(4,96px)"></div>
+    <div class="leyenda">
+      <span><i class="sw"></i> PC activa</span>
+      <span><i class="sw off"></i> inactiva</span>
+      <span><i class="sw v"></i> vacía</span>
+      <span><i class="sw s"></i> pintada</span>
+    </div>
+  </div>
+</div>
+
+<h2>3 · Fase 2 — instalación masiva con el mismo pintado</h2>
+<div class="nota">Acá no creás PCs: <b>llegás a la sala y pintás las 6 máquinas</b>, y desde la barra declarás qué instalaste. El sistema arma 1 ticket por PC × programa y te manda a Nueva atención prellenado (solo revisás y registrás).</div>
+<div class="editor">
+  <div class="grilla-wrap">
+    <div class="grilla" id="sala" style="grid-template-columns:repeat(4,96px)"></div>
+    <div class="leyenda"><span><i class="sw s"></i> PC pintada para instalar</span></div>
+    <div class="banda" id="banda">
+      <b id="sel-n">0 PCs pintadas</b>
+      <select><option>SQL Server 2019</option><option>Visual Studio Code</option><option>Adobe Reader</option></select>
+      <label style="color:#cfe3d9">Otro: <input type="text" size="12"></label>
+      <button class="btn" id="crear-tickets">Crear tickets</button>
+      <button class="btn ghost" id="cancelar-sala" style="color:#fff;border-color:#7fa896">Cancelar</button>
+    </div>
+    <p class="pista">La barra aparece apenas hay 1+ pintada (en el sitio: pegajosa abajo, estilo móvil).</p>
+  </div>
+  <div class="herramientas">
+    <div class="card">
+      <b>Cómo se arma la cuenta</b>
+      <p class="hint">Pintás 6 PCs y decís "SQL Server" → 6 tickets.<br><br>
+      En 3 de esas PCs instalaste además "VS Code" → +3 tickets.<br><br>
+      <b>Total: 9 tickets</b>, uno por PC × programa, todos editables en Nueva atención.</p>
+    </div>
+    <div class="card">
+      <b>Nombres</b>
+      <p class="hint">LAB-01 → SCPC 101… · LAB-10 → SCPC 1001…<br>Patrón: <code>SCPC {lab×100 + i}</code>, editable.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ===== editor ===== */
+var EC = 4, EF = 3, SEQ = 901;
+var ed = new Array(EF * EC).fill(null);
+var edSel = new Set();
+
+function edPintar() {
+  var g = document.getElementById("grilla");
+  g.style.gridTemplateColumns = "repeat(" + EC + ",96px)";
+  g.innerHTML = "";
+  ed.forEach(function (c, i) {
+    var d = document.createElement("div");
+    d.className = "celda" + (c ? " pc" : " vacia") + (c && !c.on ? " off" : "") + (edSel.has(i) ? " sel" : "");
+    if (c) d.innerHTML = "<b>" + c.n + "</b><small>" + (c.on ? "activa" : "inactiva") + "</small>";
+    d.dataset.i = i;
+    g.appendChild(d);
+  });
+  document.getElementById("ed-count").textContent = edSel.size;
+  var info = document.getElementById("ed-info"), act = document.getElementById("ed-acciones");
+  if (edSel.size === 0) { info.textContent = "Arrastrá para pintar PCs."; act.hidden = true; return; }
+  act.hidden = false;
+  if (edSel.size === 1) {
+    var i = Array.from(edSel)[0];
+    info.textContent = "1 seleccionada";
+    var ok = !!ed[i];
+    document.getElementById("ed-nombre").value = ok ? ed[i].n : "(vacía)";
+    document.getElementById("ed-nombre").disabled = !ok;
+    document.getElementById("ed-ren").disabled = !ok;
+  } else {
+    info.textContent = edSel.size + " seleccionadas (pintadas)";
+    document.getElementById("ed-nombre").disabled = true;
+    document.getElementById("ed-ren").disabled = true;
+  }
+}
+document.getElementById("ed-ren").addEventListener("click", function () {
+  if (edSel.size !== 1) return;
+  var i = Array.from(edSel)[0];
+  if (ed[i]) ed[i].n = document.getElementById("ed-nombre").value;
+  edPintar();
+});
+document.getElementById("ed-off").addEventListener("click", function () {
+  edSel.forEach(function (i) { if (ed[i]) ed[i].on = !ed[i].on; });
+  edPintar();
+});
+document.getElementById("ed-del").addEventListener("click", function () {
+  edSel.forEach(function (i) { ed[i] = null; });
+  edSel.clear(); edPintar();
+});
+document.getElementById("ed-clear").addEventListener("click", function () { edSel.clear(); edPintar(); });
+document.getElementById("col-mas").addEventListener("click", function () { edCols(1); });
+document.getElementById("col-menos").addEventListener("click", function () { edCols(-1); });
+document.getElementById("fila-mas").addEventListener("click", function () { edFilas(1); });
+document.getElementById("fila-menos").addEventListener("click", function () { edFilas(-1); });
+function edCols(d) {
+  if (EC + d < 2 || EC + d > 8) return;
+  var viejo = ed.slice(), NC = EC + d, nuevo = [];
+  for (var r = 0; r < EF; r++) for (var c = 0; c < NC; c++) nuevo.push(viejo[r * EC + c] || null);
+  ed = nuevo; EC = NC; edSel.clear(); edPintar();
+}
+function edFilas(d) {
+  if (EF + d < 1 || EF + d > 6) return;
+  var NF = EF + d, nuevo = [];
+  for (var r = 0; r < NF; r++) for (var c = 0; c < EC; c++) nuevo.push(ed[r * EC + c] || null);
+  ed = nuevo; EF = NF; edSel.clear(); edPintar();
+}
+document.getElementById("pat-ok").addEventListener("click", function () {
+  var ini = parseInt(document.getElementById("pat-ini").value, 10) || 1;
+  var n = parseInt(document.getElementById("pat-n").value, 10) || 0;
+  var creadas = 0, i = 0;
+  for (; i < ed.length && creadas < n; i++) {
+    if (!ed[i]) { ed[i] = { n: "SCPC " + (SEQ++), on: true }; creadas++; }
+  }
+  edPintar();
+});
+
+/* ===== pintado generico (arrastrar = pintar/despintar) ===== */
+function montarPintado(contId, obtener, refrescar, conCrear, esEditor) {
+  var cont = document.getElementById(contId);
+  var down = false, mode = true, sx = 0, sy = 0, movio = false, ultimo = -1;
+  function aplicar(i) {
+    var sel = obtener.sel, cells = obtener.cells;
+    if (mode) sel.add(i); else sel.delete(i);
+    if (conCrear && mode && !cells[i]) cells[i] = { n: "SCPC " + (SEQ++), on: true };
+    refrescar();
+  }
+  cont.addEventListener("pointerdown", function (e) {
+    var c = e.target.closest(".celda");
+    if (!c) return;
+    e.preventDefault();
+    down = true; movio = false; sx = e.clientX; sy = e.clientY;
+    var i = +c.dataset.i; ultimo = i;
+    mode = !obtener.sel.has(i);
+    aplicar(i);
+  });
+  cont.addEventListener("pointermove", function (e) {
+    if (!down) return;
+    if (!movio && Math.hypot(e.clientX - sx, e.clientY - sy) < 6) return;
+    movio = true;
+    var el = document.elementFromPoint(e.clientX, e.clientY);
+    if (!el || !el.classList || !el.classList.contains("celda")) return;
+    var i = +el.dataset.i;
+    if (i === ultimo) return;
+    ultimo = i;
+    aplicar(i);
+  });
+  window.addEventListener("pointerup", function () {
+    if (down && !movio && ultimo >= 0 && esEditor) {
+      /* clic simple en editor: deja SOLO esa seleccionada (panel) */
+      var solo = new Set([ultimo]);
+      obtener.sel.clear();
+      solo.forEach(function (i) { obtener.sel.add(i); });
+      refrescar();
+    }
+    down = false; ultimo = -1;
+  });
+}
+
+/* ===== sala fase 2 ===== */
+var salaCells = [];
+for (var k = 1; k <= 12; k++) salaCells.push("SCPC 90" + k);
+var salaSel = new Set();
+function pintarSala() {
+  var g = document.getElementById("sala");
+  g.innerHTML = "";
+  salaCells.forEach(function (c, i) {
+    var d = document.createElement("div");
+    d.className = "celda pc" + (salaSel.has(i) ? " sel" : "");
+    d.innerHTML = "<b>" + c + "</b><small>" + (salaSel.has(i) ? "pintada" : "activa") + "</small>";
+    d.dataset.i = i;
+    g.appendChild(d);
+  });
+  var n = salaSel.size;
+  document.getElementById("sel-n").textContent = n + (n === 1 ? " PC pintada" : " PCs pintadas");
+  document.getElementById("banda").classList.toggle("on", n > 0);
+}
+document.getElementById("cancelar-sala").addEventListener("click", function () {
+  salaSel.clear(); pintarSala();
+});
+document.getElementById("crear-tickets").addEventListener("click", function () {
+  alert("Fase 2: acá saltaría a Nueva atención con " + salaSel.size + " tickets armados (1 por PC × programa).");
+});
+
+montarPintado("grilla", { sel: edSel, cells: ed }, edPintar, true, true);
+montarPintado("sala", { sel: salaSel, cells: salaCells }, pintarSala, false, false);
+edPintar();
+pintarSala();
+</script>
+</body>
+</html>

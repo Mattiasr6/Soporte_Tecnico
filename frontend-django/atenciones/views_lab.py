@@ -170,6 +170,8 @@ def _items_lab_desde_post(post: dict[str, object]) -> tuple[list[dict[str, objec
         if callable(_getlist)
         else post.get("auxiliar_extra", [])
     )
+    import re as _re
+    pc_norm = _re.sub(r"\s+", " ", str(post.get("pc_nombre") or "")).strip().upper() or None
     base = {
         "categoria": categoria,
         "auxiliar_nombre": _combinar_auxiliares(
@@ -181,6 +183,7 @@ def _items_lab_desde_post(post: dict[str, object]) -> tuple[list[dict[str, objec
         "descripcion": descripcion,
         "solucion": solucion,
         "observaciones": post.get("observaciones") or None,
+        "pc_nombre": pc_norm,
         "fecha_registro": str(post.get("fecha_registro") or _hoy_iso()),
     }
     return [{**base, "laboratorio_id": lab_id} for lab_id in labs_int], ""
@@ -266,6 +269,9 @@ def novedades_vista(request: HttpRequest) -> HttpResponse:
     f_turno = (request.GET.get("f_turno") or "").strip()
     if f_turno not in TURNOS:
         f_turno = ""
+    f_lab = (request.GET.get("f_lab") or "").strip()
+    if not f_lab.isdigit():
+        f_lab = ""
     token = str(request.session["jwt"])
     error = ""
     puede_validar = _puede_reportes(request) or bool(
@@ -327,6 +333,8 @@ def novedades_vista(request: HttpRequest) -> HttpResponse:
             destino = f"{reverse('novedades')}?tab={tab}"
             if tab == "novedades" and f_turno:
                 destino += f"&f_turno={quote(f_turno)}"
+            if tab == "novedades" and f_lab:
+                destino += f"&f_lab={quote(f_lab)}"
             return redirect(destino)
     filas: list[dict[str, object]] = []
     try:
@@ -341,6 +349,8 @@ def novedades_vista(request: HttpRequest) -> HttpResponse:
     else:
         if isinstance(datos, list):
             filas = [d for d in datos if isinstance(d, dict)]
+    if tab == "novedades" and f_lab and any("laboratorio_id" in d for d in filas):
+        filas = [d for d in filas if str(d.get("laboratorio_id") or "") == f_lab]
     grupos: dict[str, list[dict[str, object]]] = {}
     if tab == "objetos":
         grupos = {"pendiente": [], "devuelto": [], "vencido": []}
@@ -359,6 +369,7 @@ def novedades_vista(request: HttpRequest) -> HttpResponse:
             "puede_validar": puede_validar,
             "quien": _quien_reporta(request),
             "f_turno": f_turno,
+            "f_lab": f_lab,
             "vigencia_dias": NOV_VIGENCIA_DIAS,
             "error": error,
             "flash": request.session.pop("flash", None),
@@ -501,6 +512,14 @@ def lab_nueva_vista(request: HttpRequest) -> HttpResponse:
         aux_extras = _partes[1:]
     if not aux1:
         aux1 = str(request.session.get("auxiliar_nombre", ""))
+    # Prefill desde sala: ?lab=<id>&pc=<nombre> (solo lectura GET, no toca POST).
+    lab_prefill = None
+    _lab_raw = (request.GET.get("lab") or "").strip()
+    if _lab_raw.isdigit():
+        _lab_id = int(_lab_raw)
+        if any(c.get("id") == _lab_id for c in cards["activas"]):
+            lab_prefill = _lab_id
+    pc_prefill = str(request.GET.get("pc") or "").strip()[:50]
     return render(
         request,
         "atenciones/laboratorios_nueva.html",
@@ -518,6 +537,8 @@ def lab_nueva_vista(request: HttpRequest) -> HttpResponse:
             "turnos": TURNOS,
             "medios": MEDIOS,
             "sugerencias_json": json.dumps(_sugerencias_por_turno(token)),
+            "lab_prefill": lab_prefill,
+            "pc_prefill": pc_prefill,
         },
     )
 
@@ -952,13 +973,12 @@ def lab_tablero_vista(request: HttpRequest) -> HttpResponse:
             if a.get("laboratorio_id") == lid
             and str(a.get("fecha_registro", "")) >= corte
         ]
-        pcs_falla = sorted(
-            {
-                str(a.get("pc_nombre") or "").strip()
-                for a in recientes
-                if str(a.get("pc_nombre") or "").strip()
-            }
-        )
+        vistos: dict[str, str] = {}
+        for a in recientes:
+            crudo = str(a.get("pc_nombre") or "").strip()
+            if crudo and crudo.upper() not in vistos:
+                vistos[crudo.upper()] = crudo
+        pcs_falla = sorted(vistos.values(), key=str.upper)
         objs = [o for o in pendientes if o.get("laboratorio_id") == lid]
         ultimas = sorted(
             (a for a in filas if a.get("laboratorio_id") == lid),

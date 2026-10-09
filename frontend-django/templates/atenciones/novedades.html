@@ -1,235 +1,366 @@
 {% extends "atenciones/base.html" %}
 {% block titulo %}Novedades de turno — Soporte Técnico{% endblock %}
 {% block contenido %}
-<div class="page-wide">
+<div class="nov2">
   <style>
-    .nov-tabs{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 14px;align-items:center}
-    .nov-tabs .btn{padding:6px 14px;font-size:13px;border-radius:999px}
-    .nov-tabs .lbl{font-size:12px;color:var(--color-muted,#888);margin-right:2px}
-    .composer-ask{border:1px solid #dfe7e2;border-radius:16px;background:var(--color-surface,#fff);padding:18px;margin-bottom:16px}
-    .composer-ask h2{margin:0 0 4px;font-size:18px}
-    .composer-ask .hint{font-size:13px;color:var(--color-muted,#888);margin:0 0 14px}
-    .ccards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
-    .ccard{display:flex;flex-direction:column;gap:6px;align-items:flex-start;text-align:left;border:2px solid #dfe7e2;border-radius:14px;padding:14px;cursor:pointer;background:#fff;font:inherit}
-    .ccard iconify-icon{font-size:26px}
-    .ccard b{font-size:15px}
-    .ccard small{color:var(--color-muted,#888);font-size:12px;line-height:1.35}
-    .ccard:hover{transform:translateY(-2px);box-shadow:0 4px 12px rgba(30,57,50,.12)}
-    .ccard.c-aviso{border-color:#c9dafb}.ccard.c-aviso iconify-icon{color:#3367d6}
-    .ccard.c-objeto{border-color:#f0ddb0}.ccard.c-objeto iconify-icon{color:#b7791f}
-    .ccard.c-cierre{border-color:#bfe3d0}.ccard.c-cierre iconify-icon{color:#00754a}
-    .cform{border:1px solid #dfe7e2;border-radius:16px;background:var(--color-surface,#fff);padding:16px 18px;margin-bottom:16px}
-    .cform legend{font-weight:700;font-size:15px;padding:0 8px}
-    .cform legend .ccard iconify-icon{font-size:18px;vertical-align:-3px}
-    .cform textarea{width:100%;min-height:70px;border-radius:8px;border:1.5px solid #9db8ad;padding:8px;box-sizing:border-box}
-    .cform .row{display:flex;gap:12px;flex-wrap:wrap;margin:10px 0;align-items:center}
-    .cform .back{float:right;font-size:12px;cursor:pointer;background:none;border:0;color:var(--color-muted,#888);text-decoration:underline}
-    .nov-card{border:1px solid #dfe7e2;border-radius:12px;padding:10px 12px;margin-bottom:10px;background:var(--color-surface,#fff)}
-    .nov-meta{font-size:12px;color:var(--color-muted,#888);margin-top:6px}
-    .nov-card img{max-width:220px;border-radius:8px;margin-top:8px;display:block}
-    .nov-kanban{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px}
-    .nov-col{background:#f4f8f5;border-radius:12px;padding:10px;min-width:0}
-    .nov-col h3{margin:0 0 8px;font-size:13px}
-    .nov-est{display:inline-block;font-size:11px;font-weight:700;border-radius:999px;padding:1px 10px;margin-left:6px}
-    .est-pendiente{background:#fef6e0;color:#8a5a00}.est-devuelto{background:#e6f4ea;color:#00754a}
-    .est-vencido{background:#f3e8e8;color:#8b2e2e}.est-validado{background:#e6f4ea;color:#00754a}
-    .est-rechazado{background:#f3e8e8;color:#8b2e2e}.est-publicado{background:#e8f0fe;color:#3367d6}
-    .nov-actions{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
-    .nov-actions .btn{padding:4px 12px;font-size:12px}
-    .nov-devolver input[type=text]{font:inherit;font-size:12px;border:1.5px solid #9db8ad;border-radius:7px;padding:3px 8px;background:#fff;flex:1;min-width:130px}
-    .nov-dias{display:inline-block;font-size:11px;font-weight:700;border-radius:999px;padding:1px 10px;margin-left:6px;background:#eef3f0;color:#3d5a50}
-    .nov-dias.viejo{background:#f0ddb0;color:#8a5a00}
-    .nov-card.nov-viejo{border-color:#f0ddb0;background:#fef9ec}
-    .nov-filtros{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:0 0 12px}
-    .nov-filtros label{font-size:12px;color:var(--color-muted,#888);display:flex;gap:6px;align-items:center}
-    .nov-filtros select{font:inherit;border:1.5px solid #9db8ad;border-radius:8px;padding:4px 6px;background:#fff}
-    .nov-filtros .btn{padding:4px 12px;font-size:12px;border-radius:999px}
-    .nov-filtros .hint{font-size:12px;color:var(--color-muted,#888)}
-    @media (max-width:900px){
-      .ccards{grid-template-columns:minmax(0,1fr)}
-      .nov-kanban{grid-template-columns:minmax(0,1fr)}
+    .nov2{--nv-primary:#00754a;--nv-primary-hover:#005c3a;--nv-bg:#f8fafc;--nv-card:#fff;
+      --nv-border:#e2e8f0;--nv-text:#0f172a;--nv-muted:#64748b;--nv-amber-bg:#fffbeb;
+      --nv-amber-tx:#92400e;--nv-amber-bd:#fde68a;--nv-em-bg:#ecfdf5;--nv-em-tx:#065f46;
+      --nv-em-bd:#a7f3d0;--nv-rose-bg:#fef2f2;--nv-rose-tx:#991b1b;--nv-rose-bd:#fecaca;
+      --nv-blue-bg:#eff6ff;--nv-blue-tx:#1d4ed8;--nv-blue-bd:#bfdbfe;
+      max-width:80rem;margin:0 auto;padding:0 1.5rem 2rem}
+    .nov2-head h1{margin:0;font-size:1.5rem;font-weight:800;color:var(--nv-text);letter-spacing:-.01em}
+    .nov2-head .sub{margin:.25rem 0 0;font-size:.85rem;color:var(--nv-muted)}
+    .nov2-head .sub a{color:var(--nv-primary);font-weight:600}
+    .nov2-top{display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;flex-wrap:wrap;margin-bottom:.5rem}
+    .nov2-tabs{display:flex;gap:2rem;background:var(--nv-card);border:1px solid var(--nv-border);
+      border-radius:.9rem;padding:.35rem 1.25rem;margin:.9rem 0 1.5rem;box-shadow:0 1px 3px rgba(15,23,42,.05)}
+    .nov2-tabs a{display:flex;align-items:center;gap:.45rem;padding:.8rem .2rem;font-size:.85rem;
+      font-weight:600;color:var(--nv-muted);text-decoration:none;border-bottom:2px solid transparent;margin-bottom:-1px}
+    .nov2-tabs a iconify-icon{font-size:1rem}
+    .nov2-tabs a.on{color:var(--nv-primary);border-bottom-color:var(--nv-primary)}
+    .nov2-tabs .cnt{font-size:.7rem;font-weight:800;padding:.05rem .55rem;border-radius:999px;
+      background:#f1f5f9;color:var(--nv-muted)}
+    .nov2-tabs a.on .cnt{background:var(--nv-em-bg);color:var(--nv-primary)}
+    .nov2-grid{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:1.5rem;align-items:start}
+    .nov2-card{background:var(--nv-card);border:1px solid var(--nv-border);border-radius:1rem;
+      padding:1.25rem;box-shadow:0 1px 3px rgba(15,23,42,.05)}
+    .nov2-sec-t{margin:0 0 .9rem;font-size:.78rem;font-weight:800;color:var(--nv-muted);
+      text-transform:uppercase;letter-spacing:.06em}
+    .nov2-ccards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.7rem;margin-bottom:1.1rem}
+    .nov2-ccard{display:flex;flex-direction:column;align-items:center;gap:.5rem;text-align:center;
+      border:2px solid var(--nv-border);border-radius:.8rem;padding:.9rem .5rem;cursor:pointer;
+      background:#fff;font:inherit;transition:border-color .15s,background .15s,box-shadow .15s}
+    .nov2-ccard:hover{border-color:var(--nv-primary);box-shadow:0 4px 10px rgba(0,117,74,.1)}
+    .nov2-ccard.sel{border-color:var(--nv-primary);background:#f0fdf6}
+    .nov2-ccard .ic{width:2.4rem;height:2.4rem;border-radius:50%;display:flex;align-items:center;
+      justify-content:center;background:#f1f5f9;color:var(--nv-muted)}
+    .nov2-ccard .ic iconify-icon{font-size:1.25rem}
+    .nov2-ccard.sel .ic{background:var(--nv-primary);color:#fff}
+    .nov2-ccard b{font-size:.74rem;color:var(--nv-text)}
+    .nov2-ccard small{font-size:.68rem;color:var(--nv-muted);line-height:1.35}
+    .nov2-cform{border:0;padding:1.25rem;margin:.9rem 0 0}
+    .nov2-form-head{display:flex;align-items:center;justify-content:space-between;gap:.6rem;margin-bottom:.7rem}
+    .nov2-form-head .nov2-sec-t{margin:0;display:flex;align-items:center;gap:.4rem}
+    .nov2-form-head .nov2-sec-t iconify-icon{font-size:1rem;color:var(--nv-primary)}
+    .nov2-cform textarea{width:100%;min-height:4.5rem;border-radius:.75rem;border:1px solid #cbd5e1;
+      padding:.7rem .8rem;font:inherit;font-size:.85rem;box-sizing:border-box;resize:vertical;color:var(--nv-text)}
+    .nov2-cform textarea:focus{outline:none;border-color:var(--nv-primary);box-shadow:0 0 0 3px rgba(0,117,74,.15)}
+    .nov2-row{display:flex;gap:.7rem;flex-wrap:wrap;margin-top:.8rem;align-items:center}
+    .nov2-row label{font-size:.75rem;color:var(--nv-muted);display:flex;gap:.4rem;align-items:center;font-weight:600}
+    .nov2-row select,.nov2-row input[type=file]{font:inherit;font-size:.78rem;border:1px solid #cbd5e1;
+      border-radius:.6rem;padding:.4rem .5rem;background:#fff;color:var(--nv-text);max-width:12rem}
+    .nov2-btn{display:inline-flex;align-items:center;gap:.4rem;background:var(--nv-primary);color:#fff;
+      border:0;border-radius:.75rem;padding:.6rem 1.2rem;font:inherit;font-size:.82rem;font-weight:700;
+      cursor:pointer;box-shadow:0 2px 6px rgba(0,117,74,.3);text-decoration:none}
+    .nov2-btn:hover{background:var(--nv-primary-hover)}
+    .nov2-btn.ghost{background:#f1f5f9;color:var(--nv-text);box-shadow:none;font-weight:600}
+    .nov2-btn.ghost:hover{background:#e2e8f0}
+    .nov2-btn.sm{padding:.35rem .9rem;font-size:.75rem;border-radius:.6rem}
+    .nov2-btn iconify-icon{font-size:.95rem}
+    .nov2-row .nov2-btn{margin-left:auto}
+    .nov2-back{display:inline-flex;align-items:center;gap:.3rem;font-size:.75rem;font-weight:700;cursor:pointer;background:#f1f5f9;border:1px solid var(--nv-border);color:var(--nv-muted);border-radius:999px;padding:.35rem .8rem;text-decoration:none;white-space:nowrap}
+    .nov2-back:hover{color:var(--nv-primary);border-color:var(--nv-primary);background:var(--nv-em-bg)}
+    .nov2-back iconify-icon{font-size:.9rem}
+    .nov2-muro-t{display:flex;align-items:center;justify-content:space-between;gap:.8rem;flex-wrap:wrap;margin:1.5rem 0 .8rem}
+    .nov2-muro-t h3{margin:0;font-size:1rem;font-weight:800;color:var(--nv-text)}
+    .nov2-muro-t .nov2-filtros{margin:0}
+    .nov2-post{background:var(--nv-card);border:1px solid var(--nv-border);border-radius:1rem;
+      padding:1.1rem 1.25rem;margin-bottom:.9rem;box-shadow:0 1px 3px rgba(15,23,42,.05)}
+    .nov2-post.old{border-color:var(--nv-amber-bd);background:#fffdf4}
+    .nov2-who{display:flex;align-items:center;justify-content:space-between;gap:.6rem;margin-bottom:.6rem}
+    .nov2-id{display:flex;align-items:center;gap:.65rem}
+    .nov2-avatar{width:2.3rem;height:2.3rem;border-radius:50%;background:var(--nv-primary);color:#fff;
+      display:flex;align-items:center;justify-content:center;font-weight:800;font-size:.95rem;flex:none}
+    .nov2-id b{display:block;font-size:.85rem;color:var(--nv-text)}
+    .nov2-id small{font-size:.72rem;color:var(--nv-muted)}
+    .nov2-chip{display:inline-flex;align-items:center;gap:.3rem;font-size:.68rem;font-weight:800;
+      border-radius:999px;padding:.15rem .7rem;border:1px solid;white-space:nowrap}
+    .nov2-chip iconify-icon{font-size:.8rem}
+    .est-pendiente{background:var(--nv-amber-bg);color:var(--nv-amber-tx);border-color:var(--nv-amber-bd)}
+    .est-devuelto,.est-validado{background:var(--nv-em-bg);color:var(--nv-em-tx);border-color:var(--nv-em-bd)}
+    .est-vencido,.est-rechazado{background:var(--nv-rose-bg);color:var(--nv-rose-tx);border-color:var(--nv-rose-bd)}
+    .est-publicado{background:var(--nv-blue-bg);color:var(--nv-blue-tx);border-color:var(--nv-blue-bd)}
+    .nov2-post p.txt{margin:.2rem 0 .4rem;font-size:.88rem;line-height:1.55;color:var(--nv-text)}
+    .nov2-post img.ev{max-width:14rem;border-radius:.6rem;margin-top:.5rem;display:block;border:1px solid var(--nv-border)}
+    .nov2-meta{font-size:.72rem;color:var(--nv-muted);margin-top:.5rem}
+    .nov2-dias{display:inline-block;font-size:.68rem;font-weight:800;border-radius:999px;padding:.1rem .65rem;
+      margin-left:.5rem;background:#eef3f0;color:#3d5a50}
+    .nov2-dias.old{background:var(--nv-amber-bg);color:var(--nv-amber-tx)}
+    .nov2-actions{display:flex;gap:.5rem;margin-top:.7rem;flex-wrap:wrap}
+    .nov2-devolver{display:flex;gap:.5rem;margin-top:.7rem;flex-wrap:wrap;align-items:center}
+    .nov2-devolver input[type=text]{font:inherit;font-size:.78rem;border:1px solid #cbd5e1;border-radius:.6rem;
+      padding:.4rem .7rem;background:#fff;flex:1;min-width:8rem;color:var(--nv-text)}
+    .nov2-kanban{display:grid;grid-template-columns:repeat(auto-fit,minmax(15rem,1fr));gap:.9rem}
+    .nov2-col{background:#f1f5f9;border:1px solid var(--nv-border);border-radius:.9rem;padding:.8rem}
+    .nov2-col h3{margin:0 0 .7rem;font-size:.72rem;font-weight:800;text-transform:uppercase;
+      letter-spacing:.05em;display:flex;align-items:center;gap:.45rem}
+    .nov2-col h3 i.dot{width:.55rem;height:.55rem;border-radius:50%;flex:none}
+    .nov2-filtros{display:flex;gap:.7rem;flex-wrap:wrap;align-items:center;margin:0 0 .9rem}
+    .nov2-filtros label{font-size:.75rem;color:var(--nv-muted);display:flex;gap:.4rem;align-items:center;font-weight:600}
+    .nov2-filtros select{font:inherit;font-size:.78rem;border:1px solid #cbd5e1;border-radius:.6rem;
+      padding:.35rem .5rem;background:#fff}
+    .nov2-filtros .hint{font-size:.72rem;color:var(--nv-muted)}
+    .nov2-side{position:sticky;top:1rem;display:flex;flex-direction:column;gap:1rem}
+    .nov2-side h3{margin:0 0 .6rem;font-size:.78rem;font-weight:800;color:var(--nv-muted);
+      text-transform:uppercase;letter-spacing:.06em;display:flex;align-items:center;gap:.45rem}
+    .nov2-side h3 iconify-icon{font-size:1rem;color:var(--nv-primary)}
+    .nov2-side ol{margin:0;padding-left:1.1rem;font-size:.8rem;color:var(--nv-text);line-height:1.7}
+    .nov2-side li::marker{color:var(--nv-primary);font-weight:800}
+    .nov2-empty{color:var(--nv-muted);font-size:.85rem;background:var(--nv-card);border:1px dashed var(--nv-border);
+      border-radius:1rem;padding:1.5rem;text-align:center}
+    .nov2 .error{background:var(--nv-rose-bg);border:1px solid var(--nv-rose-bd);color:var(--nv-rose-tx);
+      border-radius:.75rem;padding:.6rem .9rem;font-size:.82rem}
+    .nov2 .flash{background:var(--nv-em-bg);border:1px solid var(--nv-em-bd);color:var(--nv-em-tx);
+      border-radius:.75rem;padding:.6rem .9rem;font-size:.82rem}
+    @media (max-width:1024px){
+      .nov2-grid{grid-template-columns:minmax(0,1fr)}
+      .nov2-side{position:static}
+      .nov2-ccards{grid-template-columns:minmax(0,1fr)}
+      .nov2-tabs{gap:1rem;overflow-x:auto}
     }
   </style>
-  <h1>Novedades del turno</h1>
-  <p class="sub">Publicás como: <b>{{ quien|default:"—" }}</b> · <a href="{% url 'auxiliares_soy' %}">cambiar</a> · Lo que no está acá, no pasó.</p>
-  <nav class="nov-tabs" aria-label="Vista">
-    <span class="lbl">Ver:</span>
-    <a class="btn{% if tab != 'novedades' %} ghost{% endif %}" data-vista="novedades" href="{% url 'novedades' %}?tab=novedades">Muro</a>
-    <a class="btn{% if tab != 'objetos' %} ghost{% endif %}" data-vista="objetos" href="{% url 'novedades' %}?tab=objetos">Objetos (kanban)</a>
-    <a class="btn{% if tab != 'cierres' %} ghost{% endif %}" data-vista="cierres" href="{% url 'novedades' %}?tab=cierres">Cierres</a>
+
+  <div class="nov2-top">
+    <div class="nov2-head">
+      <h1>Novedades del turno</h1>
+      <p class="sub">Publicás como: <b>{{ quien|default:"—" }}</b> · <a href="{% url 'auxiliares_soy' %}">cambiar</a> · Lo que no está acá, no pasó.</p>
+    </div>
+  </div>
+
+  <nav class="nov2-tabs" aria-label="Vista">
+    <a href="{% url 'novedades' %}?tab=novedades" class="{% if tab == 'novedades' %}on{% endif %}">
+      <iconify-icon icon="mdi:newspaper-variant-outline" aria-hidden="true"></iconify-icon>Muro
+      {% if tab == 'novedades' %}<span class="cnt">{{ filas|length }}</span>{% endif %}
+    </a>
+    <a href="{% url 'novedades' %}?tab=objetos" class="{% if tab == 'objetos' %}on{% endif %}">
+      <iconify-icon icon="mdi:package-variant-closed" aria-hidden="true"></iconify-icon>Objetos
+      {% if tab == 'objetos' %}<span class="cnt">{{ grupos.pendiente|length }}</span>{% endif %}
+    </a>
+    <a href="{% url 'novedades' %}?tab=cierres" class="{% if tab == 'cierres' %}on{% endif %}">
+      <iconify-icon icon="mdi:clipboard-check-outline" aria-hidden="true"></iconify-icon>Cierres
+      {% if tab == 'cierres' %}<span class="cnt">{{ filas|length }}</span>{% endif %}
+    </a>
   </nav>
+
   {% if error %}<p class="error">{{ error }}</p>{% endif %}
   {% if flash %}<p class="flash">{{ flash.texto }}</p>{% endif %}
 
-  <form method="post" enctype="multipart/form-data" id="nov-composer">
-    {% csrf_token %}
-    <input type="hidden" name="action" value="crear">
-    <section class="composer-ask" id="composer-ask">
-      <h2>¿Qué necesitás reportar?</h2>
-      <p class="hint">Elegí una opción y te muestro solo lo que hace falta. {% if quien %}Se publica con tu nombre: {{ quien }}.{% endif %}</p>
-      <div class="ccards">
-        <button type="button" class="ccard c-aviso" data-tipo="novedades">
-          <iconify-icon icon="mdi:bullhorn-outline" aria-hidden="true"></iconify-icon>
-          <b>Aviso al siguiente turno</b>
-          <small>Ej: cargador olvidado en el lab 8, hay visitas a las 15, etc.</small>
-        </button>
-        <button type="button" class="ccard c-objeto" data-tipo="objetos">
-          <iconify-icon icon="mdi:package-variant-closed" aria-hidden="true"></iconify-icon>
-          <b>Objeto encontrado</b>
-          <small>Algo dejado en los labs: entra al kanban hasta que se devuelva.</small>
-        </button>
-        <button type="button" class="ccard c-cierre" data-tipo="cierres">
-          <iconify-icon icon="mdi:calendar-check-outline" aria-hidden="true"></iconify-icon>
-          <b>Cierre de turno</b>
-          <small>Foto de llaves en su lugar. Un encargado lo valida.</small>
-        </button>
-      </div>
-    </section>
-
-    <fieldset class="cform" data-form="novedades">
-      <button type="button" class="back" data-volver>volver a elegir</button>
-      <legend><iconify-icon icon="mdi:bullhorn-outline" aria-hidden="true"></iconify-icon> Aviso al siguiente turno</legend>
-      <textarea name="texto" maxlength="2000" required placeholder="Contá algo útil para el próximo turno…"></textarea>
-      <div class="row">
-        <label>Turno <select name="turno"><option value="">—</option>{% for t in turnos %}<option value="{{ t }}">{{ t|capfirst }}</option>{% endfor %}</select></label>
-        <label>Lab <select name="laboratorio_id"><option value="">—</option>{% for lab in labs %}<option value="{{ lab.id }}">{{ lab.nombre }}</option>{% endfor %}</select></label>
-        <button type="submit" name="tab" value="novedades" class="btn">Publicar aviso</button>
-      </div>
-    </fieldset>
-
-    <fieldset class="cform" data-form="objetos">
-      <button type="button" class="back" data-volver>volver a elegir</button>
-      <legend><iconify-icon icon="mdi:package-variant-closed" aria-hidden="true"></iconify-icon> Objeto encontrado</legend>
-      <textarea name="texto" maxlength="2000" required placeholder="¿Qué es y dónde quedó? Ej: cargador negro en el lab 8"></textarea>
-      <div class="row">
-        <label>Turno <select name="turno"><option value="">—</option>{% for t in turnos %}<option value="{{ t }}">{{ t|capfirst }}</option>{% endfor %}</select></label>
-        <label>Lab <select name="laboratorio_id"><option value="">—</option>{% for lab in labs %}<option value="{{ lab.id }}">{{ lab.nombre }}</option>{% endfor %}</select></label>
-        <label>Foto (obligatoria) <input type="file" name="foto" accept="image/jpeg,image/png,image/webp" required></label>
-        <button type="submit" name="tab" value="objetos" class="btn">Publicar objeto</button>
-      </div>
-    </fieldset>
-
-    <fieldset class="cform" data-form="cierres">
-      <button type="button" class="back" data-volver>volver a elegir</button>
-      <legend><iconify-icon icon="mdi:calendar-check-outline" aria-hidden="true"></iconify-icon> Cierre de turno</legend>
-      <textarea name="texto" maxlength="2000" required placeholder="Ej: turno concluido, llaves en su lugar, se revisaron labs 1-9"></textarea>
-      <div class="row">
-        <label>Turno <select name="turno"><option value="">—</option>{% for t in turnos %}<option value="{{ t }}">{{ t|capfirst }}</option>{% endfor %}</select></label>
-        <label>Foto de llaves (obligatoria) <input type="file" name="foto" accept="image/jpeg,image/png,image/webp" required></label>
-        <button type="submit" name="tab" value="cierres" class="btn">Cerrar turno</button>
-      </div>
-    </fieldset>
-  </form>
-
   {% if tab == 'objetos' %}
-  <div class="nov-kanban">
-    <section class="nov-col">
-      <h3>Pendientes ({{ grupos.pendiente|length }})</h3>
+  <div class="nov2-kanban">
+    <section class="nov2-col">
+      <h3><i class="dot" style="background:#f59e0b"></i>Pendientes ({{ grupos.pendiente|length }})</h3>
       {% for f in grupos.pendiente %}
-      <article class="nov-card{% if f.dias > 30 %} nov-viejo{% endif %}">
-        <div>{{ f.texto }}<span class="nov-dias{% if f.dias > 30 %} viejo{% endif %}">{% if f.dias %}hace {{ f.dias }} día{{ f.dias|pluralize }}{% else %}hoy{% endif %}</span></div>
-        {% if f.tiene_foto %}<img src="{% url 'novedad_foto' f.id %}" alt="Foto del reporte" loading="lazy">{% endif %}
-        <div class="nov-meta">{{ f.auxiliar_nombre }} · {{ f.fecha_registro }}{% if f.turno %} · {{ f.turno|capfirst }}{% endif %}{% if f.laboratorio %} · {{ f.laboratorio }}{% endif %}</div>
-        <form method="post" class="nov-actions nov-devolver">
+      <article class="nov2-post{% if f.dias > 30 %} old{% endif %}">
+        <div class="nov2-who">
+          <div class="nov2-id">
+            <span class="nov2-avatar">{{ f.auxiliar_nombre|default:"?"|slice:":1"|upper }}</span>
+            <div><b>{{ f.auxiliar_nombre }}</b><small>{{ f.fecha_registro }}{% if f.turno %} · {{ f.turno|capfirst }}{% endif %}{% if f.laboratorio %} · {{ f.laboratorio }}{% endif %}</small></div>
+          </div>
+        </div>
+        <p class="txt">{{ f.texto }}<span class="nov2-dias{% if f.dias > 30 %} old{% endif %}">{% if f.dias %}hace {{ f.dias }} día{{ f.dias|pluralize }}{% else %}hoy{% endif %}</span></p>
+        {% if f.tiene_foto %}<img class="ev" src="{% url 'novedad_foto' f.id %}" alt="Foto del reporte" loading="lazy">{% endif %}
+        <form method="post" class="nov2-devolver">
           {% csrf_token %}
           <input type="hidden" name="tab" value="objetos">
           <input type="hidden" name="action" value="devolver">
           <input type="hidden" name="id" value="{{ f.id }}">
           <input type="text" name="entregado_a" required maxlength="150" placeholder="¿A quién se entrega?" title="¿A quién se entrega?">
-          <button type="submit" class="btn ghost">Marcar devuelto</button>
+          <button type="submit" class="nov2-btn ghost sm"><iconify-icon icon="mdi:check" aria-hidden="true"></iconify-icon>Marcar devuelto</button>
         </form>
       </article>
       {% empty %}
-      <p class="sub">Nada acá.</p>
+      <p class="nov2-empty">Nada pendiente. Todo devuelto.</p>
       {% endfor %}
     </section>
-    <section class="nov-col">
-      <h3>Devueltos ({{ grupos.devuelto|length }})</h3>
+    <section class="nov2-col">
+      <h3><i class="dot" style="background:#10b981"></i>Devueltos ({{ grupos.devuelto|length }})</h3>
       {% for f in grupos.devuelto %}
-      <article class="nov-card">
-        <div>{{ f.texto }}</div>
-        {% if f.entregado_a %}<div class="nov-meta">Entregado a: {{ f.entregado_a }}</div>{% endif %}
-        <div class="nov-meta">{{ f.auxiliar_nombre }} · {{ f.fecha_registro }}</div>
+      <article class="nov2-post">
+        <p class="txt">{{ f.texto }}</p>
+        {% if f.entregado_a %}<div class="nov2-meta">Entregado a: {{ f.entregado_a }}</div>{% endif %}
+        <div class="nov2-meta">{{ f.auxiliar_nombre }} · {{ f.fecha_registro }}</div>
       </article>
       {% empty %}
-      <p class="sub">Nada acá.</p>
+      <p class="nov2-empty">Nada acá todavía.</p>
       {% endfor %}
     </section>
     {% if grupos.vencido %}
-    <section class="nov-col">
-      <h3>Vencidos +90 días ({{ grupos.vencido|length }})</h3>
+    <section class="nov2-col">
+      <h3><i class="dot" style="background:#ef4444"></i>Vencidos +90 días ({{ grupos.vencido|length }})</h3>
       {% for f in grupos.vencido %}
-      <article class="nov-card">
-        <div>{{ f.texto }}</div>
-        <div class="nov-meta">{{ f.auxiliar_nombre }} · {{ f.fecha_registro }}</div>
+      <article class="nov2-post">
+        <p class="txt">{{ f.texto }}</p>
+        <div class="nov2-meta">{{ f.auxiliar_nombre }} · {{ f.fecha_registro }}</div>
       </article>
       {% endfor %}
     </section>
     {% endif %}
   </div>
   {% if puede_validar %}
-  <form method="post" style="margin-top:12px">
+  <form method="post" style="margin-top:.9rem">
     {% csrf_token %}
     <input type="hidden" name="tab" value="objetos">
     <input type="hidden" name="action" value="purgar">
-    <button type="submit" class="btn ghost" onclick="return confirm('Borrar vencidos (+90 días) con sus fotos?')">Purgar vencidos</button>
+    <button type="submit" class="nov2-btn ghost sm" onclick="return confirm('Borrar vencidos (+90 días) con sus fotos?')">Purgar vencidos</button>
   </form>
   {% endif %}
   {% else %}
-    {% if tab == 'novedades' %}
-    <form method="get" class="nov-filtros">
-      <input type="hidden" name="tab" value="novedades">
-      <label>Turno
-        <select name="f_turno" onchange="this.form.submit()">
-          <option value="">Todos</option>
-          {% for t in turnos %}<option value="{{ t }}" {% if f_turno == t %}selected{% endif %}>{{ t|capfirst }}</option>{% endfor %}
-        </select>
-      </label>
-      {% if f_turno %}<a class="btn ghost" href="{% url 'novedades' %}?tab=novedades">Limpiar</a>{% endif %}
-      <span class="hint">Se muestran los últimos {{ vigencia_dias }} días.</span>
-    </form>
-    {% endif %}
-    {% for f in filas %}
-    <article class="nov-card">
-      <div>{{ f.texto }}<span class="nov-est est-{{ f.estado }}">{{ f.estado }}</span></div>
-      {% if f.tiene_foto %}<img src="{% url 'novedad_foto' f.id %}" alt="Foto del reporte" loading="lazy">{% endif %}
-      <div class="nov-meta">{{ f.auxiliar_nombre }} · {{ f.fecha_registro }}{% if f.turno %} · {{ f.turno|capfirst }}{% endif %}{% if f.laboratorio %} · {{ f.laboratorio }}{% endif %}</div>
-      {% if tab == 'cierres' and f.estado == 'pendiente' and puede_validar %}
-      <form method="post" class="nov-actions">
+  <div class="nov2-grid">
+    <div>
+      <form method="post" enctype="multipart/form-data" id="nov-composer">
         {% csrf_token %}
-        <input type="hidden" name="tab" value="cierres">
-        <input type="hidden" name="id" value="{{ f.id }}">
-        <button type="submit" name="action" value="validar" class="btn">Validar</button>
-        <button type="submit" name="action" value="rechazar" class="btn ghost">Rechazar</button>
+        <input type="hidden" name="action" value="crear">
+        <section class="nov2-card" id="composer-ask">
+          <h2 class="nov2-sec-t">¿Qué necesitás reportar?</h2>
+          <div class="nov2-ccards">
+            <button type="button" class="nov2-ccard" data-tipo="novedades">
+              <span class="ic"><iconify-icon icon="mdi:bullhorn-outline" aria-hidden="true"></iconify-icon></span>
+              <b>Aviso al siguiente turno</b>
+              <small>Ej: cargador olvidado en el lab 8, visitas a las 15, etc.</small>
+            </button>
+            <button type="button" class="nov2-ccard" data-tipo="objetos">
+              <span class="ic"><iconify-icon icon="mdi:package-variant-closed" aria-hidden="true"></iconify-icon></span>
+              <b>Objeto encontrado</b>
+              <small>Algo dejado en los labs: entra al kanban hasta que se devuelva.</small>
+            </button>
+            <button type="button" class="nov2-ccard" data-tipo="cierres">
+              <span class="ic"><iconify-icon icon="mdi:calendar-check-outline" aria-hidden="true"></iconify-icon></span>
+              <b>Cierre de turno</b>
+              <small>Foto de llaves en su lugar. Un encargado lo valida.</small>
+            </button>
+          </div>
+          <p class="nov2-meta" style="margin:0">{% if quien %}Se publica con tu nombre: {{ quien }}.{% endif %}</p>
+        </section>
+
+        <fieldset class="nov2-card nov2-cform" data-form="novedades">
+          <div class="nov2-form-head">
+            <h2 class="nov2-sec-t"><iconify-icon icon="mdi:bullhorn-outline" aria-hidden="true"></iconify-icon> Aviso al siguiente turno</h2>
+            <button type="button" class="nov2-back" data-volver><iconify-icon icon="mdi:arrow-left" aria-hidden="true"></iconify-icon>volver a elegir</button>
+          </div>
+          <textarea name="texto" maxlength="2000" required placeholder="Contá algo útil para el próximo turno…"></textarea>
+          <div class="nov2-row">
+            <label>Turno <select name="turno"><option value="">—</option>{% for t in turnos %}<option value="{{ t }}">{{ t|capfirst }}</option>{% endfor %}</select></label>
+            <label>Lab <select name="laboratorio_id"><option value="">—</option>{% for lab in labs %}<option value="{{ lab.id }}">{{ lab.nombre }}</option>{% endfor %}</select></label>
+            <button type="submit" name="tab" value="novedades" class="nov2-btn sm"><iconify-icon icon="mdi:send" aria-hidden="true"></iconify-icon>Publicar aviso</button>
+          </div>
+        </fieldset>
+
+        <fieldset class="nov2-card nov2-cform" data-form="objetos">
+          <div class="nov2-form-head">
+            <h2 class="nov2-sec-t"><iconify-icon icon="mdi:package-variant-closed" aria-hidden="true"></iconify-icon> Objeto encontrado</h2>
+            <button type="button" class="nov2-back" data-volver><iconify-icon icon="mdi:arrow-left" aria-hidden="true"></iconify-icon>volver a elegir</button>
+          </div>
+          <textarea name="texto" maxlength="2000" required placeholder="¿Qué es y dónde quedó? Ej: cargador negro en el lab 8"></textarea>
+          <div class="nov2-row">
+            <label>Turno <select name="turno"><option value="">—</option>{% for t in turnos %}<option value="{{ t }}">{{ t|capfirst }}</option>{% endfor %}</select></label>
+            <label>Lab <select name="laboratorio_id" required><option value="">—</option>{% for lab in labs %}<option value="{{ lab.id }}">{{ lab.nombre }}</option>{% endfor %}</select></label>
+            <label>Foto (obligatoria) <input type="file" name="foto" accept="image/jpeg,image/png,image/webp" required></label>
+            <button type="submit" name="tab" value="objetos" class="nov2-btn sm"><iconify-icon icon="mdi:send" aria-hidden="true"></iconify-icon>Publicar objeto</button>
+          </div>
+        </fieldset>
+
+        <fieldset class="nov2-card nov2-cform" data-form="cierres">
+          <div class="nov2-form-head">
+            <h2 class="nov2-sec-t"><iconify-icon icon="mdi:calendar-check-outline" aria-hidden="true"></iconify-icon> Cierre de turno</h2>
+            <button type="button" class="nov2-back" data-volver><iconify-icon icon="mdi:arrow-left" aria-hidden="true"></iconify-icon>volver a elegir</button>
+          </div>
+          <textarea name="texto" maxlength="2000" required placeholder="Ej: turno concluido, llaves en su lugar, se revisaron labs 1-9"></textarea>
+          <div class="nov2-row">
+            <label>Turno <select name="turno"><option value="">—</option>{% for t in turnos %}<option value="{{ t }}">{{ t|capfirst }}</option>{% endfor %}</select></label>
+            <label>Foto de llaves (obligatoria) <input type="file" name="foto" accept="image/jpeg,image/png,image/webp" required></label>
+            <button type="submit" name="tab" value="cierres" class="nov2-btn sm"><iconify-icon icon="mdi:send" aria-hidden="true"></iconify-icon>Cerrar turno</button>
+          </div>
+        </fieldset>
       </form>
+
+      {% if tab == 'novedades' %}
+      <div class="nov2-muro-t">
+        <h3>Muro de novedades</h3>
+        <form method="get" class="nov2-filtros">
+          <input type="hidden" name="tab" value="novedades">
+          <label>Turno
+            <select name="f_turno" onchange="this.form.submit()">
+              <option value="">Todos</option>
+              {% for t in turnos %}<option value="{{ t }}" {% if f_turno == t %}selected{% endif %}>{{ t|capfirst }}</option>{% endfor %}
+            </select>
+          </label>
+          <label>Lab
+            <select name="f_lab" onchange="this.form.submit()">
+              <option value="">Todos</option>
+              {% for lab in labs %}<option value="{{ lab.id }}"{% if f_lab == lab.id|stringformat:"s" %} selected{% endif %}>{{ lab.nombre }}</option>{% endfor %}
+            </select>
+          </label>
+          {% if f_turno or f_lab %}<a class="nov2-btn ghost sm" href="{% url 'novedades' %}?tab=novedades">Limpiar</a>{% endif %}
+          <span class="hint">Últimos {{ vigencia_dias }} días.</span>
+        </form>
+      </div>
+      {% else %}
+      <div class="nov2-muro-t">
+        <h3>Cierres de turno</h3>
+      </div>
       {% endif %}
-    </article>
-    {% empty %}
-    <p>Nada publicado todavía.</p>
-    {% endfor %}
+      {% for f in filas %}
+      <article class="nov2-post">
+        <div class="nov2-who">
+          <div class="nov2-id">
+            <span class="nov2-avatar">{{ f.auxiliar_nombre|default:"?"|slice:":1"|upper }}</span>
+            <div><b>{{ f.auxiliar_nombre }}</b><small>{{ f.fecha_registro }}{% if f.turno %} · {{ f.turno|capfirst }}{% endif %}{% if f.laboratorio %} · {{ f.laboratorio }}{% endif %}</small></div>
+          </div>
+          <span class="nov2-chip est-{{ f.estado }}">{{ f.estado }}</span>
+        </div>
+        <p class="txt">{{ f.texto }}</p>
+        {% if f.tiene_foto %}<img class="ev" src="{% url 'novedad_foto' f.id %}" alt="Foto del reporte" loading="lazy">{% endif %}
+        {% if tab == 'cierres' and f.estado == 'pendiente' and puede_validar %}
+        <form method="post" class="nov2-actions">
+          {% csrf_token %}
+          <input type="hidden" name="tab" value="cierres">
+          <input type="hidden" name="id" value="{{ f.id }}">
+          <button type="submit" name="action" value="validar" class="nov2-btn sm">Validar</button>
+          <button type="submit" name="action" value="rechazar" class="nov2-btn ghost sm">Rechazar</button>
+        </form>
+        {% endif %}
+      </article>
+      {% empty %}
+      <p class="nov2-empty">Nada publicado todavía.</p>
+      {% endfor %}
+    </div>
+
+    <aside class="nov2-side">
+      <section class="nov2-card">
+        <h3><iconify-icon icon="mdi:information-outline" aria-hidden="true"></iconify-icon>Guía rápida</h3>
+        <ol>
+          <li><b>Aviso</b>: texto + turno/lab opcionales, sale en el muro.</li>
+          <li><b>Objeto</b>: foto obligatoria, va al kanban hasta devolverse.</li>
+          <li><b>Cierre</b>: foto de llaves obligatoria, lo valida un encargado.</li>
+        </ol>
+      </section>
+      <section class="nov2-card">
+        <h3><iconify-icon icon="mdi:history" aria-hidden="true"></iconify-icon>Vigencia</h3>
+        <p class="nov2-meta" style="margin:0">El muro muestra los últimos {{ vigencia_dias }} días. Los objetos viven en el kanban hasta su devolución (+90 días se purgan).</p>
+      </section>
+    </aside>
+  </div>
   {% endif %}
 </div>
 <script>(function(){
   var ask=document.getElementById('composer-ask');
-  var forms=document.querySelectorAll('.cform');
+  var cards=document.querySelectorAll('.nov2-ccard[data-tipo]');
+  var forms=document.querySelectorAll('.nov2-cform[data-form]');
   function ocultarForms(){forms.forEach(function(f){f.hidden=true;});}
+  function marcar(t){cards.forEach(function(c){c.classList.toggle('sel',c.dataset.tipo===t);});}
   function mostrar(t){
     ocultarForms();
-    ask.hidden=true;
+    if(ask)ask.hidden=true;
+    marcar(t);
     forms.forEach(function(f){if(f.dataset.form===t)f.hidden=false;});
-    document.querySelectorAll('.nov-tabs [data-vista]').forEach(function(a){
-      a.classList.toggle('ghost', a.dataset.vista!==t);
-    });
   }
-  document.querySelectorAll('.ccard[data-tipo]').forEach(function(b){
-    b.addEventListener('click',function(){mostrar(b.dataset.tipo);});
-  });
+  cards.forEach(function(b){b.addEventListener('click',function(){mostrar(b.dataset.tipo);});});
   document.querySelectorAll('[data-volver]').forEach(function(b){
-    b.addEventListener('click',function(){ocultarForms();ask.hidden=false;});
+    b.addEventListener('click',function(){ocultarForms();marcar('');if(ask)ask.hidden=false;});
   });
-  // cada pestaña es su espacio: abre directo su formulario
-  var TAB = "{{ tab }}";
-  if (document.querySelector('.cform[data-form="' + TAB + '"]')) { mostrar(TAB); }
-  else { ocultarForms(); }
+  var TAB="{{ tab }}";
+  if(document.querySelector('.nov2-cform[data-form="'+TAB+'"]')){mostrar(TAB);}
+  else{ocultarForms();}
 })();</script>
 {% endblock %}

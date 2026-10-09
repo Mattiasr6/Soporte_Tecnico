@@ -9,6 +9,16 @@
   <form method="post" id="form-lab">
     {% csrf_token %}
     {% include "atenciones/_lab_card_picker.html" %}
+    {% if not edit_item and lab_prefill %}
+    <script>(function(){var r=document.querySelector('input[name="laboratorio_id"][value="{{ lab_prefill }}"]');if(r){r.checked=true;r.dispatchEvent(new Event("change",{bubbles:true}));}})();</script>
+    {% endif %}
+    {% if not edit_item and pc_prefill %}
+    <p class="sub">PC: <b>{{ pc_prefill }}</b> (desde sala)</p>
+    <input type="hidden" name="pc_nombre" value="{{ pc_prefill }}">
+    {% elif edit_item and edit_item.pc_nombre %}
+    <p class="sub">PC: <b>{{ edit_item.pc_nombre }}</b></p>
+    <input type="hidden" name="pc_nombre" value="{{ edit_item.pc_nombre }}">
+    {% endif %}
     <label for="cat-select">Categoría</label>
     <select id="cat-select" name="categoria" required>
       <option value="">— Elegí categoría —</option>
