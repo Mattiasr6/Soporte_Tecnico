@@ -2,7 +2,7 @@ import { inject } from '@angular/core';
 import { CanActivateFn, Router } from '@angular/router';
 import { AuthService } from './auth.service';
 
-/** Exige sesión iniciada con perfil activo y con rol (el invitado va a la espera) */
+/** Exige sesión iniciada con perfil activo y con acceso (el Invitado va a la espera) */
 export const exigirSesion: CanActivateFn = async () => {
   const auth = inject(AuthService);
   const router = inject(Router);
@@ -11,7 +11,7 @@ export const exigirSesion: CanActivateFn = async () => {
   return auth.esInvitado() ? router.createUrlTree(['/espera']) : true;
 };
 
-/** Pantalla de espera: solo para el invitado (sin rol todavía) */
+/** Pantalla de espera: solo para el Invitado (sin acceso todavía) */
 export const exigirInvitado: CanActivateFn = async () => {
   const auth = inject(AuthService);
   const router = inject(Router);
@@ -20,7 +20,7 @@ export const exigirInvitado: CanActivateFn = async () => {
   return auth.esInvitado() ? true : router.createUrlTree(['/']);
 };
 
-/** Edición académica: admin, decano, encargado */
+/** Edición académica: Jefe, Encargado, Decano */
 export const exigirEdicion: CanActivateFn = async () => {
   const auth = inject(AuthService);
   const router = inject(Router);
@@ -28,7 +28,7 @@ export const exigirEdicion: CanActivateFn = async () => {
   return auth.puedeEditar() ? true : router.createUrlTree(['/']);
 };
 
-/** Operación de auxiliares: admin, encargado, auxiliar */
+/** Operación: Jefe, Encargado, Auxiliar, Técnico */
 export const exigirOperacion: CanActivateFn = async () => {
   const auth = inject(AuthService);
   const router = inject(Router);
@@ -36,7 +36,7 @@ export const exigirOperacion: CanActivateFn = async () => {
   return auth.puedeOperar() ? true : router.createUrlTree(['/']);
 };
 
-/** Gestión de auxiliares: admin, encargado */
+/** Gestión de auxiliares: Jefe, Encargado */
 export const exigirGestionAuxiliares: CanActivateFn = async () => {
   const auth = inject(AuthService);
   const router = inject(Router);
@@ -44,7 +44,7 @@ export const exigirGestionAuxiliares: CanActivateFn = async () => {
   return auth.puedeGestionarAuxiliares() ? true : router.createUrlTree(['/']);
 };
 
-/** Solo administrador */
+/** Solo Jefe (administrador) */
 export const exigirAdmin: CanActivateFn = async () => {
   const auth = inject(AuthService);
   const router = inject(Router);

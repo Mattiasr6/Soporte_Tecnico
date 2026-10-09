@@ -5,6 +5,7 @@ import { PanelLateralComponent } from '../../compartido/panel-lateral.component'
 import { TemaService } from '../../core/tema.service';
 import { AuthService } from '../../core/auth.service';
 import { CatalogosService } from '../../core/catalogos.service';
+import { ROLES_SOPORTE } from '../../core/modelos';
 import { PanelesService } from '../../core/paneles.service';
 
 /** Elemento del menú lateral */
@@ -72,7 +73,7 @@ interface ItemMenu {
           <div class="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-sm font-semibold text-white">{{ iniciales() }}</div>
           <div class="min-w-0 flex-1">
             <p class="truncate text-sm font-medium text-white">{{ auth.perfil()?.nombre_completo }}</p>
-            <p class="text-xs text-white/55 capitalize">{{ auth.perfil()?.rol }}</p>
+            <p class="text-xs text-white/55">{{ nombreRol() }}</p>
           </div>
           <button class="rounded-md p-2 hover:bg-white/10 hover:text-white" (click)="tema.alternar()"
                   [title]="tema.modo() === 'oscuro' ? 'Modo claro' : 'Modo oscuro'" [attr.aria-label]="tema.modo() === 'oscuro' ? 'Activar modo claro' : 'Activar modo oscuro'">
@@ -138,6 +139,8 @@ export class LayoutComponent implements OnInit {
     { ruta: '/cuenta/perfil', texto: 'Perfil', icono: 'docente' },
     { ruta: '/cuenta/notas', texto: 'Bloc de notas', icono: 'editar' },
   ];
+  /** Visible name of the session's Soporte role */
+  protected readonly nombreRol = computed(() => ROLES_SOPORTE.find((r) => r.valor === this.auth.role())?.texto ?? '');
   /** Ítems visibles para el rol actual */
   protected readonly menu = computed(() => this.items.filter((i) => !i.visible || i.visible(this.auth)));
 

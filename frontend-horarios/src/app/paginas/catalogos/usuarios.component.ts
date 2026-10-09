@@ -4,7 +4,7 @@ import { normalizar } from '../../compartido/buscador.component';
 import { IconoComponent } from '../../compartido/icono.component';
 import { ModalComponent } from '../../compartido/modal.component';
 import { AuthService } from '../../core/auth.service';
-import { Rol, UsuarioSistema } from '../../core/modelos';
+import { ROLES_SOPORTE, RolSoporte, UsuarioSistema } from '../../core/modelos';
 import { NotificacionesService } from '../../core/notificaciones.service';
 import { CambiosUsuario, UsuariosService } from '../../core/usuarios.service';
 
@@ -13,13 +13,14 @@ interface FormUsuario {
   nombre: string;
   correo: string;
   password: string;
-  rol: Exclude<Rol, 'invitado'>;
+  role: Exclude<RolSoporte, 'Invitado'>;
 }
 
 /**
- * Gestión de usuarios (solo admin): crear, cambiar rol, activar/desactivar
- * y restablecer contraseña. Son los usuarios de Soporte (una sola cuenta para
- * ambos sistemas); el turno habitual es propio de este sistema.
+ * User management (Jefe only): create, change role, activate/deactivate and
+ * reset password. These are the Soporte users (one account for both systems)
+ * and the role shown and assigned is the Soporte role; the habitual shift
+ * belongs to this system only.
  */
 @Component({
   selector: 'app-usuarios',
@@ -28,7 +29,7 @@ interface FormUsuario {
     <div class="mb-4 flex flex-wrap items-end justify-between gap-3">
       <div>
         <h2 class="text-lg font-semibold">Usuarios</h2>
-        <p class="text-sm text-slate-500">Admin: todo · Decano/Encargado: horarios · Encargado/Auxiliar: turnos y atenciones · Auxiliar: solo ve los horarios.</p>
+        <p class="text-sm text-slate-500">Jefe: todo · Encargado/Decano: horarios académicos · Encargado/Auxiliar/Técnico: atenciones y PCs · Invitado: sin acceso.</p>
       </div>
       <button class="btn-primario" (click)="nuevo()"><app-icono nombre="agregar" [tamano]="16" /> Nuevo usuario</button>
     </div>
@@ -36,7 +37,7 @@ interface FormUsuario {
     @if (invitados().length) {
       <div class="tarjeta mb-3 flex flex-wrap items-center gap-2 border-l-4 border-l-amber-400 bg-amber-50/60 p-3 text-sm text-amber-900">
         <app-icono nombre="hora" [tamano]="16" />
-        <b>{{ invitados().length }}</b> cuenta(s) sin acceso a este sistema (Invitado o Técnico de Soporte). Para darles acceso, elige su rol en la columna <b>Rol</b>.
+        <b>{{ invitados().length }}</b> cuenta(s) sin acceso (Invitado). Para darles acceso, elige su rol en la columna <b>Rol</b>.
         <button class="btn-secundario btn-sm ml-auto" (click)="soloInvitados.set(!soloInvitados())">{{ soloInvitados() ? 'Ver todos' : 'Ver solo esas' }}</button>
       </div>
     }
@@ -51,16 +52,16 @@ interface FormUsuario {
         <thead><tr><th>Nombre</th><th>Correo</th><th>Rol</th><th>Turno</th><th>Estado</th><th></th></tr></thead>
         <tbody>
           @for (u of filtrados(); track u.id) {
-            <tr [class.bg-amber-50]="u.rol === 'invitado'">
-              <td class="font-medium">{{ u.nombre_completo }} @if (u.id === auth.perfil()?.id) { <span class="chip bg-marca-50 text-marca-700">usted</span> } @if (u.role === 'Tecnico') { <span class="chip bg-slate-100 text-slate-600">Técnico de Soporte</span> }</td>
+            <tr [class.bg-amber-50]="u.role === 'Invitado'">
+              <td class="font-medium">{{ u.nombre_completo }} @if (u.id === auth.perfil()?.id) { <span class="chip bg-marca-50 text-marca-700">usted</span> }</td>
               <td>{{ u.correo }}</td>
               <td>
-                <select class="campo !w-36 !py-1" [ngModel]="u.rol" (ngModelChange)="actualizar(u, { rol: $event })" [disabled]="u.id === auth.perfil()?.id">
+                <select class="campo !w-44 !py-1" [ngModel]="u.role" (ngModelChange)="actualizar(u, { role: $event })" [disabled]="u.id === auth.perfil()?.id">
                   @for (r of roles; track r.valor) { <option [value]="r.valor">{{ r.texto }}</option> }
                 </select>
               </td>
               <td>
-                <select class="campo !w-28 !py-1" [ngModel]="u.turno_habitual ?? ''" (ngModelChange)="actualizar(u, { turno_habitual: $event || null })" [disabled]="u.rol !== 'auxiliar'">
+                <select class="campo !w-28 !py-1" [ngModel]="u.turno_habitual ?? ''" (ngModelChange)="actualizar(u, { turno_habitual: $event || null })" [disabled]="u.role !== 'Auxiliar'">
                   @for (t of turnos; track t.valor) { <option [value]="t.valor">{{ t.texto }}</option> }
                 </select>
               </td>
@@ -87,8 +88,8 @@ interface FormUsuario {
           <div><label class="etiqueta">Contraseña * (mínimo 8)</label><input class="campo" type="text" [(ngModel)]="f.password" maxlength="72"></div>
           <div>
             <label class="etiqueta">Rol</label>
-            <select class="campo" [(ngModel)]="f.rol">
-              @for (r of roles; track r.valor) { @if (r.valor !== 'invitado') { <option [value]="r.valor">{{ r.texto }}</option> } }
+            <select class="campo" [(ngModel)]="f.role">
+              @for (r of roles; track r.valor) { @if (r.valor !== 'Invitado') { <option [value]="r.valor">{{ r.texto }}</option> } }
             </select>
           </div>
         </div>
@@ -111,22 +112,18 @@ export class UsuariosComponent implements OnInit {
 
   protected readonly busqueda = signal('');
   protected readonly soloInvitados = signal(false);
-  /** Cuentas sin acceso a este sistema (Invitado, o Técnico de Soporte) */
-  protected readonly invitados = computed(() => this.usuarios().filter((u) => u.rol === 'invitado'));
+  /** Accounts without access (Soporte Invitado) */
+  protected readonly invitados = computed(() => this.usuarios().filter((u) => u.role === 'Invitado'));
   /** Invitados primero; filtro por nombre o correo (sin importar tildes) */
   protected readonly filtrados = computed(() => {
     const texto = normalizar(this.busqueda().trim());
     return this.usuarios()
-      .filter((u) => !this.soloInvitados() || u.rol === 'invitado')
+      .filter((u) => !this.soloInvitados() || u.role === 'Invitado')
       .filter((u) => !texto || normalizar(`${u.nombre_completo} ${u.correo}`).includes(texto))
-      .sort((a, b) => Number(b.rol === 'invitado') - Number(a.rol === 'invitado'));
+      .sort((a, b) => Number(b.role === 'Invitado') - Number(a.role === 'Invitado'));
   });
 
-  protected readonly roles: { valor: Rol; texto: string }[] = [
-    { valor: 'invitado', texto: 'Invitado (sin acceso)' },
-    { valor: 'auxiliar', texto: 'Auxiliar' }, { valor: 'encargado', texto: 'Encargado de auxiliares' },
-    { valor: 'decano', texto: 'Decano' }, { valor: 'admin', texto: 'Administrador' },
-  ];
+  protected readonly roles = ROLES_SOPORTE;
   protected readonly turnos = [
     { valor: '', texto: '—' }, { valor: 'M', texto: 'Mañana' }, { valor: 'MD', texto: 'Mediodía' },
     { valor: 'T', texto: 'Tarde' }, { valor: 'N', texto: 'Noche' },
@@ -145,7 +142,7 @@ export class UsuariosComponent implements OnInit {
   }
 
   protected nuevo(): void {
-    this.form.set({ nombre: '', correo: '', password: '', rol: 'auxiliar' });
+    this.form.set({ nombre: '', correo: '', password: '', role: 'Auxiliar' });
   }
 
   /** Crea el usuario en Soporte (puede entrar a ambos sistemas) */
@@ -158,7 +155,7 @@ export class UsuariosComponent implements OnInit {
     }
     this.guardando.set(true);
     try {
-      await this.servicio.crear({ nombre_completo: f.nombre.trim(), correo: f.correo.trim(), password: f.password, rol: f.rol });
+      await this.servicio.crear({ nombre_completo: f.nombre.trim(), correo: f.correo.trim(), password: f.password, role: f.role });
       this.notificaciones.exito('Usuario creado. Ya puede iniciar sesión.');
       this.form.set(null);
       await this.cargar();
@@ -169,16 +166,8 @@ export class UsuariosComponent implements OnInit {
     }
   }
 
-  /**
-   * Cambia rol, estado o turno. El rol y el estado son los de Soporte: a un
-   * Técnico se le confirma antes, porque deja de ser Técnico en Soporte.
-   */
+  /** Changes role, state or shift (role and state are the Soporte ones) */
   protected async actualizar(u: UsuarioSistema, cambios: CambiosUsuario): Promise<void> {
-    if (cambios.rol && u.role === 'Tecnico'
-        && !confirm(`${u.nombre_completo} es Técnico de Soporte. Si cambia su rol aquí, también cambia en Soporte y deja de ser Técnico. ¿Continuar?`)) {
-      await this.cargar();
-      return;
-    }
     try {
       await this.servicio.actualizar(u.id, cambios);
       this.notificaciones.exito('Usuario actualizado.');

@@ -331,9 +331,9 @@ export class OperacionService {
     return this.api.get<Perfil[]>('/auxiliares', { rol: 'auxiliar' });
   }
 
-  /** Personal de operación activo (auxiliares y encargados), para elegir colaboradores */
+  /** Personal de operación activo (auxiliares, técnicos y encargados), para elegir colaboradores */
   listarPersonalOperacion(): Promise<Perfil[]> {
-    return this.api.get<Perfil[]>('/auxiliares', { rol: ['auxiliar', 'encargado'], activo: true });
+    return this.api.get<Perfil[]>('/auxiliares', { rol: ['auxiliar', 'tecnico', 'encargado'], activo: true });
   }
 
   /** Asigna turno habitual y sábado rotativo (admin/encargado) vía fn_asignar_turno */

@@ -3,7 +3,7 @@ import { computed, inject, Injectable, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { environment } from '../../environments/environment';
-import { Perfil, Rol } from './modelos';
+import { Perfil, Rol, RolSoporte } from './modelos';
 
 /** localStorage key that holds the JWT issued by the backend */
 export const TOKEN_KEY = 'upds.token';
@@ -21,12 +21,15 @@ interface MeResponse {
   nombre_completo: string;
   correo: string;
   rol: string | null;
+  /** Soporte role (Usuarios.Role) */
+  role: string;
   activo: boolean;
   turno_habitual: Perfil['turno_habitual'];
   sabado_rotativo: boolean;
 }
 
-const KNOWN_ROLES: readonly Rol[] = ['admin', 'auxiliar', 'decano', 'encargado', 'invitado'];
+const KNOWN_ROLS: readonly Rol[] = ['admin', 'auxiliar', 'decano', 'encargado', 'invitado', 'tecnico'];
+const KNOWN_ROLES: readonly RolSoporte[] = ['Jefe', 'Encargado', 'Auxiliar', 'Tecnico', 'Decano', 'Invitado'];
 
 /** Reads the stored token; storage may be unavailable (private mode) */
 function readToken(): string | null {
@@ -67,19 +70,28 @@ export class AuthService {
   /** true cuando ya se leyó la sesión guardada */
   readonly listo = signal(false);
 
-  readonly esAdmin = computed(() => this.perfil()?.rol === 'admin');
-  readonly esEncargado = computed(() => this.perfil()?.rol === 'encargado');
-  readonly esAuxiliar = computed(() => this.perfil()?.rol === 'auxiliar');
-  readonly esDecano = computed(() => this.perfil()?.rol === 'decano');
-  /** Entró pero aún no tiene rol: solo ve la pantalla de espera */
-  readonly esInvitado = computed(() => this.perfil()?.rol === 'invitado');
+  /** Soporte role of the session; missing or unknown counts as Invitado (fail closed) */
+  readonly role = computed<RolSoporte>(() => this.perfil()?.role ?? 'Invitado');
+  private tieneRol(...roles: RolSoporte[]): boolean {
+    return roles.includes(this.role());
+  }
 
-  /** Edición ACADÉMICA (horarios de clase, cesiones, eventos, catálogos): admin, decano, encargado */
-  readonly puedeEditar = computed(() => ['admin', 'decano', 'encargado'].includes(this.perfil()?.rol ?? ''));
-  /** OPERACIÓN (turnos, atenciones, inventario de PCs): admin, encargado, auxiliar */
-  readonly puedeOperar = computed(() => ['admin', 'encargado', 'auxiliar'].includes(this.perfil()?.rol ?? ''));
-  /** Gestión de auxiliares (listado, turnos, rotación): admin, encargado */
-  readonly puedeGestionarAuxiliares = computed(() => ['admin', 'encargado'].includes(this.perfil()?.rol ?? ''));
+  readonly esAdmin = computed(() => this.tieneRol('Jefe'));
+  readonly esEncargado = computed(() => this.tieneRol('Encargado'));
+  readonly esAuxiliar = computed(() => this.tieneRol('Auxiliar'));
+  readonly esTecnico = computed(() => this.tieneRol('Tecnico'));
+  readonly esDecano = computed(() => this.tieneRol('Decano'));
+  /** Entró pero aún no tiene acceso: solo ve la pantalla de espera */
+  readonly esInvitado = computed(() => this.tieneRol('Invitado'));
+
+  /** Edición ACADÉMICA (horarios de clase, cesiones, eventos, catálogos): Jefe, Encargado, Decano */
+  readonly puedeEditar = computed(() => this.tieneRol('Jefe', 'Encargado', 'Decano'));
+  /** OPERACIÓN (atenciones, estados de PCs, tareas de turno): Jefe, Encargado, Auxiliar, Técnico */
+  readonly puedeOperar = computed(() => this.tieneRol('Jefe', 'Encargado', 'Auxiliar', 'Tecnico'));
+  /** Gestión de auxiliares (listado, turnos, rotación): Jefe, Encargado */
+  readonly puedeGestionarAuxiliares = computed(() => this.tieneRol('Jefe', 'Encargado'));
+  /** Cerrar turno: quien gestiona auxiliares, o el auxiliar en su turno (el técnico no tiene turno) */
+  readonly puedeCerrarTurno = computed(() => this.puedeGestionarAuxiliares() || this.esAuxiliar());
 
   private inicializacion: Promise<void> | null = null;
 
@@ -105,12 +117,14 @@ export class AuthService {
   /** Lee el perfil del usuario autenticado desde el backend */
   private async cargarPerfil(): Promise<void> {
     const me = await firstValueFrom(this.http.get<MeResponse>(`${environment.apiUrl}/asignacion/me`));
-    const rol = KNOWN_ROLES.includes(me.rol as Rol) ? (me.rol as Rol) : 'invitado';
+    const rol = KNOWN_ROLS.includes(me.rol as Rol) ? (me.rol as Rol) : 'invitado';
+    const role = KNOWN_ROLES.includes(me.role as RolSoporte) ? (me.role as RolSoporte) : 'Invitado';
     this.perfil.set({
       id: me.perfil_id,
       nombre_completo: me.nombre_completo,
       correo: me.correo,
       rol,
+      role,
       activo: me.activo,
       turno_habitual: me.turno_habitual,
       sabado_rotativo: me.sabado_rotativo,

@@ -85,7 +85,7 @@ function horaLaPaz(): string {
       </section>
 
       <!-- NUEVO REPORTE -->
-      @if (auth.puedeOperar()) {
+      @if (auth.puedeCerrarTurno()) {
         <section class="tarjeta p-4">
           <h2 class="mb-3 flex items-center gap-2 font-semibold"><app-icono nombre="editar" [tamano]="18" /> Cerrar turno</h2>
 
@@ -336,7 +336,7 @@ export class TurnoComponent implements OnInit, OnDestroy {
     const fin = this.finDe(this.turno());
     return fin ? Math.max(0, aMinutos(this.ahora()) - aMinutos(fin)) : 0;
   });
-  protected readonly puedeCerrar = computed(() => this.auth.puedeOperar() && this.enTurno());
+  protected readonly puedeCerrar = computed(() => this.auth.puedeCerrarTurno() && this.enTurno());
 
   /** Hora actual de La Paz (se actualiza cada minuto) */
   protected readonly ahora = signal(horaLaPaz());

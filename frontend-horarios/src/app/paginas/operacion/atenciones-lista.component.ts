@@ -556,7 +556,7 @@ export class AtencionesListaComponent implements OnInit {
   protected readonly lista = signal<Atencion[]>([]);
   protected readonly solicitudes = signal<SolicitudBaja[]>([]);
   protected readonly filtroCategoria = signal<CategoriaTicket | null>(null);
-  /** Auxiliares y encargados activos (para colaboradores) */
+  /** Auxiliares, técnicos y encargados activos (para colaboradores) */
   protected readonly personal = signal<Perfil[]>([]);
   /** Los demás, sin quien está registrando */
   protected readonly companeros = computed(() => this.personal().filter((p) => p.id !== this.auth.perfil()?.id));
@@ -571,6 +571,7 @@ export class AtencionesListaComponent implements OnInit {
     const lista = this.companeros().filter((p) => !texto || normalizar(p.nombre_completo).includes(texto));
     return [
       { titulo: 'Auxiliares', personas: lista.filter((p) => p.rol === 'auxiliar') },
+      { titulo: 'Técnicos', personas: lista.filter((p) => p.rol === 'tecnico') },
       { titulo: 'Encargados', personas: lista.filter((p) => p.rol === 'encargado') },
     ].filter((g) => g.personas.length);
   });
@@ -585,7 +586,7 @@ export class AtencionesListaComponent implements OnInit {
 
   protected filtroLab: number | null = null;
   /** Por defecto, el auxiliar ve sus tickets (los que registró y en los que colaboró) */
-  protected soloMios = this.auth.perfil()?.rol === 'auxiliar';
+  protected soloMios = this.auth.esAuxiliar();
   protected desde = '';
   protected hasta = '';
 

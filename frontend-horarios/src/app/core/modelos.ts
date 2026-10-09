@@ -4,8 +4,34 @@
  * propias del frontend usan camelCase.
  */
 
-/** 'invitado' = sin acceso a este sistema (rol Invitado o Técnico en Soporte) */
-export type Rol = 'admin' | 'auxiliar' | 'decano' | 'encargado' | 'invitado';
+/**
+ * Rol of `horarios.perfiles` (the database uses it for permissions). The app
+ * decides with the Soporte role (`RolSoporte`); this one only filters people.
+ */
+export type Rol = 'admin' | 'auxiliar' | 'decano' | 'encargado' | 'invitado' | 'tecnico';
+
+/** Soporte role (`Usuarios.Role`): the single role model of this app */
+export type RolSoporte = 'Jefe' | 'Encargado' | 'Auxiliar' | 'Tecnico' | 'Decano' | 'Invitado';
+
+/** Soporte roles with their visible name (Invitado = no access, waiting) */
+export const ROLES_SOPORTE: readonly { valor: RolSoporte; texto: string }[] = [
+  { valor: 'Jefe', texto: 'Jefe (administrador)' },
+  { valor: 'Encargado', texto: 'Encargado de auxiliares' },
+  { valor: 'Auxiliar', texto: 'Auxiliar' },
+  { valor: 'Tecnico', texto: 'Técnico' },
+  { valor: 'Decano', texto: 'Decano' },
+  { valor: 'Invitado', texto: 'Invitado (sin acceso)' },
+];
+
+/** Same table as the backend ROLE_MAP (one perfiles rol per Soporte role) */
+export const ROL_DE_ROLE: Record<RolSoporte, Rol> = {
+  Jefe: 'admin',
+  Encargado: 'encargado',
+  Auxiliar: 'auxiliar',
+  Tecnico: 'tecnico',
+  Decano: 'decano',
+  Invitado: 'invitado',
+};
 
 /** Código de turno de trabajo */
 export type TurnoCodigo = 'M' | 'MD' | 'T' | 'N';
@@ -16,6 +42,8 @@ export interface Perfil {
   nombre_completo: string;
   correo: string;
   rol: Rol;
+  /** Soporte role; only present in the own perfil and in user management */
+  role?: RolSoporte;
   activo: boolean;
   /** Turno habitual del auxiliar (solo informativo) */
   turno_habitual?: TurnoCodigo | null;
@@ -27,8 +55,8 @@ export interface Perfil {
 export interface UsuarioSistema extends Perfil {
   /** Id en `Usuarios` de Soporte (fuente única de identidad) */
   usuario_id: number;
-  /** Rol en Soporte (Jefe, Encargado, Auxiliar, Decano, Invitado, Tecnico) */
-  role: string;
+  /** Soporte role */
+  role: RolSoporte;
 }
 
 export interface Carrera {

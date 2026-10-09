@@ -46,8 +46,8 @@ frontends already talk to the same FastAPI, so only the presentation layer must 
 - D2 Lab attentions: `LabAtenciones` vs `horarios.atenciones`.
 - D3 Shifts/auxiliares: JSON files + `mañana/mediodia/tarde/noche` vs `horarios.perfiles` + `M/MD/T/N`.
 - D4 Novedades: `Novedades` vs `horarios.reportes_turno` + `objetos_perdidos`.
-- D5 Angular role model: `ROLE_MAP` sends Tecnico → invitado, so technicians have no real role
-  in Angular (needed before the Soporte area).
+- ~~D5 Angular role model~~ → decided 2026-10-09: Soporte's 6 roles are the single model in
+  Angular; Tecnico gets a real horarios role (see R1/R2).
 
 ## Tasks
 
@@ -56,6 +56,14 @@ frontends already talk to the same FastAPI, so only the presentation layer must 
 - [x] M1 Perfil: view/edit display name and change password (re-login after change, as
   Django `perfil_guardar_vista`). Uses `/api/usuarios/me`. Route: delegated with M0.
 - [x] M2 Notas personales: GET/PUT `/api/usuarios/notas`. Route: delegated with M0.
+- [x] R1 D5 backend (decided 2026-10-09): real `tecnico` horarios role. Tecnico sees everything
+  and operates like auxiliar (atenciones, reparaciones, PC states, baja requests; the single
+  OPERAR permission also covers turnos/objetos, accepted). No academic edit, no management,
+  no personal shift. Migration 0023, `ROLE_MAP` Tecnico→tecnico, `/asignacion/me` exposes the
+  Soporte `Usuarios.Role`. Route: delegated (multi-file).
+- [x] R2 D5 Angular: Soporte roles (Tecnico, Jefe, Auxiliar, Encargado, Decano, Invitado) are the
+  single role model; guards, menu and user screen read `Usuarios.Role`. Invitado stays
+  "pending, no access" (/espera). Route: delegated with R1.
 - [ ] M3 Auditoría (read-only, Jefe): `/api/auditoria`.
 - [ ] M4 Soporte attentions list + ticket (needs D5).
 - [ ] Later areas (dashboards, reports, jerarquía, IA, labs, auxiliares, novedades) are added
@@ -89,11 +97,48 @@ Strategy: ask-on-risk. Forecast M0–M2 ≈ 400 authored lines. RDD disabled for
   - Not migrated: the Perfil "Accesibilidad" block (letter size/contrast/motion in
     localStorage) needs global CSS classes in `src/styles.css`, outside this slice; the
     "estadísticas etapa 2" placeholder was skipped.
-  - Note: Soporte `Tecnico` users map to Angular `invitado` (D5), so they only see `/espera`
-    and cannot reach Mi cuenta in Angular yet.
+  - Note: Soporte `Tecnico` users mapped to Angular `invitado` (D5) at that time; fixed by R1/R2.
   - Checks: horarios image build → "Application bundle generation complete", no errors;
     login as paul → GET `/api/usuarios/me` 200, GET `/api/usuarios/notas` 200; POST
     `/api/auth/password` with a wrong current password → 401 (confirms the exemption is
     needed; password not changed); `/cuenta/perfil` and `/cuenta/notas` → 200 (SPA fallback);
     `cuenta/perfil` present in the served `main-*.js`. No spec files exist (test-first
     exception); no browser click-through was done.
+- 2026-10-09: R1–R2 done (route: delegated, one writer; trigger: 2+ non-trivial files across
+  backend and Angular). Commits `fbdfc46` feat(asignacion): give Tecnico a real horarios role,
+  and the R2 commit feat(horarios): use Soporte roles as the Angular role model.
+  - R1: migration `0023_horarios_rol_tecnico` (inline SQL, `_run_sql`): `perfiles_rol_check`
+    + `tecnico`, `fn_puede_operar` + `tecnico`; downgrade turns tecnico perfiles back into
+    invitado and restores both. `ROLE_MAP` Tecnico→tecnico, `ROL_TO_ROLE` is now its exact
+    inverse; `RolAsignacion`, `RolNuevo` and the turnos `Rol` filter accept `tecnico`. The
+    "Tecnico shows as invitado" special case in `routers/asignacion/usuarios.py` is gone; the
+    "only write a real change" check stays (aplicar_rol refuses any self rol change).
+    `/asignacion/me` also returns `role` (Usuarios.Role, joined on `perfiles.usuario_id`).
+  - Tests that used a Tecnico as the "no access" user now use Invitado; new tests cover the
+    tecnico permissions (schema), `/me` role, users-screen tecnico rol, and a Tecnico creating
+    a ticket + changing a PC state while getting 403 on fallas-pc (GESTIONAR), feriados
+    (EDITAR) and dashboards.
+  - RED: 16 failed / 160 passed on the 9 asignacion test files before the code change.
+    GREEN: 176 passed. Full suite: baseline 90 failed / 211 passed / 39 errors → after
+    90 failed / 228 passed / 39 errors, same failing set (seed users missing in test DB).
+  - Migration: dev DB upgrade → 0023 (head); round-trip downgrade -1 → 0022, upgrade → 0023.
+    Test DB upgraded to 0023. Ruff check + format clean on touched files (host ruff; the
+    container has none).
+  - GitNexus impact: the index (other checkout) did not resolve `ensure_perfil`/`map_role`/`me`;
+    manual check: `ensure_perfil` runs in `get_asignacion_db` (every asignacion request) and the
+    users router; `/me` is only read by Angular `auth.service.ts`.
+  - R2: `RolSoporte` + `ROLES_SOPORTE` + `ROL_DE_ROLE` in `core/modelos.ts`; `AuthService.role`
+    (missing/unknown → Invitado, fail closed) drives every computed; new `esTecnico` and
+    `puedeCerrarTurno` (manager or auxiliar: the technician has no shift, so the close-shift
+    form is hidden for him while the turno page still lets him mark pending tasks). Users
+    screen shows/assigns the 6 Soporte roles (service translates with `ROL_DE_ROLE`), Técnico
+    confirmation removed. Collaborator list (`listarPersonalOperacion`) includes técnicos in a
+    "Técnicos" group. Sidebar shows the Soporte role name; /espera copy talks about Invitado.
+  - Checks: horarios image build → "Application bundle generation complete", no errors.
+    Smoke as paul (Tecnico) on :4213: `/api/asignacion/me` 200 rol `tecnico` role `Tecnico`;
+    `/api/asignacion/atenciones` 200 (403 before); `/auxiliares?rol=tecnico` 200;
+    dashboard operacion 403. Browser: paul lands on `/` (no longer /espera) with menu Inicio,
+    Cerrar turno, Atenciones, Objetos perdidos, Laboratorios, Registros, Mi cuenta. No Angular
+    spec files exist (test-first exception for R2).
+  - Known limitation: a técnico only appears in the collaborator list after he opened the
+    Angular app once (perfiles are created lazily by `ensure_perfil`; the users screen syncs all).

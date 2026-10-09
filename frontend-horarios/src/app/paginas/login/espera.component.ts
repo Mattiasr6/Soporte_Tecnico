@@ -3,13 +3,13 @@ import { Router } from '@angular/router';
 import { IconoComponent } from '../../compartido/icono.component';
 import { AuthService } from '../../core/auth.service';
 
-/** Cada cuánto se revisa si el admin ya asignó el rol */
+/** How often the perfil is re-read to see whether a Jefe already gave access */
 const REVISAR_CADA_MS = 15000;
 
 /**
- * Pantalla del invitado: inició sesión pero todavía no tiene rol.
- * No puede hacer nada; cada 15 s se revisa su perfil y, apenas el admin le
- * asigna un rol, entra solo al sistema con lo que ese rol le permite.
+ * Waiting screen of a Soporte Invitado: logged in but still without access.
+ * Every 15 s the perfil is re-read; as soon as a Jefe assigns another Soporte
+ * role, the user enters with what that role allows.
  */
 @Component({
   selector: 'app-espera',
@@ -22,8 +22,8 @@ const REVISAR_CADA_MS = 15000;
         </div>
         <h1 class="text-xl font-bold">Tu cuenta está en espera</h1>
         <p class="mt-2 text-sm text-slate-600">
-          Hola <b>{{ auth.perfil()?.nombre_completo }}</b>. Ya estás registrado, pero un administrador
-          todavía tiene que asignarte un rol (auxiliar, encargado, decano…).
+          Hola <b>{{ auth.perfil()?.nombre_completo }}</b>. Ya estás registrado como Invitado, pero el Jefe
+          todavía tiene que asignarte un rol (Auxiliar, Técnico, Encargado, Decano…).
         </p>
         <p class="mt-1 text-sm text-slate-600">Avisa a tu encargado. Cuando te asignen el rol, entrarás automáticamente.</p>
 
@@ -59,7 +59,7 @@ export class EsperaComponent implements OnInit, OnDestroy {
     if (this.intervalo) clearInterval(this.intervalo);
   }
 
-  /** Relee el perfil: si ya tiene rol entra al sistema; si lo desactivaron vuelve al login */
+  /** Re-reads the perfil: with access it enters the app; if deactivated it goes back to login */
   protected async revisar(): Promise<void> {
     this.revisando.set(true);
     try {

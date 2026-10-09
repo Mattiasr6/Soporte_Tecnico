@@ -1,22 +1,24 @@
 import { inject, Injectable } from '@angular/core';
 import { ApiService } from './api.service';
-import { Rol, UsuarioSistema } from './modelos';
+import { ROL_DE_ROLE, RolSoporte, UsuarioSistema } from './modelos';
 
 /** Datos de un usuario nuevo */
 export interface NuevoUsuario {
   nombre_completo: string;
   correo: string;
   password: string;
-  rol: Exclude<Rol, 'invitado'>;
+  /** A new account always gets access, so never Invitado */
+  role: Exclude<RolSoporte, 'Invitado'>;
 }
 
 /** Campos editables de un usuario (solo se mandan los que cambian) */
-export type CambiosUsuario = Partial<Pick<UsuarioSistema, 'nombre_completo' | 'rol' | 'activo' | 'turno_habitual' | 'sabado_rotativo'>>;
+export type CambiosUsuario = Partial<Pick<UsuarioSistema, 'nombre_completo' | 'role' | 'activo' | 'turno_habitual' | 'sabado_rotativo'>>;
 
 /**
- * Gestión de usuarios (solo admin). Los usuarios son los de Soporte: el servidor
- * traduce el rol de este sistema al rol de Soporte y conserva aquí solo los datos
- * propios de horarios (turno habitual, rotación del sábado).
+ * User management (Jefe only). Users are the Soporte ones and the screen speaks
+ * Soporte roles; the API takes the perfiles `rol`, so the role is translated
+ * here with ROL_DE_ROLE (the server maps it back with ROL_TO_ROLE). Only the
+ * horarios-only data (habitual shift, Saturday rotation) lives in perfiles.
  */
 @Injectable({ providedIn: 'root' })
 export class UsuariosService {
@@ -26,12 +28,12 @@ export class UsuariosService {
     return this.api.get<UsuarioSistema[]>('/usuarios');
   }
 
-  crear(datos: NuevoUsuario): Promise<UsuarioSistema> {
-    return this.api.post<UsuarioSistema>('/usuarios', datos);
+  crear({ role, ...datos }: NuevoUsuario): Promise<UsuarioSistema> {
+    return this.api.post<UsuarioSistema>('/usuarios', { ...datos, rol: ROL_DE_ROLE[role] });
   }
 
-  actualizar(id: string, cambios: CambiosUsuario): Promise<UsuarioSistema> {
-    return this.api.patch<UsuarioSistema>(`/usuarios/${id}`, cambios);
+  actualizar(id: string, { role, ...cambios }: CambiosUsuario): Promise<UsuarioSistema> {
+    return this.api.patch<UsuarioSistema>(`/usuarios/${id}`, role ? { ...cambios, rol: ROL_DE_ROLE[role] } : cambios);
   }
 
   cambiarPassword(id: string, password: string): Promise<void> {
