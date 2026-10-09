@@ -10,6 +10,9 @@ class Settings(BaseSettings):
     # Comma-separated browser origins allowed by CORS. Empty (the default) adds no
     # CORS middleware at all, so deployments that do not set it are unchanged.
     CORS_ORIGINS: str = ""
+    # Files of the asignacion module (shift report photos...). Empty = the
+    # backend's own `data/asignacion` folder (git-ignored, mounted volume in prod).
+    ASIGNACION_DATA_DIR: str = ""
 
     @property
     def cors_origin_list(self) -> list[str]:

@@ -23,11 +23,21 @@ interface ApiErrorDetail {
 export class ApiService {
   private readonly http = inject(HttpClient);
 
-  get<T>(path: string, params?: Record<string, string | number | boolean>): Promise<T> {
+  get<T>(path: string, params?: Record<string, string | number | boolean | readonly (string | number | boolean)[]>): Promise<T> {
     return this.run(this.http.get<T>(`${BASE}${path}`, { params }));
   }
 
-  post<T>(path: string, body: unknown): Promise<T> {
+  /** Binary download (e.g. a photo); the interceptor adds the Bearer token */
+  getBlob(path: string): Promise<Blob> {
+    return this.run(this.http.get(`${BASE}${path}`, { responseType: 'blob' }));
+  }
+
+  /** Multipart upload (the browser sets the content type and boundary) */
+  postForm<T>(path: string, form: FormData): Promise<T> {
+    return this.run(this.http.post<T>(`${BASE}${path}`, form));
+  }
+
+  post<T>(path: string, body: unknown = {}): Promise<T> {
     return this.run(this.http.post<T>(`${BASE}${path}`, body));
   }
 

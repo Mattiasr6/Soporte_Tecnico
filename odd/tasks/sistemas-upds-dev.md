@@ -44,7 +44,11 @@ El frontend consulta tablas directo con supabase-js (90 `.from()`, 9 `.rpc()`,
 - [x] T3 Auth en Angular: login contra `/api/auth/login`, interceptor JWT, proxy dev a 5013.
 - [x] T4 Catálogos (ambientes, ambiente_pcs, materias, carreras, docentes, feriados, bloques…).
 - [x] T5 Asignaciones, cesiones, reservas, reubicaciones + RPC de choques/ocupación.
-- [ ] T6 Operación: turnos, reportes de turno, atenciones, fallas, bajas, objetos perdidos, fotos.
+- [x] T6a Turnos y reportes de turno: turnos_programados, turnos_trabajo, horarios_turno, rotacion_sabados,
+      perfiles de operación, fn_turno_vigente/fn_asignar_turno, reportes_turno + reporte_tareas + foto de cierre.
+- [ ] T6b Operación: atenciones, fallas_pc, solicitudes_baja, objetos_perdidos (+ bucket), rpc_cambiar_estado_pcs,
+      rpc_resolver_baja, rpc_registrar_reparaciones, fn_limpiar_fotos_objetos, `misBajasDesde` (ambiente_pcs) y
+      los dos pendientes de T5 (`compartido/ocupacion-detalle`, `panel/laboratorio-detalle`).
 - [ ] T7 Dashboards (`fn_dashboard_*`).
 - [ ] T8 Quitar `@supabase/supabase-js` y `environment.supabase*`.
 
@@ -137,6 +141,31 @@ El frontend consulta tablas directo con supabase-js (90 `.from()`, 9 `.rpc()`,
   usar `ocupacion.eliminarReubicacion(id)`) y `panel/laboratorio-detalle.component.ts` (`.from('asignaciones')` con
   `!inner` por ambiente → `AsignacionesService.listar({ ambienteId, finDesde: hoyIso() })`).
 
+- T6a (delegado, writer): `routers/asignacion/turnos.py` + `reportes.py`, `schemas/asignacion_turnos.py`,
+  `services/asignacion/fotos.py`, setting `ASIGNACION_DATA_DIR` (vacío = `backend-fastapi/data/asignacion`, ignorado en
+  git y docker). Endpoints `/api/asignacion`: GET/PUT `/turnos-programados` (upsert perfil_id+desde), DELETE `/{id}`;
+  GET `/turnos/vigente` (`fn_turno_vigente`, por defecto uno mismo y hoy La Paz); GET/PUT `/horarios-turno`;
+  GET `/auxiliares` (`?rol=` repetible, `?activo=`), PUT `/auxiliares/{perfil_id}/turno` (`fn_asignar_turno`);
+  GET/POST `/rotacion-sabados`, PATCH/DELETE `/{id}`; GET `/turnos-trabajo/estado`, POST `/turnos-trabajo`,
+  POST `/turnos-trabajo/{id}/cierre`; GET/POST `/reportes-turno` (reporte + tareas en una transacción),
+  PATCH/DELETE `/reportes-turno/{id}`, PUT `/reportes-turno/{id}/tareas` (reemplaza pendientes), GET
+  `/reporte-tareas/pendientes`, PATCH `/reporte-tareas/{id}` (hecha; hecha_por = quien pide); POST/GET/DELETE
+  `/reportes-turno/{id}/foto`, POST `/reportes-turno/fotos/limpiar` (`fn_limpiar_fotos_reporte` + borra archivos).
+  Permisos = RLS: leer `fn_puede_ver`; programados/rotación/horarios/asignar turno `fn_puede_gestionar_auxiliares`;
+  turnos_trabajo y marcar tarea `fn_puede_operar`; crear reporte `operar ∧ (propio ∨ gestionar) ∧
+  fn_puede_cerrar_turno(turno)`; editar/borrar reporte y crear/borrar tareas `fn_puede_editar_reporte(id)` evaluado
+  antes (USING) y otra vez sobre la fila escrita antes del commit (WITH CHECK). `perfiles_propio` lo cubre `/me`.
+  Fotos: JPG/PNG/WEBP ≤ 5 MB (415/413/422), Pillow → WebP, nombre `YYYY-MM/<uuid>.webp` generado por el servidor,
+  rutas resueltas dentro de la carpeta; descarga autenticada (sin URLs firmadas): Angular la baja como blob con el
+  Bearer y usa `URL.createObjectURL` (`firmarFotosReporte(reportes)`); subir/borrar = `fn_puede_editar_reporte`.
+  Front: `operacion.service.ts` (mismos métodos públicos; atenciones/fallas/bajas/`misBajasDesde` siguen en supabase
+  para T6b), `api.service.ts` (+`getBlob`, `postForm`, params array), `turno.component.ts` (pasa reportes a
+  `firmarFotosReporte`). Crear reporte con foto = POST reporte + POST foto; si la foto falla se borra el reporte.
+  Evidencia: RED 16 fallan + 3 errores → GREEN; `pytest test_asignacion_turnos + horarios_academicos + catalogos +
+  base + horarios_schema + health` 75 passed en `soporte_upds_test` (sin filas residuales, horarios_turno restaurado,
+  fotos en tmp_path); ruff check/format OK; `ng build` OK sin warnings; curl en api 5013 como Jefe: los 8 GET → 200,
+  sin token 401.
+
 ## Siguiente paso
-T6 Operación (turnos, reportes, atenciones, fallas, bajas, objetos perdidos, fotos); incluir los dos
-usos supabase pendientes de T5 (`compartido/ocupacion-detalle`, `panel/laboratorio-detalle`).
+T6b Operación (atenciones, fallas_pc, bajas, objetos perdidos + fotos, RPC de PCs/reparaciones) y los dos usos
+supabase pendientes de T5 (`compartido/ocupacion-detalle`, `panel/laboratorio-detalle`).

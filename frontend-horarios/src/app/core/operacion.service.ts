@@ -2,12 +2,9 @@ import { inject, Injectable, signal } from '@angular/core';
 import { Atencion, EstadoAtencion, FallaPc, FichaReparacion, HorarioTurno, PcBajaCierre, Perfil, ReporteTurno, RotacionSabado, SolicitudBaja, TareaReporte, TurnoCodigo, TurnoProgramado, TurnoTrabajo } from './modelos';
 import { AuthService } from './auth.service';
 import { ErrorSistema, SupabaseService } from './supabase.service';
+import { ApiService } from './api.service';
 import { comprimirFoto } from './fotos';
-import { aMinutos, fechaActual } from './fechas';
-import { environment } from '../../environments/environment';
-
-/** Bucket privado de las fotos del cierre de turno */
-const BUCKET_REPORTES = 'reportes-turno';
+import { aMinutos } from './fechas';
 
 /**
  * Turno que corre a una hora 'HH:MM': entre los que la contienen, el que
@@ -45,17 +42,6 @@ const SELECT_ATENCION =
   '*, ambiente:ambientes(codigo), pc:ambiente_pcs(etiqueta), docente:docentes(nombres, apellidos), ' +
   'autor:perfiles!atenciones_auxiliar_id_fkey(nombre_completo)';
 
-/** Columnas con relaciones embebidas para el turno */
-const SELECT_TURNO =
-  '*, apertura:perfiles!turnos_trabajo_auxiliar_apertura_id_fkey(nombre_completo), ' +
-  'cierre:perfiles!turnos_trabajo_auxiliar_cierre_id_fkey(nombre_completo)';
-
-/** Columnas con relaciones embebidas para los reportes de turno */
-const SELECT_TAREA =
-  '*, ambiente:ambientes(codigo), ejecutor:perfiles!reporte_tareas_hecha_por_fkey(nombre_completo)';
-const SELECT_REPORTE =
-  `*, autor:perfiles!reportes_turno_auxiliar_id_fkey(nombre_completo), tareas:reporte_tareas(${SELECT_TAREA})`;
-
 /** Filtros de la lista de atenciones / mantenimiento */
 export interface FiltroOperacion {
   desde?: string;
@@ -73,6 +59,7 @@ export interface FiltroOperacion {
 @Injectable({ providedIn: 'root' })
 export class OperacionService {
   private readonly supabase = inject(SupabaseService);
+  private readonly api = inject(ApiService);
   private readonly auth = inject(AuthService);
 
   /** Turno abierto ahora (null si no hay ninguno) */
@@ -95,16 +82,13 @@ export class OperacionService {
   async refrescar(): Promise<void> {
     this.cargando.set(true);
     try {
-      const [abierto, cerrado, pend] = await Promise.all([
-        this.cliente.from('turnos_trabajo').select(SELECT_TURNO).eq('estado', 'abierto').maybeSingle(),
-        this.cliente.from('turnos_trabajo').select(SELECT_TURNO).eq('estado', 'cerrado').order('cerrado_en', { ascending: false }).limit(1).maybeSingle(),
+      const [estado, pend] = await Promise.all([
+        this.api.get<{ abierto: TurnoTrabajo | null; ultimo_cerrado: TurnoTrabajo | null }>('/turnos-trabajo/estado'),
         this.cliente.from('atenciones').select(SELECT_ATENCION).in('estado', ['pendiente', 'en_proceso']).order('prioridad').order('creado_en'),
       ]);
-      if (abierto.error) throw new ErrorSistema(abierto.error);
-      if (cerrado.error) throw new ErrorSistema(cerrado.error);
       if (pend.error) throw new ErrorSistema(pend.error);
-      this.turnoActual.set((abierto.data as unknown as TurnoTrabajo) ?? null);
-      this.ultimoCerrado.set((cerrado.data as unknown as TurnoTrabajo) ?? null);
+      this.turnoActual.set(estado.abierto);
+      this.ultimoCerrado.set(estado.ultimo_cerrado);
       this.pendientes.set((pend.data as unknown as Atencion[]) ?? []);
     } finally {
       this.cargando.set(false);
@@ -113,25 +97,13 @@ export class OperacionService {
 
   /** Abre un turno (falla si ya hay uno abierto, por el índice único) */
   async abrirTurno(turno: TurnoCodigo, esSabado: boolean, notas: string): Promise<void> {
-    const { error } = await this.cliente.from('turnos_trabajo').insert({
-      turno,
-      es_sabado_rotativo: esSabado,
-      notas_apertura: notas.trim() || null,
-      auxiliar_apertura_id: this.auth.perfil()?.id,
-    });
-    if (error) throw new ErrorSistema(error);
+    await this.api.post('/turnos-trabajo', { turno, es_sabado_rotativo: esSabado, notas: notas.trim() || null });
     await this.refrescar();
   }
 
   /** Cierra el turno dejando la nota de pase */
   async cerrarTurno(id: number, notas: string): Promise<void> {
-    const { error } = await this.cliente.from('turnos_trabajo').update({
-      estado: 'cerrado',
-      cerrado_en: new Date().toISOString(),
-      auxiliar_cierre_id: this.auth.perfil()?.id,
-      notas_cierre: notas.trim() || null,
-    }).eq('id', id);
-    if (error) throw new ErrorSistema(error);
+    await this.api.post(`/turnos-trabajo/${id}/cierre`, { notas: notas.trim() || null });
     await this.refrescar();
   }
 
@@ -275,38 +247,29 @@ export class OperacionService {
   // ----- Reporte de turno -----
 
   /** Últimos reportes de turno con sus tareas */
-  async listarReportes(limite = 15): Promise<ReporteTurno[]> {
-    const { data, error } = await this.cliente.from('reportes_turno').select(SELECT_REPORTE)
-      .order('creado_en', { ascending: false }).limit(limite);
-    if (error) throw new ErrorSistema(error);
-    return (data as unknown as ReporteTurno[]) ?? [];
+  listarReportes(limite = 15): Promise<ReporteTurno[]> {
+    return this.api.get<ReporteTurno[]>('/reportes-turno', { limite });
   }
 
   /** Tareas que ningún turno marcó como hechas todavía (las más viejas primero) */
-  async tareasPendientes(): Promise<TareaReporte[]> {
-    const { data, error } = await this.cliente.from('reporte_tareas')
-      .select(`${SELECT_TAREA}, reporte:reportes_turno(turno, fecha, autor:perfiles!reportes_turno_auxiliar_id_fkey(nombre_completo))`)
-      .eq('hecha', false).order('creado_en');
-    if (error) throw new ErrorSistema(error);
-    return (data as unknown as TareaReporte[]) ?? [];
+  tareasPendientes(): Promise<TareaReporte[]> {
+    return this.api.get<TareaReporte[]>('/reporte-tareas/pendientes');
   }
 
-  /** Guarda el reporte del turno, su foto (opcional) y sus tareas pendientes */
+  /** Guarda el reporte del turno con sus tareas pendientes y su foto (opcional) */
   async crearReporte(turno: TurnoCodigo, novedades: string, tareas: { descripcion: string; ambiente_id: number | null }[],
     foto: File | null = null): Promise<void> {
-    const foto_path = foto ? await this.subirFotoReporte(foto) : null;
-    const { data, error } = await this.cliente.from('reportes_turno')
-      .insert({ turno, novedades: novedades.trim() || null, auxiliar_id: this.auth.perfil()?.id, foto_path })
-      .select('id').single();
-    if (error) {
-      // Que no quede la foto suelta si el reporte no se guardó
-      if (foto_path) await this.cliente.storage.from(BUCKET_REPORTES).remove([foto_path]);
-      throw new ErrorSistema(error);
+    const creado = await this.api.post<ReporteTurno>('/reportes-turno', {
+      turno, novedades: novedades.trim() || null, auxiliar_id: this.auth.perfil()?.id ?? null, tareas,
+    });
+    if (!foto) return;
+    try {
+      await this.subirFotoReporte(creado.id, foto);
+    } catch (e) {
+      // Que no quede un reporte sin la foto que se pidió: se deshace y se reintenta entero
+      await this.api.delete(`/reportes-turno/${creado.id}`).catch(() => undefined);
+      throw new Error(`No se pudo subir la foto: ${e instanceof Error ? e.message : String(e)}`);
     }
-    if (!tareas.length) return;
-    const filas = tareas.map((t) => ({ reporte_id: data.id, descripcion: t.descripcion, ambiente_id: t.ambiente_id }));
-    const r = await this.cliente.from('reporte_tareas').insert(filas);
-    if (r.error) throw new ErrorSistema(r.error);
   }
 
   /** PCs que el usuario dio de baja desde un momento (las que saldrán en su cierre) */
@@ -323,40 +286,46 @@ export class OperacionService {
     }));
   }
 
-  /** Comprime y sube la foto del cierre; devuelve la ruta en el bucket */
-  private async subirFotoReporte(archivo: File): Promise<string> {
+  /** Comprime y sube la foto del cierre de un reporte */
+  private async subirFotoReporte(reporteId: number, archivo: File): Promise<void> {
     const blob = await comprimirFoto(archivo);
-    const ruta = `${fechaActual(environment.zonaHoraria).slice(0, 7)}/${crypto.randomUUID()}.jpg`;
-    const { error } = await this.cliente.storage.from(BUCKET_REPORTES).upload(ruta, blob, { contentType: 'image/jpeg' });
-    if (error) throw new Error(`No se pudo subir la foto: ${error.message}`);
-    return ruta;
+    const form = new FormData();
+    form.append('foto', new File([blob], 'foto.jpg', { type: 'image/jpeg' }));
+    await this.api.postForm(`/reportes-turno/${reporteId}/foto`, form);
   }
 
-  /** Enlaces temporales (1 hora) de las fotos de cierre: ruta -> url */
-  async firmarFotosReporte(rutas: string[]): Promise<Map<string, string>> {
+  /** URLs locales (blob) de las fotos de cierre vigentes: ruta -> url */
+  private urlsFotos: string[] = [];
+
+  /**
+   * Descarga las fotos de cierre de estos reportes (con el token de la sesión,
+   * un <img src> no puede mandarlo) y devuelve ruta -> URL local. Libera las
+   * URLs de la carga anterior. Una foto que no baja simplemente no se muestra.
+   */
+  async firmarFotosReporte(reportes: ReporteTurno[]): Promise<Map<string, string>> {
+    for (const url of this.urlsFotos) URL.revokeObjectURL(url);
+    this.urlsFotos = [];
     const mapa = new Map<string, string>();
-    if (!rutas.length) return mapa;
-    const { data } = await this.cliente.storage.from(BUCKET_REPORTES).createSignedUrls(rutas, 3600);
-    for (const d of data ?? []) if (d.path && d.signedUrl) mapa.set(d.path, d.signedUrl);
+    await Promise.all(reportes.filter((r) => r.foto_path).map(async (r) => {
+      try {
+        const url = URL.createObjectURL(await this.api.getBlob(`/reportes-turno/${r.id}/foto`));
+        this.urlsFotos.push(url);
+        mapa.set(r.foto_path!, url);
+      } catch {
+        /* sin foto: no se muestra */
+      }
+    }));
     return mapa;
   }
 
   /** Borra las fotos de cierre vencidas (después de las 12:00); la descripción se queda */
   async limpiarFotosReporte(): Promise<void> {
-    const { data, error } = await this.cliente.rpc('fn_limpiar_fotos_reporte');
-    if (error) throw new ErrorSistema(error);
-    const rutas = (data ?? []) as string[];
-    if (rutas.length) await this.cliente.storage.from(BUCKET_REPORTES).remove(rutas);
+    await this.api.post('/reportes-turno/fotos/limpiar');
   }
 
-  /** Marca (o desmarca) una tarea como hecha */
+  /** Marca (o desmarca) una tarea como hecha (la API registra quién y cuándo) */
   async marcarTarea(id: number, hecha: boolean): Promise<void> {
-    const { error } = await this.cliente.from('reporte_tareas').update({
-      hecha,
-      hecha_por: hecha ? this.auth.perfil()?.id : null,
-      hecha_en: hecha ? new Date().toISOString() : null,
-    }).eq('id', id);
-    if (error) throw new ErrorSistema(error);
+    await this.api.patch(`/reporte-tareas/${id}`, { hecha });
   }
 
   /**
@@ -366,118 +335,74 @@ export class OperacionService {
    */
   async actualizarReporte(r: ReporteTurno, turno: TurnoCodigo, novedades: string,
     tareas: { id?: number; descripcion: string; ambiente_id: number | null }[]): Promise<void> {
-    const { error } = await this.cliente.from('reportes_turno').update({ turno, novedades: novedades.trim() || null }).eq('id', r.id);
-    if (error) throw new ErrorSistema(error);
-    const pendientes = (r.tareas ?? []).filter((t) => !t.hecha);
-    const quedan = new Set(tareas.map((t) => t.id).filter((id): id is number => !!id));
-    const borrar = pendientes.filter((t) => !quedan.has(t.id)).map((t) => t.id);
-    if (borrar.length) {
-      const b = await this.cliente.from('reporte_tareas').delete().in('id', borrar);
-      if (b.error) throw new ErrorSistema(b.error);
-    }
-    for (const t of tareas.filter((x) => x.id)) {
-      const antes = pendientes.find((p) => p.id === t.id);
-      if (antes && (antes.descripcion !== t.descripcion || antes.ambiente_id !== t.ambiente_id)) {
-        const u = await this.cliente.from('reporte_tareas').update({ descripcion: t.descripcion, ambiente_id: t.ambiente_id }).eq('id', t.id!);
-        if (u.error) throw new ErrorSistema(u.error);
-      }
-    }
-    const nuevas = tareas.filter((t) => !t.id).map((t) => ({ reporte_id: r.id, descripcion: t.descripcion, ambiente_id: t.ambiente_id }));
-    if (nuevas.length) {
-      const n = await this.cliente.from('reporte_tareas').insert(nuevas);
-      if (n.error) throw new ErrorSistema(n.error);
-    }
+    await this.api.patch(`/reportes-turno/${r.id}`, { turno, novedades: novedades.trim() || null });
+    await this.api.put(`/reportes-turno/${r.id}/tareas`,
+      tareas.map((t) => ({ id: t.id ?? null, descripcion: t.descripcion, ambiente_id: t.ambiente_id })));
   }
 
   async eliminarReporte(id: number): Promise<void> {
-    const { error } = await this.cliente.from('reportes_turno').delete().eq('id', id);
-    if (error) throw new ErrorSistema(error);
+    await this.api.delete(`/reportes-turno/${id}`);
   }
 
   // ----- Auxiliares y rotación -----
 
   /** Lista de auxiliares (rol auxiliar) para el apartado Auxiliares */
-  async listarAuxiliares(): Promise<Perfil[]> {
-    const { data, error } = await this.cliente.from('perfiles').select('*').eq('rol', 'auxiliar').order('nombre_completo');
-    if (error) throw new ErrorSistema(error);
-    return (data as Perfil[]) ?? [];
+  listarAuxiliares(): Promise<Perfil[]> {
+    return this.api.get<Perfil[]>('/auxiliares', { rol: 'auxiliar' });
   }
 
   /** Personal de operación activo (auxiliares y encargados), para elegir colaboradores */
-  async listarPersonalOperacion(): Promise<Perfil[]> {
-    const { data, error } = await this.cliente.from('perfiles').select('*')
-      .in('rol', ['auxiliar', 'encargado']).eq('activo', true).order('nombre_completo');
-    if (error) throw new ErrorSistema(error);
-    return (data as Perfil[]) ?? [];
+  listarPersonalOperacion(): Promise<Perfil[]> {
+    return this.api.get<Perfil[]>('/auxiliares', { rol: ['auxiliar', 'encargado'], activo: true });
   }
 
-  /** Asigna turno habitual y sábado rotativo (admin/encargado) vía función segura */
+  /** Asigna turno habitual y sábado rotativo (admin/encargado) vía fn_asignar_turno */
   async asignarTurno(usuarioId: string, turno: TurnoCodigo | null, sabado: boolean): Promise<void> {
-    await this.supabase.rpc('fn_asignar_turno', { p_usuario: usuarioId, p_turno: turno, p_sabado: sabado });
+    await this.api.put(`/auxiliares/${usuarioId}/turno`, { turno, sabado });
   }
 
   /** Rotación de sábados ordenada por fecha */
-  async listarRotacion(): Promise<RotacionSabado[]> {
-    const { data, error } = await this.cliente.from('rotacion_sabados')
-      .select('*, auxiliar:perfiles(nombre_completo)').order('fecha', { ascending: false });
-    if (error) throw new ErrorSistema(error);
-    return (data as unknown as RotacionSabado[]) ?? [];
+  listarRotacion(): Promise<RotacionSabado[]> {
+    return this.api.get<RotacionSabado[]>('/rotacion-sabados');
   }
 
   async guardarRotacion(fila: Partial<RotacionSabado>): Promise<void> {
-    const datos = { ...fila } as Record<string, unknown>;
-    const id = datos['id'];
-    delete datos['id'];
-    delete datos['auxiliar'];
-    const consulta = id
-      ? this.cliente.from('rotacion_sabados').update(datos).eq('id', id)
-      : this.cliente.from('rotacion_sabados').insert(datos);
-    const { error } = await consulta;
-    if (error) throw new ErrorSistema(error);
+    const datos: Record<string, unknown> = {};
+    for (const k of ['fecha', 'auxiliar_id', 'turno', 'nota'] as const) if (k in fila) datos[k] = fila[k];
+    if (fila.id) await this.api.patch(`/rotacion-sabados/${fila.id}`, datos);
+    else await this.api.post('/rotacion-sabados', datos);
   }
 
   /** Horario de cada turno, en orden de inicio */
   async cargarHorarios(): Promise<HorarioTurno[]> {
-    const { data, error } = await this.cliente.from('horarios_turno').select('turno, hora_inicio, hora_fin').order('hora_inicio');
-    if (error) throw new ErrorSistema(error);
-    const lista = (data as HorarioTurno[]) ?? [];
+    const lista = await this.api.get<HorarioTurno[]>('/horarios-turno');
     this.horarios.set(lista);
     return lista;
   }
 
   /** Cambia el horario de los turnos (admin y encargado) */
   async guardarHorarios(lista: HorarioTurno[]): Promise<void> {
-    for (const h of lista) {
-      const { error } = await this.cliente.from('horarios_turno')
-        .update({ hora_inicio: h.hora_inicio, hora_fin: h.hora_fin }).eq('turno', h.turno);
-      if (error) throw new ErrorSistema(error);
-    }
-    await this.cargarHorarios();
+    const guardados = await this.api.put<HorarioTurno[]>('/horarios-turno',
+      lista.map((h) => ({ turno: h.turno, hora_inicio: h.hora_inicio, hora_fin: h.hora_fin })));
+    this.horarios.set(guardados);
   }
 
   /** Turnos programados de todos los auxiliares (más recientes primero) */
-  async listarTurnosProgramados(): Promise<TurnoProgramado[]> {
-    const { data, error } = await this.cliente.from('turnos_programados')
-      .select('*, perfil:perfiles!turnos_programados_perfil_id_fkey(nombre_completo)').order('desde', { ascending: false });
-    if (error) throw new ErrorSistema(error);
-    return (data as unknown as TurnoProgramado[]) ?? [];
+  listarTurnosProgramados(): Promise<TurnoProgramado[]> {
+    return this.api.get<TurnoProgramado[]>('/turnos-programados');
   }
 
   /** Programa turnos de varios auxiliares desde una fecha (si ya existe esa fecha, la cambia) */
   async programarTurnos(filas: { perfil_id: string; turno: TurnoCodigo }[], desde: string): Promise<void> {
     if (!filas.length) return;
-    const { error } = await this.cliente.from('turnos_programados')
-      .upsert(filas.map((f) => ({ ...f, desde })), { onConflict: 'perfil_id,desde' });
-    if (error) throw new ErrorSistema(error);
+    await this.api.put('/turnos-programados', { desde, filas });
   }
 
   async eliminarTurnoProgramado(id: number): Promise<void> {
-    const { error } = await this.cliente.from('turnos_programados').delete().eq('id', id);
-    if (error) throw new ErrorSistema(error);
+    await this.api.delete(`/turnos-programados/${id}`);
   }
 
   async eliminarRotacion(id: number): Promise<void> {
-    const { error } = await this.cliente.from('rotacion_sabados').delete().eq('id', id);
-    if (error) throw new ErrorSistema(error);
+    await this.api.delete(`/rotacion-sabados/${id}`);
   }
 }

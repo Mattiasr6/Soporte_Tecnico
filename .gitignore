@@ -9,6 +9,8 @@ backend-fastapi/.venv
 backend-fastapi/.venv/
 # Nómina y horarios reales: datos sensibles, viven en volumen/backups, jamás en git
 backend-fastapi/data/*.json
+# Uploaded files of the asignacion module (shift report photos...)
+backend-fastapi/data/asignacion/
 # Backend (.NET / C#)
 backups/*.dump
 backups/*.sql

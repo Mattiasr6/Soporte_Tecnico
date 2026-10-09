@@ -386,8 +386,7 @@ export class TurnoComponent implements OnInit, OnDestroy {
       this.turno.set(this.miTurno() ?? this.turnoAhora());
       await this.cargarMisBajas();
       const ahora = Date.now();
-      const vigentes = reportes.filter((r) => r.foto_path && r.foto_expira && new Date(r.foto_expira).getTime() > ahora)
-        .map((r) => r.foto_path!);
+      const vigentes = reportes.filter((r) => r.foto_path && r.foto_expira && new Date(r.foto_expira).getTime() > ahora);
       this.urlsFotos.set(await this.op.firmarFotosReporte(vigentes));
     } catch (e) {
       this.notificaciones.error(e, 'No se cargaron los reportes');
