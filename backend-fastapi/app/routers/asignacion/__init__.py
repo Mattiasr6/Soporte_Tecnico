@@ -17,6 +17,7 @@ from app.routers.asignacion import (
     catalogos,
     dashboards,
     horarios_academicos,
+    novedades,
     objetos_perdidos,
     ocupacion,
     operacion,
@@ -32,6 +33,7 @@ router.include_router(horarios_academicos.router)
 router.include_router(ocupacion.router)
 router.include_router(turnos.router)
 router.include_router(reportes.router)
+router.include_router(novedades.router)
 router.include_router(operacion.router)
 router.include_router(objetos_perdidos.router)
 router.include_router(dashboards.router)

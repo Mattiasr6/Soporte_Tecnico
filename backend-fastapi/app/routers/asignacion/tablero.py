@@ -29,6 +29,7 @@ def tablero_laboratorios(db: AsignacionDb) -> list[dict[str, Any]]:
 
 @router.get("/timeline")
 def timeline(db: AsignacionDb, fecha: date | None = None) -> dict[str, Any]:
-    """Attentions, shift reports, done tasks and lost objects of one La Paz day."""
+    """Attentions, shift reports and their decisions, done tasks, novedades and
+    lost objects of one La Paz day."""
     require(db, Permission.VER)
     return servicio.timeline(db, fecha)

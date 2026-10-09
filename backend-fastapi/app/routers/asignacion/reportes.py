@@ -16,9 +16,14 @@ delete need fn_puede_editar_reporte, download needs fn_puede_ver. It is served b
 an authenticated endpoint (the Angular app fetches it as a blob with its Bearer
 token) instead of signed URLs. Triggers keep the rest (expiry at next noon,
 done tasks are fixed, reports with done tasks cannot be deleted).
+
+Cierre validation (Django tab "cierres", migration 0025): `estado` is
+pendiente/validado/rechazado. fn_decidir_reporte lets fn_puede_gestionar_auxiliares
+(Jefe, Encargado) decide a pending report that is not their own; editing a
+decided report sends it back to pendiente (trigger trg_reportes_turno_estado).
 """
 
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, File, HTTPException, Query, Response, UploadFile
 from fastapi.responses import FileResponse
@@ -29,6 +34,7 @@ from app.db.asignacion import AsignacionDb
 from app.routers.asignacion.turnos import nombre_de
 from app.schemas.asignacion_turnos import (
     ReporteCreate,
+    ReporteDecision,
     ReporteUpdate,
     TareaEdicion,
     TareaMarca,
@@ -58,11 +64,12 @@ _TAREA = f"""
       left join horarios.perfiles ej on ej.id = t.hecha_por
 """
 _REPORTE = f"""
-    select r.*, {nombre_de("au")} as autor,
+    select r.*, {nombre_de("au")} as autor, {nombre_de("va")} as validador,
            coalesce((select json_agg(to_json(x) order by x.id)
                        from ({_TAREA} where t.reporte_id = r.id) x), '[]'::json) as tareas
       from horarios.reportes_turno r
       left join horarios.perfiles au on au.id = r.auxiliar_id
+      left join horarios.perfiles va on va.id = r.validado_por
 """
 _PUEDE_EDITAR = text("select horarios.fn_puede_editar_reporte(:id)")
 _PUEDE_CREAR = text(
@@ -130,14 +137,22 @@ def _insert_tareas(db: Session, reporte_id: int, tareas: list[TareaNueva]) -> No
 # --- reportes --------------------------------------------------------------------
 
 
+EstadoReporte = Literal["pendiente", "validado", "rechazado"]
+
+
 @router.get("/reportes-turno")
 def listar_reportes(
-    db: AsignacionDb, limite: Annotated[int, Query(ge=1, le=200)] = 15
+    db: AsignacionDb,
+    limite: Annotated[int, Query(ge=1, le=200)] = 15,
+    estado: EstadoReporte | None = None,
 ) -> list[dict]:
-    """Latest shift reports with their tasks (newest first)."""
+    """Latest shift reports with their tasks (newest first), optionally by estado."""
     require(db, Permission.VER)
-    sql = text(f"{_REPORTE} order by r.creado_en desc limit :limite")
-    return [dict(r) for r in rows(db, sql, {"limite": limite})]
+    sql = text(
+        f"{_REPORTE} where (cast(:estado as text) is null or r.estado = :estado)"
+        " order by r.creado_en desc limit :limite"
+    )
+    return [dict(r) for r in rows(db, sql, {"limite": limite, "estado": estado})]
 
 
 @router.post("/reportes-turno", status_code=201)
@@ -197,6 +212,19 @@ def eliminar_reporte(reporte_id: int, db: AsignacionDb) -> Response:
         foto_path = db.execute(sql, {"id": reporte_id}).scalar_one()
     fotos.borrar([foto_path])
     return Response(status_code=204)
+
+
+@router.post("/reportes-turno/{reporte_id}/validacion")
+def decidir_reporte(reporte_id: int, body: ReporteDecision, db: AsignacionDb) -> dict:
+    """Validate or reject a pending shift close (fn_decidir_reporte)."""
+    require(db, Permission.GESTIONAR_AUXILIARES)
+    existe = text("select 1 from horarios.reportes_turno where id = :id")
+    if db.execute(existe, {"id": reporte_id}).first() is None:
+        raise not_found()
+    sql = text("select horarios.fn_decidir_reporte(:id, :estado)")
+    with writing(db):
+        db.execute(sql, {"id": reporte_id, "estado": body.estado})
+    return _reporte(db, reporte_id)
 
 
 # --- tareas ----------------------------------------------------------------------

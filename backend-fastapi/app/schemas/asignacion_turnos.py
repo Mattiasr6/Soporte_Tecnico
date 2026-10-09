@@ -86,5 +86,11 @@ class ReporteUpdate(_In):
     novedades: str | None = None
 
 
+class ReporteDecision(_In):
+    """Validate or reject a pending shift close (Jefe/Encargado, not the author)."""
+
+    estado: Literal["validado", "rechazado"]
+
+
 class TareaMarca(_In):
     hecha: bool

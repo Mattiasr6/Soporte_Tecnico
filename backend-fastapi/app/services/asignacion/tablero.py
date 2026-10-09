@@ -4,6 +4,8 @@ and `lab_timeline_vista`), as plain read queries over the horarios tables.
 No new table and no SQL function: both are single SELECTs (the timeline is a
 UNION ALL), so they live here and need no migration. Every source table is read
 under fn_puede_ver elsewhere in the module, so both endpoints require the same.
+Since G5 the timeline also lists lab novedades (`novedad`) and cierre decisions
+(`cierre_validado` / `cierre_rechazado`, at `validado_en`, by the validator).
 
 Semaforo per lab (calendar days in America/La_Paz):
 - rojo: at least one lost object `en_custodia` that is not "vencido" (found at
@@ -156,6 +158,16 @@ _TIMELINE = text(
              case when o.foto_entrega_path is not null then 'entrega' end, null
         from horarios.objetos_perdidos o
        where o.estado = 'entregado' and {_dia("o.entregado_en")} = :fecha
+      union all
+      select n.creado_en, 'novedad', n.id, n.ambiente_id, n.turno, n.texto,
+             n.autor_id, case when n.foto_path is not null then 'novedad' end, null
+        from horarios.novedades n
+       where {_dia("n.creado_en")} = :fecha
+      union all
+      select r.validado_en, 'cierre_' || r.estado, r.id, null, r.turno, r.novedades,
+             r.validado_por, null, null
+        from horarios.reportes_turno r
+       where r.estado <> 'pendiente' and {_dia("r.validado_en")} = :fecha
     )
     select e.evento, e.ref_id, e.momento,
            to_char(e.momento at time zone 'America/La_Paz', 'HH24:MI') as hora,
