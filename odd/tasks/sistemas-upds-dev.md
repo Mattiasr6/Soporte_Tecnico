@@ -50,7 +50,7 @@ El frontend consulta tablas directo con supabase-js (90 `.from()`, 9 `.rpc()`,
 - [x] T6b Operación: atenciones, fallas_pc, solicitudes_baja, objetos_perdidos (+ bucket), rpc_cambiar_estado_pcs,
       rpc_resolver_baja, rpc_registrar_reparaciones, fn_limpiar_fotos_objetos, `misBajasDesde` (ambiente_pcs) y
       los dos pendientes de T5 (`compartido/ocupacion-detalle`, `panel/laboratorio-detalle`).
-- [ ] T7 Dashboards (`fn_dashboard_*`).
+- [x] T7 Dashboards (`fn_dashboard_*`).
 - [ ] T8 Quitar `@supabase/supabase-js` y `environment.supabase*`.
 
 ## Progreso
@@ -213,5 +213,21 @@ El frontend consulta tablas directo con supabase-js (90 `.from()`, 9 `.rpc()`,
   Supabase restante: `desempeno.component.ts` (`fn_dashboard_*`, T7), `catalogos/usuarios.component.ts` (otro esfuerzo),
   `core/supabase.service.ts` (T8). Tamaño ~1.45k líneas (570 tests): excede la heurística por 4 tablas + 5 funciones + fotos.
 
+- T7 (delegado, writer): `routers/asignacion/dashboards.py`, `services/asignacion/dashboards.py` (lista blanca `Dashboard`
+  → `horarios.fn_dashboard_<nombre>(:desde, :hasta)` ligado; error PG → mismo mapeo del módulo), `schemas/asignacion_dashboards.py`
+  (`RangoDashboard` como modelo Query: `hasta >= desde` y `hasta - desde <= 400` → 422, igual que las funciones).
+  Endpoint `/api/asignacion`: GET `/dashboard/{operacion|uso|detalle|fallas}?desde=&hasta=` → el JSON de la función tal cual.
+  Permisos = funciones SQL: las cuatro exigen `fn_puede_gestionar_auxiliares` (admin/encargado); la API lo chequea antes (403
+  `42501`). `fn_dashboard_operacion` cuenta el rango inclusivo (`v_dias > 400`): ese borde lo rechaza la función → 422 `P0001`.
+  Front: `desempeno.component.ts` sin supabase (`ApiService.get` vía `leerDashboard`; mismas interfaces). `paneles.service.ts`
+  no se tocó: es la pila de paneles laterales, no dashboards.
+  Test-first: el test RED previo se mantuvo sin cambios (coincide con las funciones); se agregó el borde 400 días de operacion.
+  Evidencia: RED 33 fallan (404) → GREEN 34; `pytest test_asignacion_* + horarios_schema + health` 123 passed en
+  `soporte_upds_test` (vía `podman exec soporte-upds_api_1 python -m pytest` con DATABASE_URL → `soporte_upds_test`; sin filas
+  residuales); `ruff check .` OK; `ruff format --check` OK en los archivos del módulo (el backend completo ya tenía 43 archivos
+  sin formato ajenos a esta rama); `ng build` OK sin warnings; curl 5013 sin token → 401 en los 4. Smoke autenticado no hecho
+  (sin contraseña de prod en esta sesión).
+  Supabase restante: `catalogos/usuarios.component.ts` (otro esfuerzo), `core/supabase.service.ts` (T8).
+
 ## Siguiente paso
-T7 Dashboards (`fn_dashboard_operacion|uso|detalle|fallas` en `desempeno.component.ts`).
+T8 Quitar `@supabase/supabase-js`, `core/supabase.service.ts` (mover `ErrorSistema` fuera) y `environment.supabase*`.

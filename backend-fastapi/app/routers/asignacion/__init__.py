@@ -15,6 +15,7 @@ from app.core.security import CurrentUser
 from app.db.asignacion import AsignacionDb
 from app.routers.asignacion import (
     catalogos,
+    dashboards,
     horarios_academicos,
     objetos_perdidos,
     ocupacion,
@@ -31,6 +32,7 @@ router.include_router(turnos.router)
 router.include_router(reportes.router)
 router.include_router(operacion.router)
 router.include_router(objetos_perdidos.router)
+router.include_router(dashboards.router)
 
 
 class PerfilOut(BaseModel):

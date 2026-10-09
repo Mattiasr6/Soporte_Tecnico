@@ -5,6 +5,7 @@ import { GraficoBarrasComponent } from '../../compartido/grafico-barras.componen
 import { GraficoLineasComponent } from '../../compartido/grafico-lineas.component';
 import { SerieGrafico } from '../../compartido/graficos';
 import { IconoComponent } from '../../compartido/icono.component';
+import { ApiService } from '../../core/api.service';
 import { AuthService } from '../../core/auth.service';
 import { descargarCsv } from '../../core/exportar';
 import { DIAS_CORTOS, DIAS_SEMANA, hoyIso } from '../../core/fechas';
@@ -12,7 +13,6 @@ import { OperacionService, textoRetraso } from '../../core/operacion.service';
 import { CATEGORIAS_FALLA, CategoriaTicket, COLOR_CATEGORIA, TIPOS_TICKET } from '../../core/tickets';
 import { CategoriaFalla, EstadoPc, TipoAtencion, TurnoCodigo } from '../../core/modelos';
 import { NotificacionesService } from '../../core/notificaciones.service';
-import { SupabaseService } from '../../core/supabase.service';
 
 /** Lo que devuelve fn_dashboard_operacion */
 interface ConteoPcs { total: number; operativa: number; inactiva: number; mantenimiento: number; baja: number }
@@ -119,7 +119,7 @@ function rangoMes(mes: string): { desde: string; hasta: string } {
 /**
  * Dashboard de desempeño (admin y encargado): qué se hizo en el mes, quién
  * hizo más tickets, en qué laboratorios y el estado de las PCs. Todo sale de
- * una sola función de Supabase (fn_dashboard_operacion).
+ * una sola función SQL (fn_dashboard_operacion), servida por la API.
  */
 @Component({
   selector: 'app-desempeno',
@@ -925,7 +925,7 @@ function rangoMes(mes: string): { desde: string; hasta: string } {
 })
 export class DesempenoComponent implements OnInit {
   protected readonly auth = inject(AuthService);
-  private readonly supabase = inject(SupabaseService);
+  private readonly api = inject(ApiService);
   private readonly op = inject(OperacionService);
   private readonly notificaciones = inject(NotificacionesService);
 
@@ -1057,7 +1057,7 @@ export class DesempenoComponent implements OnInit {
     void this.cargarDetalle(desde, hasta);
     void this.cargarFallas(desde, hasta);
     try {
-      this.datos.set(await this.supabase.rpc<Dashboard>('fn_dashboard_operacion', { p_desde: desde, p_hasta: hasta }));
+      this.datos.set(await this.leerDashboard<Dashboard>('operacion', desde, hasta));
     } catch (e) {
       this.datos.set(null);
       this.notificaciones.error(e, 'No se cargó el dashboard');
@@ -1066,9 +1066,14 @@ export class DesempenoComponent implements OnInit {
     }
   }
 
+  /** GET /api/asignacion/dashboard/<nombre>: el JSON de horarios.fn_dashboard_<nombre> tal cual */
+  private leerDashboard<T>(nombre: 'operacion' | 'uso' | 'detalle' | 'fallas', desde: string, hasta: string): Promise<T> {
+    return this.api.get<T>(`/dashboard/${nombre}`, { desde, hasta });
+  }
+
   private async cargarUso(desde: string, hasta: string): Promise<void> {
     try {
-      this.uso.set(await this.supabase.rpc<UsoLabs>('fn_dashboard_uso', { p_desde: desde, p_hasta: hasta }));
+      this.uso.set(await this.leerDashboard<UsoLabs>('uso', desde, hasta));
     } catch (e) {
       this.uso.set(null);
       this.notificaciones.error(e, 'No se cargó el uso de laboratorios');
@@ -1077,7 +1082,7 @@ export class DesempenoComponent implements OnInit {
 
   private async cargarDetalle(desde: string, hasta: string): Promise<void> {
     try {
-      this.detalle.set(await this.supabase.rpc<Detalle>('fn_dashboard_detalle', { p_desde: desde, p_hasta: hasta }));
+      this.detalle.set(await this.leerDashboard<Detalle>('detalle', desde, hasta));
     } catch (e) {
       this.detalle.set(null);
       this.notificaciones.error(e, 'No se cargó el análisis detallado');
@@ -1086,7 +1091,7 @@ export class DesempenoComponent implements OnInit {
 
   private async cargarFallas(desde: string, hasta: string): Promise<void> {
     try {
-      this.fallas.set(await this.supabase.rpc<Fallas>('fn_dashboard_fallas', { p_desde: desde, p_hasta: hasta }));
+      this.fallas.set(await this.leerDashboard<Fallas>('fallas', desde, hasta));
     } catch (e) {
       this.fallas.set(null);
       this.notificaciones.error(e, 'No se cargaron las fallas');
