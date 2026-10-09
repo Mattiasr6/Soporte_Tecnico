@@ -21,7 +21,7 @@ from .api import (
 )
 from .auth import con_login
 from .forms import LoginForm
-from .views_lab import cargar_identidad_auxiliar
+from .views_lab import AVISO_SIN_VINCULO, _sin_vinculo, cargar_identidad_auxiliar
 
 _ZONA_LA_PAZ = ZoneInfo("America/La_Paz")
 
@@ -1852,8 +1852,31 @@ def usuarios_accion_vista(request: HttpRequest) -> HttpResponse:
     return redirect(reverse("usuarios"))
 
 
+def _cambiar_password(request: HttpRequest) -> tuple[str, str]:
+    """Cambia la contraseña propia y vuelve a loguear. Devuelve (texto, error)."""
+    nueva = request.POST.get("nueva", "")
+    if nueva != request.POST.get("repetir", ""):
+        return "", "Las dos contraseñas nuevas no coinciden."
+    email = str((request.session.get("usuario") or {}).get("email") or "")
+    try:
+        api_post(
+            "/api/auth/password",
+            str(request.session["jwt"]),
+            {"actual": request.POST.get("actual", ""), "nueva": nueva},
+        )
+        datos = login_api(email, nueva)
+        request.session["jwt"] = datos["token"]
+        request.session["usuario"] = datos["user"]
+        cargar_identidad_auxiliar(request)
+    except ApiError as e:
+        return "", _detalle_error(e)
+    return "Contraseña cambiada.", ""
+
+
 @con_login
 def perfil_vista(request: HttpRequest) -> HttpResponse:
+    if _es_auxiliar(request):
+        return redirect("auxiliares_perfil")
     token = str(request.session["jwt"])
     usuario = api_get("/api/usuarios/me", token)
     assert isinstance(usuario, dict)
@@ -1888,24 +1911,7 @@ def perfil_guardar_vista(request: HttpRequest) -> HttpResponse:
         except ApiError as e:
             error = _detalle_error(e)
     elif accion == "password":
-        nueva = request.POST.get("nueva", "")
-        if nueva != request.POST.get("repetir", ""):
-            error = "Las dos contraseñas nuevas no coinciden."
-        else:
-            email = str((request.session.get("usuario") or {}).get("email") or "")
-            try:
-                api_post(
-                    "/api/auth/password",
-                    token,
-                    {"actual": request.POST.get("actual", ""), "nueva": nueva},
-                )
-                datos = login_api(email, nueva)
-                request.session["jwt"] = datos["token"]
-                request.session["usuario"] = datos["user"]
-                cargar_identidad_auxiliar(request)
-                texto = "Contraseña cambiada."
-            except ApiError as e:
-                error = _detalle_error(e)
+        texto, error = _cambiar_password(request)
     else:
         error = "Acción desconocida."
     request.session["flash"] = {
@@ -1913,6 +1919,40 @@ def perfil_guardar_vista(request: HttpRequest) -> HttpResponse:
         "texto": error or texto,
     }
     return redirect("perfil")
+
+
+@con_login
+def auxiliares_perfil_vista(request: HttpRequest) -> HttpResponse:
+    if not _es_auxiliar(request):
+        return redirect("perfil")
+    sin_vinculo = _sin_vinculo(request)
+    sesion = request.session.get("usuario") or {}
+    return render(
+        request,
+        "atenciones/auxiliares_perfil.html",
+        {
+            "perfil": sesion,
+            "nomina": request.session.get("auxiliar_nombre", ""),
+            "aviso_vinculo": AVISO_SIN_VINCULO if sin_vinculo else "",
+            "flash": request.session.pop("flash", None),
+        },
+    )
+
+
+@con_login
+@require_POST
+def auxiliares_perfil_guardar_vista(request: HttpRequest) -> HttpResponse:
+    if not _es_auxiliar(request):
+        return redirect("perfil")
+    if request.POST.get("accion", "") == "password":
+        texto, error = _cambiar_password(request)
+    else:
+        texto, error = "", "Acción desconocida."
+    request.session["flash"] = {
+        "tipo": "error" if error else "ok",
+        "texto": error or texto,
+    }
+    return redirect("auxiliares_perfil")
 
 
 @con_login

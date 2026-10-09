@@ -895,3 +895,159 @@ class VinculoNominaTest(TestCase):
             },
         )
         mock_post.assert_called_once()
+
+
+ENCARGADO = {
+    "id": 11,
+    "display_name": "Encargado Labs",
+    "role": "Encargado",
+    "can_view_dashboard": False,
+}
+AUX_EMAIL = {**AUXILIAR, "email": "aux@upds.edu.bo"}
+
+
+class PerfilAuxiliarTest(TestCase):
+    def _como(self, usuario, **extra):
+        session = self.client.session
+        session["jwt"] = "t"
+        session["usuario"] = usuario
+        for k, v in extra.items():
+            session[k] = v
+        session.save()
+        self.client.cookies[_settings.SESSION_COOKIE_NAME] = session.session_key
+
+    def _flash(self):
+        return self.client.session.get("flash")
+
+    def _password(self, url, nueva="nueva1234", repetir=None):
+        return self.client.post(
+            url,
+            {
+                "accion": "password",
+                "actual": "vieja1234",
+                "nueva": nueva,
+                "repetir": nueva if repetir is None else repetir,
+            },
+        )
+
+    def test_auxiliar_ve_sus_datos_y_nombre_vinculado(self):
+        self._como(AUX_EMAIL, auxiliar_nombre="Ana Pérez")
+        r = self.client.get("/auxiliares/perfil/")
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, "Auxiliar Soporte")
+        self.assertContains(r, "aux@upds.edu.bo")
+        self.assertContains(r, "Ana Pérez")
+        self.assertContains(r, 'name="repetir"')
+        self.assertContains(r, 'action="/auxiliares/perfil/guardar/"')
+        self.assertNotContains(r, 'value="especialidad"')
+
+    @patch("atenciones.views_lab.api_get")
+    def test_sin_vinculo_muestra_aviso(self, mock_get):
+        self._como(AUX_EMAIL)
+        mock_get.side_effect = _api_lab(None)
+        r = self.client.get("/auxiliares/perfil/")
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, "Sin vincular")
+        self.assertContains(r, AVISO_SIN_VINCULO)
+
+    @patch("atenciones.views_lab.api_get")
+    @patch("atenciones.views.login_api")
+    @patch("atenciones.views.api_post")
+    def test_cambiar_password_ok(self, mock_post, mock_login, mock_get):
+        self._como(AUX_EMAIL, auxiliar_nombre="Ana Pérez")
+        mock_login.return_value = {"token": "tok2", "user": AUX_EMAIL}
+        mock_get.side_effect = _api_lab(
+            {"nombre": "Ana Pérez", "encargado": False, "activo": True}
+        )
+        r = self._password("/auxiliares/perfil/guardar/")
+        self.assertRedirects(
+            r, "/auxiliares/perfil/", fetch_redirect_response=False
+        )
+        mock_post.assert_called_once_with(
+            "/api/auth/password", "t", {"actual": "vieja1234", "nueva": "nueva1234"}
+        )
+        mock_login.assert_called_once_with("aux@upds.edu.bo", "nueva1234")
+        self.assertEqual(self.client.session["jwt"], "tok2")
+        self.assertEqual(self.client.session["auxiliar_nombre"], "Ana Pérez")
+        self.assertEqual(self._flash(), {"tipo": "ok", "texto": "Contraseña cambiada."})
+
+    @patch("atenciones.views.api_post")
+    def test_repetir_distinto_no_llama_api(self, mock_post):
+        self._como(AUX_EMAIL, auxiliar_nombre="Ana Pérez")
+        r = self._password("/auxiliares/perfil/guardar/", repetir="otra12345")
+        self.assertRedirects(
+            r, "/auxiliares/perfil/", fetch_redirect_response=False
+        )
+        mock_post.assert_not_called()
+        self.assertEqual(self._flash()["tipo"], "error")
+        self.assertIn("no coinciden", self._flash()["texto"])
+
+    @patch("atenciones.views.login_api")
+    @patch("atenciones.views.api_post")
+    def test_error_de_api_se_muestra(self, mock_post, mock_login):
+        from atenciones.api import ApiError
+
+        self._como(AUX_EMAIL, auxiliar_nombre="Ana Pérez")
+        mock_post.side_effect = ApiError(400, "La contraseña actual no es correcta")
+        r = self._password("/auxiliares/perfil/guardar/")
+        self.assertRedirects(
+            r, "/auxiliares/perfil/", fetch_redirect_response=False
+        )
+        mock_login.assert_not_called()
+        self.assertEqual(
+            self._flash(),
+            {"tipo": "error", "texto": "La contraseña actual no es correcta"},
+        )
+
+    def test_tecnico_va_a_su_perfil(self):
+        self._como(TECNICO)
+        self.assertRedirects(
+            self.client.get("/auxiliares/perfil/"),
+            "/perfil/",
+            fetch_redirect_response=False,
+        )
+
+    @patch("atenciones.views.api_post")
+    def test_tecnico_no_usa_guardar_de_auxiliares(self, mock_post):
+        self._como(TECNICO)
+        r = self._password("/auxiliares/perfil/guardar/")
+        self.assertRedirects(r, "/perfil/", fetch_redirect_response=False)
+        mock_post.assert_not_called()
+
+    def test_perfil_de_soporte_redirige_a_auxiliar_y_encargado(self):
+        for usuario in (AUXILIAR, ENCARGADO):
+            self._como(usuario, auxiliar_nombre="Ana Pérez")
+            self.assertRedirects(
+                self.client.get("/perfil/"),
+                "/auxiliares/perfil/",
+                fetch_redirect_response=False,
+            )
+
+    @patch("atenciones.views.login_api")
+    @patch("atenciones.views.api_post")
+    def test_perfil_de_soporte_sigue_cambiando_password(self, mock_post, mock_login):
+        tecnico = {**TECNICO, "email": "d@upds.edu.bo"}
+        self._como(tecnico)
+        mock_login.return_value = {"token": "tok3", "user": tecnico}
+        r = self._password("/perfil/guardar/")
+        self.assertRedirects(r, "/perfil/", fetch_redirect_response=False)
+        mock_post.assert_called_once_with(
+            "/api/auth/password", "t", {"actual": "vieja1234", "nueva": "nueva1234"}
+        )
+        mock_login.assert_called_once_with("d@upds.edu.bo", "nueva1234")
+        self.assertEqual(self.client.session["jwt"], "tok3")
+        self.assertEqual(self._flash(), {"tipo": "ok", "texto": "Contraseña cambiada."})
+
+    def test_navbar_perfil_en_panel_auxiliares(self):
+        for usuario in (AUXILIAR, ENCARGADO):
+            self._como(usuario, auxiliar_nombre="Ana Pérez")
+            r = self.client.get("/auxiliares/perfil/")
+            self.assertEqual(r.status_code, 200)
+            self.assertContains(
+                r, '<div class="sistema-panel" data-sistema-panel="AUXILIARES">'
+            )
+            self.assertContains(r, 'data-sistema-panel="SOPORTE" hidden')
+            self.assertContains(
+                r,
+                '<a class="side-link active" href="/auxiliares/perfil/"',
+            )

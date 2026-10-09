@@ -135,6 +135,10 @@
           <iconify-icon icon="mdi:comment-quote-outline" aria-hidden="true"></iconify-icon>
           <span class="side-link-label">Sugerencias</span>
         </a>
+        <a class="side-link{% if nav_page == 'auxiliares_perfil' %} active{% endif %}" href="{% url 'auxiliares_perfil' %}" {% if nav_page == 'auxiliares_perfil' %}aria-current="page"{% endif %} data-nav-page="auxiliares_perfil">
+          <iconify-icon icon="mdi:account-circle-outline" aria-hidden="true"></iconify-icon>
+          <span class="side-link-label">Perfil</span>
+        </a>
       </div>
     </nav>
     <div class="side-footer">

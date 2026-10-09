@@ -23,7 +23,7 @@ Opción B: vincular cada entrada de la nómina a una cuenta (`usuario_id`) y res
 - [x] T1 Backend: `usuario_id` en nómina + `POST /api/laboratorios/equipo/vincular` + `GET /api/laboratorios/equipo/yo` + autoría por cuenta en laboratorios/software/novedades. Tests pytest.
 - [x] T2 Frontend identidad: sesión toma el nombre vinculado al loguear; eliminar `soy` (ruta, vista, template, links); aviso de cuenta sin vincular; `puede_validar` desde el vínculo. Tests Django.
 - [x] T3 Frontend admin: en `/usuarios`, elegir miembro de nómina al crear Auxiliar/Encargado y vincular usuarios existentes. Tests Django.
-- [ ] T4 `/auxiliares/perfil`: datos de la cuenta + cambio de contraseña, link en panel AUXILIARES, `/perfil` redirige ahí para Auxiliar/Encargado. Tests Django.
+- [x] T4 `/auxiliares/perfil`: datos de la cuenta + cambio de contraseña, link en panel AUXILIARES, `/perfil` redirige ahí para Auxiliar/Encargado. Tests Django.
 
 ## Criterios de aceptación
 - Un Auxiliar logueado registra atenciones/novedades/software con su nombre de nómina sin elegir nada.
@@ -44,6 +44,7 @@ Rama `feat/login-por-auxiliar` (desde `fix/ui-dev-round`). Pronóstico ~600–80
 | T1 | delegada (writer; 5 archivos no triviales) | pendiente | gitnexus `_equipo`: CRITICAL (8 llamadores) → cambio aditivo |
 | T2 | delegada (writer; views_lab/views/templates/tests) | pendiente | gitnexus `_quien_reporta`: HIGH (3 llamadores esperados: novedades/lab_pcs/software); `login_vista`, `lab_nueva_vista`: LOW |
 | T3 | delegada (writer; views/template/tests) | pendiente | gitnexus `usuarios_vista`, `usuarios_accion_vista`: LOW (0 llamadores) |
+| T4 | delegada (writer; views/urls/context processor/navbar/template/tests) | pendiente | gitnexus `perfil_vista`, `perfil_guardar_vista`, `sesion`: LOW (0 llamadores) |
 
 **T1 evidencia:** Postgres desechable en Docker (`postgres:16-alpine`, tmpfs, :55433) + `alembic upgrade head` + seeds del proyecto + `setval` de secuencias + usuario Encargado de auditoría. Con T1: `2 failed, 195 passed`; base (HEAD sin T1, DB fresca): `2 failed, 182 passed`. Las 2 fallas son preexistentes (`test_seed::test_el_csv_se_puede_deduplicar_por_created_at` por datos del CSV; `test_equipo_crud_jefe_y_403_tecnico` por dict exacto, ajustado a `encargado`+`usuario_id`). Spot check tras el ajuste: `14 passed`. `test_equipo_vinculo.py` 13/13. Se quitó de `data/equipo_auxiliares.json` la entrada basura `TEST-LAB-aux` (la escribe `test_laboratorios._crear_atencion` sin restaurar; archivo gitignored).
 
@@ -51,5 +52,7 @@ Rama `feat/login-por-auxiliar` (desde `fix/ui-dev-round`). Pronóstico ~600–80
 
 **T3 evidencia:** `/usuarios` (solo Jefe) lee `GET /api/laboratorios/equipo` (ApiError → nómina vacía) y muestra en cada cuenta Auxiliar/Encargado activa su miembro vinculado o "Sin vincular", un selector de miembros activos (los vinculados a otra cuenta se marcan "(vinculado)") con "Vincular" y, si hay vínculo, "Desvincular". Nuevas acciones `vincular`/`desvincular` en `usuarios_accion_vista` → `POST /api/laboratorios/equipo/vincular` (`usuario_id` null al desvincular); no-Jefe recibe flash de error sin llamar a la API. Crear Auxiliar/Encargado con miembro de nómina vincula con el `id` devuelto; si el vínculo falla el usuario queda creado y se muestra "Usuario creado, pero no se pudo vincular: …". `test_usuarios_lista` pasa a `assert_any_call` (el Jefe ahora también consulta la nómina). RED: 7/9 tests nuevos (`VinculoNominaTest`) fallaban; GREEN: 9/9. Suite `tests.test_views`: 57 tests, solo las 3 fallas preexistentes.
 
+**T4 evidencia:** `/auxiliares/perfil/` (`auxiliares_perfil`) y `/auxiliares/perfil/guardar/` (`auxiliares_perfil_guardar`, POST) solo para Auxiliar/Encargado (el resto → `perfil`). Muestra nombre, rol, correo (de la sesión) y el miembro de nómina vinculado o "Sin vincular" + `AVISO_SIN_VINCULO` (vía `_sin_vinculo`, que reintenta `equipo/yo`). La rama `password` de `perfil_guardar_vista` se extrajo a `_cambiar_password(request) -> (texto, error)`, compartida por ambas vistas (mismo flujo: `POST /api/auth/password`, re-login, `cargar_identidad_auxiliar`). `/perfil/` redirige a Auxiliar/Encargado a `/auxiliares/perfil/`. Navbar: link "Perfil" al final del panel AUXILIARES; el context processor mapea ambos url names a `auxiliares_perfil` y fuerza el panel AUXILIARES (también para Encargado). RED: 9/10 tests nuevos (`PerfilAuxiliarTest`) fallaban (el de regresión del `/perfil` de Soporte ya pasaba); GREEN: 10/10. Suite `tests.test_views`: 67 tests, solo las 3 fallas preexistentes.
+
 ## Próximo paso
-T3 vinculación desde `/usuarios`, luego T4 `/auxiliares/perfil`.
+Abrir el PR único (decisión del usuario).

@@ -49,6 +49,12 @@ urlpatterns = [
     path("horarios/copiar/", views.horarios_copiar_vista, name="horarios_copiar"),
     path("perfil/", views.perfil_vista, name="perfil"),
     path("perfil/guardar/", views.perfil_guardar_vista, name="perfil_guardar"),
+    path("auxiliares/perfil/", views.auxiliares_perfil_vista, name="auxiliares_perfil"),
+    path(
+        "auxiliares/perfil/guardar/",
+        views.auxiliares_perfil_guardar_vista,
+        name="auxiliares_perfil_guardar",
+    ),
     path("sugerencias/", views.sugerencias_vista, name="sugerencias"),
     path("notas/", views.notas_vista, name="notas"),
     path("notas/guardar/", views.notas_guardar_vista, name="notas_guardar"),
