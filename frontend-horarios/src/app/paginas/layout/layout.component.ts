@@ -59,6 +59,13 @@ interface ItemMenu {
               <app-icono [nombre]="item.icono" [tamano]="18" /> {{ item.texto }}
             </a>
           }
+          <p class="px-3 pt-4 pb-1 text-[11px] font-semibold tracking-wide text-white/45 uppercase">Mi cuenta</p>
+          @for (item of cuenta; track item.ruta) {
+            <a [routerLink]="item.ruta" routerLinkActive="!bg-white/15 !text-white" (click)="menuAbierto.set(false)"
+               class="flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition hover:bg-white/10 hover:text-white">
+              <app-icono [nombre]="item.icono" [tamano]="18" /> {{ item.texto }}
+            </a>
+          }
         </nav>
 
         <div class="flex items-center gap-3 border-t border-white/10 p-4">
@@ -125,6 +132,11 @@ export class LayoutComponent implements OnInit {
     { ruta: '/laboratorios', texto: 'Laboratorios', icono: 'laboratorio' },
     { ruta: '/registros', texto: 'Registros', icono: 'registros' },
     { ruta: '/configuracion', texto: 'Configuración', icono: 'configuracion', visible: (a) => a.esAdmin() },
+  ];
+  /** "Mi cuenta": every logged-in role sees it */
+  protected readonly cuenta: ItemMenu[] = [
+    { ruta: '/cuenta/perfil', texto: 'Perfil', icono: 'docente' },
+    { ruta: '/cuenta/notas', texto: 'Bloc de notas', icono: 'editar' },
   ];
   /** Ítems visibles para el rol actual */
   protected readonly menu = computed(() => this.items.filter((i) => !i.visible || i.visible(this.auth)));

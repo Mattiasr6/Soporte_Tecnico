@@ -22,35 +22,37 @@ interface ApiErrorDetail {
 @Injectable({ providedIn: 'root' })
 export class ApiService {
   private readonly http = inject(HttpClient);
+  /** Base path the relative `path` of every call is appended to */
+  protected readonly base: string = BASE;
 
   get<T>(path: string, params?: Record<string, string | number | boolean | readonly (string | number | boolean)[]>): Promise<T> {
-    return this.run(this.http.get<T>(`${BASE}${path}`, { params }));
+    return this.run(this.http.get<T>(`${this.base}${path}`, { params }));
   }
 
   /** Binary download (e.g. a photo); the interceptor adds the Bearer token */
   getBlob(path: string): Promise<Blob> {
-    return this.run(this.http.get(`${BASE}${path}`, { responseType: 'blob' }));
+    return this.run(this.http.get(`${this.base}${path}`, { responseType: 'blob' }));
   }
 
   /** Multipart upload (the browser sets the content type and boundary) */
   postForm<T>(path: string, form: FormData): Promise<T> {
-    return this.run(this.http.post<T>(`${BASE}${path}`, form));
+    return this.run(this.http.post<T>(`${this.base}${path}`, form));
   }
 
   post<T>(path: string, body: unknown = {}): Promise<T> {
-    return this.run(this.http.post<T>(`${BASE}${path}`, body));
+    return this.run(this.http.post<T>(`${this.base}${path}`, body));
   }
 
   patch<T>(path: string, body: unknown): Promise<T> {
-    return this.run(this.http.patch<T>(`${BASE}${path}`, body));
+    return this.run(this.http.patch<T>(`${this.base}${path}`, body));
   }
 
   put<T>(path: string, body: unknown): Promise<T> {
-    return this.run(this.http.put<T>(`${BASE}${path}`, body));
+    return this.run(this.http.put<T>(`${this.base}${path}`, body));
   }
 
   delete(path: string): Promise<void> {
-    return this.run(this.http.delete<void>(`${BASE}${path}`));
+    return this.run(this.http.delete<void>(`${this.base}${path}`));
   }
 
   private async run<T>(request: Observable<T>): Promise<T> {
@@ -60,6 +62,15 @@ export class ApiService {
       throw toErrorSistema(e);
     }
   }
+}
+
+/**
+ * Same client for the rest of the FastAPI routes (`/api/usuarios/...`,
+ * `/api/auth/...`): same error handling, and the interceptor adds the token.
+ */
+@Injectable({ providedIn: 'root' })
+export class ApiRaizService extends ApiService {
+  protected override readonly base: string = environment.apiUrl;
 }
 
 /** Converts an HTTP error into the app's readable error */

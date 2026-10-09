@@ -15,6 +15,14 @@ function isLoginRequest(url: string): boolean {
 }
 
 /**
+ * Password change answers 401 when the current password is wrong: that is a form
+ * error, not an expired session (the token is still sent, unlike login).
+ */
+function isPasswordChangeRequest(url: string): boolean {
+  return url.split('?')[0] === `${environment.apiUrl}/auth/password`;
+}
+
+/**
  * Adds `Authorization: Bearer <token>` to API requests and, on 401,
  * drops the session and sends the user back to the login page.
  */
@@ -28,7 +36,7 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
       // Only expire the session that sent this request: a late 401 from an old token
       // must not wipe a session created by a newer login.
       const sameSession = auth.sesion() === token;
-      if (error instanceof HttpErrorResponse && error.status === 401 && !isLoginRequest(req.url) && sameSession) {
+      if (error instanceof HttpErrorResponse && error.status === 401 && !isLoginRequest(req.url) && !isPasswordChangeRequest(req.url) && sameSession) {
         auth.sesionExpirada();
       }
       return throwError(() => error);

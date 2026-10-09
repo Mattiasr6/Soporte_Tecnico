@@ -31,6 +31,8 @@ export const routes: Routes = [
       { path: 'auxiliares', title: 'Auxiliares', canActivate: [exigirGestionAuxiliares], loadComponent: () => import('./paginas/operacion/auxiliares.component').then((m) => m.AuxiliaresComponent) },
       { path: 'laboratorios', title: 'Laboratorios', loadComponent: () => import('./paginas/laboratorios/laboratorios.component').then((m) => m.LaboratoriosComponent) },
       { path: 'registros', title: 'Registros', loadComponent: () => import('./paginas/registros/registros.component').then((m) => m.RegistrosComponent) },
+      { path: 'cuenta/perfil', title: 'Perfil', loadComponent: () => import('./paginas/cuenta/perfil.component').then((m) => m.PerfilComponent) },
+      { path: 'cuenta/notas', title: 'Bloc de notas', loadComponent: () => import('./paginas/cuenta/notas.component').then((m) => m.NotasComponent) },
       { path: 'configuracion', title: 'Configuración', loadComponent: () => import('./paginas/configuracion/configuracion.component').then((m) => m.ConfiguracionComponent) },
     ],
   },
