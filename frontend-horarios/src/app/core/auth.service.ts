@@ -90,6 +90,8 @@ export class AuthService {
         if (this.sesion()) {
           try {
             await this.cargarPerfil();
+            // A stored token of a user that is no longer active is useless: drop it
+            if (!this.perfil()?.activo) this.limpiar();
           } catch {
             this.limpiar();
           }

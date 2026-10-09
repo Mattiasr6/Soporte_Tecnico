@@ -11,7 +11,7 @@ function isApiRequest(url: string): boolean {
 
 /** Login answers 401 for bad credentials: that must not be treated as an expired session */
 function isLoginRequest(url: string): boolean {
-  return url.startsWith(`${environment.apiUrl}/auth/login`);
+  return url.split('?')[0] === `${environment.apiUrl}/auth/login`;
 }
 
 /**
@@ -25,7 +25,12 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
   const request = token && !isLoginRequest(req.url) ? req.clone({ setHeaders: { Authorization: `Bearer ${token}` } }) : req;
   return next(request).pipe(
     catchError((error: unknown) => {
-      if (error instanceof HttpErrorResponse && error.status === 401 && !isLoginRequest(req.url)) auth.sesionExpirada();
+      // Only expire the session that sent this request: a late 401 from an old token
+      // must not wipe a session created by a newer login.
+      const sameSession = auth.sesion() === token;
+      if (error instanceof HttpErrorResponse && error.status === 401 && !isLoginRequest(req.url) && sameSession) {
+        auth.sesionExpirada();
+      }
       return throwError(() => error);
     }),
   );
