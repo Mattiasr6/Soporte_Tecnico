@@ -73,7 +73,7 @@ frontends already talk to the same FastAPI, so only the presentation layer must 
   - [x] G3 (M) Turno code + `medio_solicitud` on `horarios.atenciones`; dashboard per lab × category/turno; reports turno filter.
   - [x] G4 (M) Tablero semáforo + day timeline (union over atenciones/reportes/objetos, no new table).
   - [x] G5 (M) Novedades per lab (new `horarios.novedades`) + cierre validation (`estado`, `validado_por`, `validado_en` on `reportes_turno`).
-  - [ ] G6 (M) Saturday hours per date and several auxiliares per turno; XLSX/PDF schedule export.
+  - [x] G6 (M) Saturday hours per date and several auxiliares per turno; XLSX/PDF schedule export.
   - [ ] G7 (L) Software inventory (`horarios.software`, `ambiente_software`, `pc_software`, attention templates).
   - [ ] G8 (L) Lab hardware sheet columns on `ambientes`; free fila/col room grid (or keep the 4-PC table layout).
   - [ ] M4b Soporte "Nueva atención" (Django keeps a session batch draft + Wilmercito suggestion).
@@ -387,3 +387,54 @@ Strategy: ask-on-risk. Forecast M0–M2 ≈ 400 authored lines. RDD disabled for
   - Left out: Django purge button (by request); a report written by a manager on behalf of an
     auxiliar has that auxiliar as author, so the writing manager could validate it (no `creado_por`
     column); novedad rows and photos are never deleted (no cleanup job, Django parity).
+- 2026-10-09: G6 done (route: delegated, one writer; trigger: 2+ non-trivial files across migration,
+  API and Angular). Commits `bfc75bd` feat(horarios): plan Saturdays with several auxiliares per turno
+  and own hours, `7b8e940` feat(horarios): export weekly and Saturday schedules as XLSX and PDF.
+  - Migration `0026_horarios_sabados_plan` (inline `_run_sql`, with downgrade): new `horarios.sabados`
+    (fecha PK, nota ≤200) and `sabado_horarios` (fecha+turno PK, hora_inicio/hora_fin, fin > inicio,
+    cascade from sabados). `rotacion_sabados` becomes the assignment table: drop UNIQUE(fecha) and
+    `nota`, auxiliar_id and turno NOT NULL, UNIQUE(fecha, auxiliar_id), FK fecha → sabados and
+    auxiliar → perfiles ON DELETE CASCADE. Data: each old row creates its `sabados` date with the row's
+    note; a row with auxiliar but no turno appends "Sin turno: <nombre>" to the date note and is removed;
+    a row without auxiliar is removed (date + note kept). Downgrade keeps the first assignment per date
+    with the note, adds a bare row for an unassigned date, drops own hours (lossy by design).
+  - API (`routers/asignacion/sabados.py`, `services/asignacion/sabados.py`): GET `/sabados?mes=&anio=`
+    (fn_puede_ver; every Saturday of the month with M/MD/T hours, `personalizado`, auxiliares, and the
+    default hours), PUT `/sabados/{fecha}` (gestionar; replaces the date; 422 not Saturday, same auxiliar
+    in two turnos, repeated turno, one hour only, fin <= inicio, turno N, unknown perfil; hours equal to
+    `horarios_turno` are not stored; no auxiliares = date cleared, Django parity), DELETE `/sabados/{fecha}`
+    (204/404). The old `/rotacion-sabados` CRUD is removed (Angular was the only consumer).
+  - Export: GET `/horarios/export.xlsx|.pdf?tipo=semanal|sabado&mes=&anio=` (fn_puede_ver; Django let any
+    logged-in user export) in `services/asignacion/exportes.py` with openpyxl 3.1.5 + reportlab 4.4.4
+    (already in requirements; no dependency added). Same columns/look as Django: semanal = active
+    auxiliares/encargados with `coalesce(fn_turno_vigente, turno_habitual)` and its hours ("Sin turno"
+    last); sabado = NOMBRE/SÁBADO (dd/mm/yyyy)/TURNO/INICIO/FIN with the date's own hours, then "Libre"
+    rows for team members without a Saturday that month.
+  - Angular: "Rotación de sábados" on `/auxiliares` evolved into the month matrix (presentational
+    `planificador-sabados`: rows = active auxiliares/encargados plus anyone planned, columns = Saturdays,
+    cell select Mñ/Md/Ta, per-date panel for own hours + note, "Horario propio"/"Sin guardar" badges,
+    totals, per-turno counts, "Sin sábado este mes"); local draft, "Guardar cambios (n)" PUTs only changed
+    dates; Limpiar per date; month navigation asks before dropping unsaved dates. Export buttons (Excel/PDF
+    for the month's Saturdays in the planner bar, "Excel semanal"/"PDF semanal" in the shifts card) use
+    `ApiService.getBlob` (now with params) + `descargarBlob`, so the Bearer token is sent.
+  - Tests: new `tests/test_asignacion_sabados.py` RED 12 failed + 12 teardown errors (table missing) →
+    GREEN 12; export tests RED 5 failed → GREEN 17 passed. The old rotation CRUD test was removed from
+    `test_asignacion_turnos.py`. All `tests/test_asignacion*` 202 passed; full suite
+    (`--continue-on-collection-errors`) 89 failed / 282 passed / 39 errors (baseline, seed users). Host ruff
+    check + format clean on the 10 touched Python files.
+  - Migration: test DB and UPDS DB, each seeded with 3 old rows (aux+turno+nota, aux without turno, nota
+    only) → upgrade 0026 gave 3 dates (notes "cubre", "sin turno · Sin turno: <nombre>", "solo nota") and
+    1 assignment; downgrade -1 restored the 3 rows with notes; upgrade → 0026 (head). Seed rows deleted.
+  - Checks: horarios image build → "Application bundle generation complete" (both parts). Smoke on :4213:
+    paul GET `/sabados` 200, PUT 403, export 200, anonymous export 401; Jefe (minted) PUT 2 auxiliares in M
+    08:00–12:30 → 200 personalizado, DELETE 204. Browser as Jefe: planned 31/10 with both auxiliares and
+    own hours + note through the matrix (saved, "Horario propio", Mñ 2), cleared it with Limpiar (toast,
+    back to "Sin sábado este mes"); the four export buttons downloaded `sabados_2026-10.xlsx` (5303 B,
+    `PK\x03\x04`), `sabados_2026-10.pdf` (2030 B, `%PDF-`), `horarios_semanales.xlsx` (5260 B) and `.pdf`
+    (1983 B); the XLSX rows held both auxiliares with 08:00–12:30. 0 console errors. Smoke data deleted
+    (sabados/sabado_horarios/rotacion_sabados = 0). Browser clicks were sent as DOM click events: the
+    Playwright MCP session delivered no real mouse events and auto-dismissed `confirm()`. No Angular spec
+    files exist (test-first exception for the Angular part).
+  - Left out: Django's auxiliar view of the planner (the `/auxiliares` page stays manager-only; auxiliares
+    can still download the export through the API, no Angular entry for them); the Django team JSON names
+    (perfiles are the source); old `N` assignments, if any existed, would be dropped on re-saving the date.
