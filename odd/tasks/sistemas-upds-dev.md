@@ -21,6 +21,13 @@ El frontend consulta tablas directo con supabase-js (90 `.from()`, 9 `.rpc()`,
 - Storage Supabase → archivos en disco como ya hace Soporte (`data/`).
 - Datos de Supabase prod: fuera de alcance por ahora (solo dev).
 
+- Prefijo de API del módulo: `/api/asignacion` (NO `/api/horarios`, que ya sirve los
+  horarios de técnicos).
+- Mapeo de roles (fuente única = `Usuarios.Role`, se re-sincroniza en cada request):
+  Jefe→admin, Encargado→encargado, Auxiliar→auxiliar, Tecnico→invitado (mínimo privilegio;
+  rol desconocido → invitado). `Usuarios.Activo=false` → perfil `activo=false`.
+  `decano` no tiene equivalente en Usuarios por ahora.
+
 ## Alcance / restricciones
 - Rama `feat/sistemas-upds-dev`, worktree `stupds/Soporte_Tecnico2`.
 - Entorno aislado `soporte-upds` (pg 5435 `soporte_upds`, api 5013, web 8013).
@@ -32,8 +39,8 @@ El frontend consulta tablas directo con supabase-js (90 `.from()`, 9 `.rpc()`,
 - [x] T1 Esquema `horarios`: migración Alembic 0021 que porta el SQL de Supabase
       (sin auth/storage/RLS), `perfiles` ↔ `Usuarios`, reemplazo de `auth.uid()`.
       Check: `alembic upgrade head` en soporte-upds + tests de triggers anti-choque.
-- [ ] T2 API base: CORS para Angular dev, dependencia de sesión con contexto de usuario,
-      mapeo de roles, `GET /api/horarios/me`.
+- [x] T2 API base: CORS para Angular dev, dependencia de sesión con contexto de usuario,
+      mapeo de roles, `GET /api/asignacion/me`.
 - [ ] T3 Auth en Angular: login contra `/api/auth/login`, interceptor JWT, proxy dev a 5013.
 - [ ] T4 Catálogos (ambientes, ambiente_pcs, materias, carreras, docentes, feriados, bloques…).
 - [ ] T5 Asignaciones, cesiones, reservas, reubicaciones + RPC de choques/ocupación.
@@ -52,5 +59,17 @@ El frontend consulta tablas directo con supabase-js (90 `.from()`, 9 `.rpc()`,
   `pytest tests/test_horarios_schema.py tests/test_health.py` 9 passed; `soporte_upds` en head.
   Pendiente para la API: reglas que vivían solo en RLS (`99_rls_reference.sql`).
 
+- T2 (delegado, writer): `CORS_ORIGINS` (vacío = sin middleware, prod igual; upds compose
+  = localhost/127.0.0.1:4200), `services/asignacion_perfiles.py` (`map_role`, `ensure_perfil`
+  upsert por usuario_id, adopta perfil huérfano por correo), `db/asignacion.py`
+  (`get_asignacion_db`: sync+commit del perfil ANTES de fijar contexto — el trigger
+  `fn_trg_proteger_admin` bloquearía la degradación si corre "como uno mismo" —; luego
+  `set_config('app.usuario_id', id, true)` re-aplicado en cada transacción vía evento
+  `after_begin`, así sobrevive a commits a mitad de request), router `/api/asignacion/me`
+  (lee vía `fn_usuario_actual()`/`fn_rol_actual()`). Evidencia: RED (import error) →
+  `pytest test_asignacion_base + test_horarios_schema + test_health` 23 passed en
+  `soporte_upds_test`; ruff check/format OK; smoke en api 5013: login 200, /me sin token 401,
+  /me Jefe 200 rol=admin, preflight Origin :4200 → allow-origin + credentials, origen ajeno 400.
+
 ## Siguiente paso
-T2 API base.
+T3 Auth en Angular.

@@ -7,6 +7,13 @@ class Settings(BaseSettings):
 
     DATABASE_URL: str = ""
     JWT_SECRET: str = ""
+    # Comma-separated browser origins allowed by CORS. Empty (the default) adds no
+    # CORS middleware at all, so deployments that do not set it are unchanged.
+    CORS_ORIGINS: str = ""
+
+    @property
+    def cors_origin_list(self) -> list[str]:
+        return [o.strip() for o in self.CORS_ORIGINS.split(",") if o.strip()]
 
     @model_validator(mode="after")
     def _require_env(self):
