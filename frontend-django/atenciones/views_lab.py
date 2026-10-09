@@ -189,56 +189,46 @@ def _items_lab_desde_post(post: dict[str, object]) -> tuple[list[dict[str, objec
     return [{**base, "laboratorio_id": lab_id} for lab_id in labs_int], ""
 
 
-@con_login
-def soy_vista(request: HttpRequest) -> HttpResponse:
-    rol = _rol(request)
-    if rol not in ("Auxiliar", "Encargado"):
-        return redirect("lab_lista")
-    token = str(request.session["jwt"])
-    error = ""
-    siguiente = (request.GET.get("next") or request.POST.get("next") or "").strip()
-    destino = siguiente if siguiente.startswith("/") else reverse("lab_nueva")
+AVISO_SIN_VINCULO = (
+    "Tu cuenta no está vinculada a la nómina; pedile al Jefe que la vincule"
+)
+
+
+def _es_auxiliar(request: HttpRequest) -> bool:
+    return _rol(request) in ("Auxiliar", "Encargado")
+
+
+def cargar_identidad_auxiliar(request: HttpRequest) -> None:
+    """Toma de la cuenta logueada su nombre de nómina (sin elegir "quién soy")."""
+    request.session.pop("auxiliar_nombre", None)
+    request.session.pop("auxiliar_encargado", None)
+    if not _es_auxiliar(request):
+        return
     try:
-        datos = api_get("/api/laboratorios/equipo", token)
-    except ApiError as e:
-        datos = None
-        error = str(e.detail) if e.detail else "No se pudo cargar la nómina"
-    miembros = []
-    if isinstance(datos, dict) and isinstance(datos.get("auxiliares"), list):
-        miembros = [m for m in datos["auxiliares"] if isinstance(m, dict)]
-    # ponytail: a confianza, pero cada cuenta solo ve su grupo
-    quiere_encargado = rol == "Encargado"
-    opciones = sorted(
-        str(m.get("nombre", ""))
-        for m in miembros
-        if m.get("activo", True)
-        and bool(m.get("encargado", False)) == quiere_encargado
-        and str(m.get("nombre", "")).strip()
-    )
-    if request.method == "POST":
-        elegido = (request.POST.get("auxiliar") or "").strip()
-        if _norm_nombre(elegido) in {_norm_nombre(n) for n in opciones}:
-            request.session["auxiliar_nombre"] = elegido
-            request.session["auxiliar_encargado"] = quiere_encargado
-            return redirect(destino)
-        error = "Ese nombre no está en tu grupo"
-    actual = str(request.session.get("auxiliar_nombre", ""))
-    return render(
-        request,
-        "atenciones/auxiliares_soy.html",
-        {
-            "opciones": opciones,
-            "actual": actual,
-            "siguiente": destino,
-            "es_encargado": quiere_encargado,
-            "error": error,
-        },
-    )
+        datos = api_get("/api/laboratorios/equipo/yo", str(request.session["jwt"]))
+    except (ApiError, requests.RequestException):
+        return
+    nombre = str(datos.get("nombre", "")).strip() if isinstance(datos, dict) else ""
+    if nombre:
+        request.session["auxiliar_nombre"] = nombre
+        request.session["auxiliar_encargado"] = bool(datos.get("encargado", False))
+
+
+def _sin_vinculo(request: HttpRequest) -> bool:
+    """Auxiliar/Encargado cuya cuenta aún no está vinculada a la nómina.
+
+    Reintenta una vez por request por si el Jefe la vinculó tras el login.
+    """
+    if not _es_auxiliar(request):
+        return False
+    if not (request.session.get("auxiliar_nombre") or "").strip():
+        cargar_identidad_auxiliar(request)
+    return not (request.session.get("auxiliar_nombre") or "").strip()
 
 
 def _quien_reporta(request: HttpRequest) -> str:
     nombre = (request.session.get("auxiliar_nombre") or "").strip()
-    if nombre:
+    if nombre or _es_auxiliar(request):
         return nombre
     usuario = request.session.get("usuario") or {}
     return str(usuario.get("display_name", "")).strip()
@@ -259,10 +249,7 @@ def _detalle_res(res: object) -> object:
 
 @con_login
 def novedades_vista(request: HttpRequest) -> HttpResponse:
-    if _rol(request) in ("Auxiliar", "Encargado") and not (
-        request.session.get("auxiliar_nombre") or ""
-    ).strip():
-        return redirect(f"{reverse('auxiliares_soy')}?next={reverse('novedades')}")
+    sin_vinculo = _sin_vinculo(request)
     tab = (request.POST.get("tab") or request.GET.get("tab") or "novedades").strip()
     if tab not in NOV_TABS:
         tab = "novedades"
@@ -273,19 +260,20 @@ def novedades_vista(request: HttpRequest) -> HttpResponse:
     if not f_lab.isdigit():
         f_lab = ""
     token = str(request.session["jwt"])
-    error = ""
+    error = AVISO_SIN_VINCULO if sin_vinculo else ""
     puede_validar = _puede_reportes(request) or bool(
         request.session.get("auxiliar_encargado")
     )
-    if request.method == "POST":
+    if request.method == "POST" and not (
+        sin_vinculo
+        and request.POST.get("action") in ("crear", "devolver", "validar", "rechazar")
+    ):
         action = request.POST.get("action", "")
         try:
             if action == "crear":
                 nombre = _quien_reporta(request)
                 if not nombre:
-                    return redirect(
-                        f"{reverse('auxiliares_soy')}?next={reverse('novedades')}"
-                    )
+                    raise ApiError(403, AVISO_SIN_VINCULO)
                 data = {
                     "tipo": NOV_TIPO[tab],
                     "texto": (request.POST.get("texto") or "").strip(),
@@ -397,21 +385,24 @@ def novedad_foto_vista(request: HttpRequest, novedad_id: int) -> HttpResponse:
 
 @con_login
 def lab_nueva_vista(request: HttpRequest) -> HttpResponse:
-    if _rol(request) in ("Auxiliar", "Encargado") and not (
-        request.session.get("auxiliar_nombre") or ""
-    ).strip():
-        return redirect(f"{reverse('auxiliares_soy')}?next={reverse('lab_nueva')}")
+    sin_vinculo = _sin_vinculo(request)
+    aux_fijo = _es_auxiliar(request)
     token = str(request.session["jwt"])
-    error = ""
+    error = AVISO_SIN_VINCULO if sin_vinculo else ""
+    post = request.POST
+    if aux_fijo and request.method == "POST":
+        # El auxiliar principal sale de la cuenta; los extras siguen libres.
+        post = request.POST.copy()
+        post["auxiliar_nombre"] = _quien_reporta(request)
     batch: list[dict[str, object]] = request.session.get("lab_batch", [])
     edit_idx = request.session.get("lab_edit_idx")
     if edit_idx is not None and not (0 <= edit_idx < len(batch)):
         edit_idx = None
         request.session.pop("lab_edit_idx", None)
-    if request.method == "POST":
+    if request.method == "POST" and not sin_vinculo:
         action = request.POST.get("action")
         if action == "agregar":
-            items, error = _items_lab_desde_post(request.POST)
+            items, error = _items_lab_desde_post(post)
             if not error and items:
                 if edit_idx is not None:
                     batch[edit_idx : edit_idx + 1] = items
@@ -474,7 +465,7 @@ def lab_nueva_vista(request: HttpRequest) -> HttpResponse:
         elif action == "enviar":
             a_enviar = batch
             if not a_enviar and edit_idx is None:
-                directos, error = _items_lab_desde_post(request.POST)
+                directos, error = _items_lab_desde_post(post)
                 if directos:
                     a_enviar = directos
             if not a_enviar:
@@ -510,8 +501,8 @@ def lab_nueva_vista(request: HttpRequest) -> HttpResponse:
         _partes = [p for p in _partes if p]
         aux1 = _partes[0] if _partes else ""
         aux_extras = _partes[1:]
-    if not aux1:
-        aux1 = str(request.session.get("auxiliar_nombre", ""))
+    if aux_fijo:
+        aux1 = _quien_reporta(request)
     # Prefill desde sala: ?lab=<id>&pc=<nombre> (solo lectura GET, no toca POST).
     lab_prefill = None
     _lab_raw = (request.GET.get("lab") or "").strip()
@@ -532,6 +523,7 @@ def lab_nueva_vista(request: HttpRequest) -> HttpResponse:
             "hoy": _hoy_iso(),
             "edit_item": edit_item,
             "aux1": aux1,
+            "aux_fijo": aux_fijo,
             "aux_extras": aux_extras,
             "edit_idx": edit_idx,
             "turnos": TURNOS,
@@ -1032,10 +1024,6 @@ def lab_tablero_vista(request: HttpRequest) -> HttpResponse:
 @con_login
 def lab_timeline_vista(request: HttpRequest) -> HttpResponse:
     # ponytail: solo lectura, 2 llamadas API y orden cronológico en Django.
-    if _rol(request) in ("Auxiliar", "Encargado") and not (
-        request.session.get("auxiliar_nombre") or ""
-    ).strip():
-        return redirect(f"{reverse('auxiliares_soy')}?next={reverse('lab_timeline')}")
     token = str(request.session["jwt"])
     hoy = _dt.datetime.now(_dt.UTC).date().isoformat()
     try:
@@ -1184,6 +1172,10 @@ def lab_pcs_vista(request: HttpRequest, laboratorio_id: int) -> HttpResponse:
         accion = str(cuerpo.pop("accion", "dibujo"))
         try:
             if accion == "marcar":
+                if _sin_vinculo(request):
+                    return JsonResponse(
+                        {"ok": False, "error": AVISO_SIN_VINCULO}, status=403
+                    )
                 pc_id = int(cuerpo.pop("pc_id", 0))
                 cuerpo.setdefault("auxiliar_nombre", _quien_reporta(request))
                 api_put(f"/api/software/pcs/{pc_id}", token, cuerpo)

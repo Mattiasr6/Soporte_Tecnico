@@ -101,7 +101,6 @@ urlpatterns = [
         views_lab.novedad_foto_vista,
         name="novedad_foto",
     ),
-    path("auxiliares/soy/", views_lab.soy_vista, name="auxiliares_soy"),
     path(
         "auxiliares/horarios/export.xlsx",
         views_lab.horarios_export_xlsx_vista,

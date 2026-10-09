@@ -21,6 +21,7 @@ from .api import (
 )
 from .auth import con_login
 from .forms import LoginForm
+from .views_lab import cargar_identidad_auxiliar
 
 _ZONA_LA_PAZ = ZoneInfo("America/La_Paz")
 
@@ -73,6 +74,7 @@ def login_vista(request: HttpRequest) -> HttpResponse:
                 )
                 request.session["jwt"] = data["token"]
                 request.session["usuario"] = data["user"]
+                cargar_identidad_auxiliar(request)
                 _marcar_sesion(request, True)
                 return redirect(_destino(request))
             except ApiError as e:
@@ -1840,6 +1842,7 @@ def perfil_guardar_vista(request: HttpRequest) -> HttpResponse:
                 datos = login_api(email, nueva)
                 request.session["jwt"] = datos["token"]
                 request.session["usuario"] = datos["user"]
+                cargar_identidad_auxiliar(request)
                 texto = "Contraseña cambiada."
             except ApiError as e:
                 error = _detalle_error(e)

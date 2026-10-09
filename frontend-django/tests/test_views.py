@@ -582,3 +582,146 @@ class VistasTest(TestCase):
             c for c in mock_get.call_args_list if c[0][0] == "/api/atenciones"
         ]
         self.assertEqual(llamadas[0][0][2], {"usuario_id": "11"})
+
+
+AVISO_SIN_VINCULO = (
+    "Tu cuenta no está vinculada a la nómina; pedile al Jefe que la vincule"
+)
+
+
+def _api_lab(yo):
+    """api_get de views_lab: /equipo/yo devuelve `yo` (o lanza), el resto vacío."""
+    from atenciones.api import ApiError
+
+    def _fake(path, *a, **k):
+        if path == "/api/laboratorios/equipo/yo":
+            if yo is None:
+                raise ApiError(404, AVISO_SIN_VINCULO)
+            return yo
+        return []
+
+    return _fake
+
+
+class IdentidadAuxiliarTest(TestCase):
+    def _como(self, usuario, **extra):
+        session = self.client.session
+        session["jwt"] = "t"
+        session["usuario"] = usuario
+        for k, v in extra.items():
+            session[k] = v
+        session.save()
+        self.client.cookies[_settings.SESSION_COOKIE_NAME] = session.session_key
+
+    @patch("atenciones.views_lab.api_get")
+    @patch("atenciones.views.login_api")
+    def test_login_guarda_nombre_vinculado(self, mock_login, mock_get):
+        mock_login.return_value = {"token": "tok", "user": AUXILIAR}
+        mock_get.side_effect = _api_lab(
+            {"nombre": "Ana Pérez", "encargado": True, "activo": True}
+        )
+        r = self.client.post("/login/", {"email": "a@b.co", "password": "x"})
+        self.assertRedirects(r, "/auxiliares/", fetch_redirect_response=False)
+        self.assertEqual(self.client.session["auxiliar_nombre"], "Ana Pérez")
+        self.assertTrue(self.client.session["auxiliar_encargado"])
+        mock_get.assert_any_call("/api/laboratorios/equipo/yo", "tok")
+
+    @patch("atenciones.views_lab.api_get")
+    @patch("atenciones.views.login_api")
+    def test_login_tecnico_no_consulta_nomina(self, mock_login, mock_get):
+        mock_login.return_value = {"token": "tok", "user": TECNICO}
+        self.client.post("/login/", {"email": "a@b.co", "password": "x"})
+        mock_get.assert_not_called()
+        self.assertNotIn("auxiliar_nombre", self.client.session)
+
+    @patch("atenciones.views_lab.api_get")
+    @patch("atenciones.views.login_api")
+    def test_login_sin_vinculo_muestra_aviso_sin_soy(self, mock_login, mock_get):
+        mock_login.return_value = {"token": "tok", "user": AUXILIAR}
+        mock_get.side_effect = _api_lab(None)
+        self.client.post("/login/", {"email": "a@b.co", "password": "x"})
+        self.assertNotIn("auxiliar_nombre", self.client.session)
+        r = self.client.get("/auxiliares/novedades/")
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, AVISO_SIN_VINCULO)
+        self.assertNotContains(r, "/auxiliares/soy/")
+
+    @patch("atenciones.views_lab.requests.post")
+    @patch("atenciones.views_lab.api_get")
+    def test_sin_vinculo_no_publica_novedad(self, mock_get, mock_post):
+        self._como(AUXILIAR)
+        mock_get.side_effect = _api_lab(None)
+        r = self.client.post(
+            "/auxiliares/novedades/", {"action": "crear", "texto": "hola"}
+        )
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, AVISO_SIN_VINCULO)
+        mock_post.assert_not_called()
+
+    @patch("atenciones.views_lab.api_get")
+    def test_sin_vinculo_lab_nueva_avisa_sin_redirigir(self, mock_get):
+        self._como(AUXILIAR)
+        mock_get.side_effect = _api_lab(None)
+        r = self.client.get("/auxiliares/atenciones/nueva/")
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, AVISO_SIN_VINCULO)
+
+    def test_soy_ya_no_existe(self):
+        self._como(AUXILIAR, auxiliar_nombre="Ana Pérez")
+        self.assertEqual(self.client.get("/auxiliares/soy/").status_code, 404)
+
+    @patch("atenciones.views_lab.api_get")
+    def test_navbar_muestra_nombre_sin_cambiar(self, mock_get):
+        self._como(AUXILIAR, auxiliar_nombre="Ana Pérez")
+        mock_get.side_effect = _api_lab(None)
+        r = self.client.get("/auxiliares/novedades/")
+        self.assertContains(r, "Ana Pérez")
+        self.assertNotContains(r, ">cambiar</a>")
+        self.assertNotContains(r, AVISO_SIN_VINCULO)
+
+    def test_quien_reporta_usa_nombre_vinculado(self):
+        from django.test import RequestFactory
+
+        from atenciones.views_lab import _quien_reporta
+
+        req = RequestFactory().get("/")
+        req.session = {"usuario": AUXILIAR, "auxiliar_nombre": "Ana Pérez"}
+        self.assertEqual(_quien_reporta(req), "Ana Pérez")
+        req.session = {"usuario": AUXILIAR}
+        self.assertEqual(_quien_reporta(req), "")
+        req.session = {"usuario": TECNICO}
+        self.assertEqual(_quien_reporta(req), "Diego")
+
+    @patch("atenciones.views_lab.requests.post")
+    @patch("atenciones.views_lab.api_get")
+    def test_novedad_se_publica_con_nombre_vinculado(self, mock_get, mock_post):
+        self._como(AUXILIAR, auxiliar_nombre="Ana Pérez")
+        mock_get.side_effect = _api_lab(None)
+        mock_post.return_value.status_code = 201
+        self.client.post(
+            "/auxiliares/novedades/",
+            {"action": "crear", "texto": "hola", "auxiliar_nombre": "Otro"},
+        )
+        self.assertEqual(mock_post.call_args.kwargs["data"]["auxiliar_nombre"], "Ana Pérez")
+
+    @patch("atenciones.views_lab.api_post")
+    @patch("atenciones.views_lab.api_get")
+    def test_lab_nueva_auxiliar_principal_fijo(self, mock_get, mock_post):
+        self._como(AUXILIAR, auxiliar_nombre="Ana Pérez")
+        mock_get.side_effect = _api_lab(None)
+        r = self.client.get("/auxiliares/atenciones/nueva/")
+        self.assertContains(r, 'value="Ana Pérez" readonly')
+        self.client.post(
+            "/auxiliares/atenciones/nueva/",
+            {
+                "action": "enviar",
+                "laboratorio_id": "3",
+                "categoria": "Hardware",
+                "descripcion": "d",
+                "solucion": "s",
+                "auxiliar_nombre": "Otro",
+                "auxiliar_extra": "Beto",
+            },
+        )
+        payload = mock_post.call_args[0][2]
+        self.assertEqual(payload["auxiliar_nombre"], "Ana Pérez + Beto")

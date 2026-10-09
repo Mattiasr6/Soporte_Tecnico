@@ -45,7 +45,7 @@
       {% endfor %}
     </select>
     <label for="id_aux">Auxiliar(es)</label>
-    <input type="text" id="id_aux" name="auxiliar_nombre" list="aux-sugerencias" value="{{ aux1 }}" placeholder="Elegí turno y escribí para filtrar" autocomplete="off">
+    {% if aux_fijo %}<input type="text" id="id_aux" name="auxiliar_nombre" value="{{ aux1 }}" readonly title="Tu nombre sale de tu cuenta">{% else %}<input type="text" id="id_aux" name="auxiliar_nombre" list="aux-sugerencias" value="{{ aux1 }}" placeholder="Elegí turno y escribí para filtrar" autocomplete="off">{% endif %}
     <datalist id="aux-sugerencias"></datalist>
     <div id="aux-extras">
       {% for a in aux_extras %}<div class="aux-extra"><input type="text" name="auxiliar_extra" list="aux-sugerencias" value="{{ a }}" autocomplete="off"><button type="button" class="link-btn aux-quitar">Quitar</button></div>{% endfor %}
