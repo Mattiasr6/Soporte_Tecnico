@@ -4,7 +4,7 @@ The output is the JSON object each SQL function builds, returned unchanged.
 """
 
 from datetime import date
-from typing import Self
+from typing import Literal, Self
 
 from pydantic import BaseModel, ConfigDict, model_validator
 
@@ -25,3 +25,10 @@ class RangoDashboard(BaseModel):
         if self.hasta < self.desde or (self.hasta - self.desde).days > MAX_DIAS:
             raise ValueError("Rango de fechas inválido.")
         return self
+
+
+class FiltroLaboratorios(RangoDashboard):
+    """Lab dashboard/report filters (Django lab_reportes): optional turno and lab."""
+
+    turno: Literal["M", "MD", "T", "N"] | None = None
+    ambiente_id: int | None = None

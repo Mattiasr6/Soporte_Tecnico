@@ -281,6 +281,121 @@ def test_auxiliar_creates_edits_and_deletes_tickets(lab) -> None:
     assert lista == []
 
 
+# --- turno y medio de solicitud (Django LabAtenciones) ------------------------------
+
+
+def _insert_at(lab: dict, local: str, turno_trabajo_id: int | None = None) -> int:
+    """Insert a ticket created at La Paz local time `local` (no turno given)."""
+    with SessionLocal() as db:
+        atencion_id = db.execute(
+            text(
+                "insert into horarios.atenciones"
+                " (ambiente_id, descripcion, creado_en, turno_trabajo_id)"
+                " values (:a, :d, cast(:t as timestamp) at time zone 'America/La_Paz',"
+                " :tt) returning id"
+            ),
+            {"a": lab["id"], "d": f"{PREFIX}hora", "t": local, "tt": turno_trabajo_id},
+        ).scalar_one()
+        db.commit()
+    return atencion_id
+
+
+def _columna(atencion_id: int, columna: str) -> str | None:
+    with SessionLocal() as db:
+        return db.execute(
+            text(f"select {columna} from horarios.atenciones where id = :id"),
+            {"id": atencion_id},
+        ).scalar_one()
+
+
+@pytest.mark.parametrize(
+    ("local", "turno"),
+    [
+        ("2026-03-02 08:00", "M"),
+        ("2026-03-02 13:00", "MD"),
+        # MD (12-16) and T (14:30-18:30) overlap: the latest started one wins,
+        # same rule as fn_dashboard_detalle's tickets_por_turno.
+        ("2026-03-02 15:00", "T"),
+        ("2026-03-02 20:00", "N"),
+        ("2026-03-02 23:30", "N"),
+    ],
+)
+def test_turno_defaults_from_the_ticket_time(lab, local: str, turno: str) -> None:
+    atencion_id = _insert_at(lab, local)
+    assert _columna(atencion_id, "turno") == turno
+    assert _columna(atencion_id, "medio_solicitud") == "Presencial"
+
+
+def test_turno_defaults_from_the_linked_work_shift(lab) -> None:
+    with SessionLocal() as db:
+        tt = db.execute(
+            text(
+                "insert into horarios.turnos_trabajo (fecha, turno)"
+                " values (date '2020-01-06', 'N') returning id"
+            )
+        ).scalar_one()
+        db.commit()
+    try:
+        # Created in the morning, but inside a night work shift: the shift wins.
+        atencion_id = _insert_at(lab, "2026-03-02 08:00", turno_trabajo_id=tt)
+        assert _columna(atencion_id, "turno") == "N"
+    finally:
+        _cleanup()
+        with SessionLocal() as db:
+            db.execute(
+                text("delete from horarios.turnos_trabajo where id = :id"), {"id": tt}
+            )
+            db.commit()
+
+
+def test_tickets_store_turno_and_medio_and_filter_by_them(lab) -> None:
+    aux = lab["aux"]
+    body = [
+        _ticket(lab, turno="T", medio_solicitud="WhatsApp"),
+        _ticket(lab, turno="M"),
+    ]
+    r = client.post(f"{API}/atenciones", json=body, headers=_auth(aux))
+    assert r.status_code == 201, r.text
+    whatsapp, presencial = (c["id"] for c in r.json())
+
+    lista = client.get(
+        f"{API}/atenciones", params={"ambiente_id": lab["id"]}, headers=_auth(aux)
+    ).json()
+    por_id = {a["id"]: a for a in lista}
+    assert por_id[whatsapp]["turno"] == "T"
+    assert por_id[whatsapp]["medio_solicitud"] == "WhatsApp"
+    assert por_id[presencial]["turno"] == "M"
+    assert por_id[presencial]["medio_solicitud"] == "Presencial"
+
+    def ids(**params) -> set[int]:
+        r = client.get(
+            f"{API}/atenciones",
+            params={"ambiente_id": lab["id"], **params},
+            headers=_auth(aux),
+        )
+        assert r.status_code == 200, r.text
+        return {a["id"] for a in r.json()}
+
+    assert ids(turno="T") == {whatsapp}
+    assert ids(medio_solicitud="Presencial") == {presencial}
+    assert ids(turno="M", medio_solicitud="WhatsApp") == set()
+
+    r = client.patch(
+        f"{API}/atenciones/{presencial}",
+        json={"turno": "N", "medio_solicitud": "WhatsApp"},
+        headers=_auth(aux),
+    )
+    assert r.status_code == 200, r.text
+    assert (r.json()["turno"], r.json()["medio_solicitud"]) == ("N", "WhatsApp")
+
+    # Only the horarios turno codes and Django's two request channels exist.
+    for malo in ({"turno": "mañana"}, {"medio_solicitud": "Correo"}):
+        r = client.post(
+            f"{API}/atenciones", json=[_ticket(lab, **malo)], headers=_auth(aux)
+        )
+        assert r.status_code == 422, r.text
+
+
 # --- estado de PCs ---------------------------------------------------------------
 
 

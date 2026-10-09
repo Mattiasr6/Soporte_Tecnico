@@ -44,6 +44,10 @@ class AtencionIn(_In):
     pieza: str | None = None
     estado_anterior: str | None = None
     estado_final: str | None = None
+    # Django LabAtenciones fields: turno M/MD/T/N (the DB defaults it from the
+    # work shift or the ticket time) and medio_solicitud Presencial/WhatsApp.
+    turno: str | None = None
+    medio_solicitud: str | None = None
 
 
 class AtencionesUpdate(_In):

@@ -32,6 +32,14 @@ KEYS = {
     "uso": {"totales", "materias", "eventos", "por_lab", "actividades_lab"},
     "detalle": {"uso_por_dia", "carreras", "docentes", "tickets_por_turno"},
     "fallas": {"total", "con_ficha", "fallas", "por_categoria", "resultados"},
+    "laboratorios": {
+        "kpis",
+        "por_lab",
+        "por_tipo",
+        "por_turno",
+        "por_medio",
+        "por_mes",
+    },
 }
 
 
@@ -171,3 +179,87 @@ def test_sql_range_rejection_is_422(make_usuario) -> None:
     )
     assert r.status_code == 422, r.text
     assert r.json()["detail"]["code"] == "P0001"
+
+
+# --- laboratorios: per lab x tipo/turno (Django lab_dashboard / lab_reportes) -----
+
+
+def _seed(lab_id: int, tickets: list[tuple[str, str, str, str]]) -> None:
+    """(La Paz local time, tipo, turno, medio) tickets in a test laboratory."""
+    with SessionLocal() as db:
+        for local, tipo, turno, medio in tickets:
+            db.execute(
+                text(
+                    "insert into horarios.atenciones"
+                    " (ambiente_id, descripcion, tipo, turno, medio_solicitud, creado_en)"
+                    " values (:a, 'Prueba dashboard', :tipo, :turno, :medio,"
+                    " cast(:t as timestamp) at time zone 'America/La_Paz')"
+                ),
+                {"a": lab_id, "tipo": tipo, "turno": turno, "medio": medio, "t": local},
+            )
+        db.commit()
+
+
+def _lab_de(body: dict, lab_id: int) -> dict:
+    return {lab["id"]: lab for lab in body["por_lab"]}[lab_id]
+
+
+def test_laboratorios_per_lab_top_tipo_and_turno(make_usuario, lab_con_ticket) -> None:
+    # lab_con_ticket already holds one 'docente' ticket at 10:00 (turno M).
+    _seed(
+        lab_con_ticket,
+        [
+            ("2026-01-10 15:00", "programas", "T", "WhatsApp"),
+            ("2026-01-11 15:30", "programas", "T", "Presencial"),
+            ("2026-01-12 16:00", "programas", "T", "WhatsApp"),
+            ("2025-12-20 09:00", "programas", "M", "Presencial"),  # outside RANGO
+        ],
+    )
+    jefe = _auth(make_usuario("Jefe"))
+    r = client.get(f"{API}/laboratorios", params=RANGO, headers=jefe)
+    assert r.status_code == 200, r.text
+    body = r.json()
+    lab = _lab_de(body, lab_con_ticket)
+    assert lab["total"] == 4
+    assert (lab["top_tipo"], lab["top_turno"]) == ("programas", "T")
+    turnos = {t["turno"]: t["total"] for t in body["por_turno"]}
+    assert list(turnos) == ["M", "MD", "T", "N"]  # every turno, in shift order
+    assert turnos["T"] >= 3
+    assert body["kpis"]["total"] >= 4
+    assert {"lab_top", "turno_top", "auxiliares_activos"} <= body["kpis"].keys()
+    # Year trend: January .. the month of `hasta`, every month present.
+    assert [m["mes"] for m in body["por_mes"]] == ["2026-01"]
+
+    # Turno filter (Django lab_reportes) narrows every block.
+    r = client.get(
+        f"{API}/laboratorios",
+        params={**RANGO, "turno": "T", "ambiente_id": lab_con_ticket},
+        headers=jefe,
+    )
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["kpis"]["total"] == 3
+    assert [x["id"] for x in body["por_lab"]] == [lab_con_ticket]
+    assert {t["turno"]: t["total"] for t in body["por_turno"]}["M"] == 0
+    assert {m["medio"]: m["total"] for m in body["por_medio"]} == {
+        "WhatsApp": 2,
+        "Presencial": 1,
+    }
+
+
+def test_laboratorios_year_trend_runs_from_january(make_usuario) -> None:
+    params = {"desde": "2026-03-01", "hasta": "2026-03-31"}
+    r = client.get(
+        f"{API}/laboratorios", params=params, headers=_auth(make_usuario("Encargado"))
+    )
+    assert r.status_code == 200, r.text
+    assert [m["mes"] for m in r.json()["por_mes"]] == ["2026-01", "2026-02", "2026-03"]
+
+
+def test_laboratorios_rejects_unknown_turno(make_usuario) -> None:
+    r = client.get(
+        f"{API}/laboratorios",
+        params={**RANGO, "turno": "mañana"},
+        headers=_auth(make_usuario("Jefe")),
+    )
+    assert r.status_code == 422, r.text

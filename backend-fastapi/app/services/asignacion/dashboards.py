@@ -14,7 +14,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import Session
 
-from app.schemas.asignacion_dashboards import RangoDashboard
+from app.schemas.asignacion_dashboards import FiltroLaboratorios, RangoDashboard
 from app.services.asignacion.sql import Permission, http_error_from_db, require
 
 
@@ -31,15 +31,25 @@ _SQL = {
     d: text(f"select horarios.fn_dashboard_{d.value}(:desde, :hasta)")
     for d in Dashboard
 }
+_SQL_LABORATORIOS = text(
+    "select horarios.fn_dashboard_laboratorios(:desde, :hasta, :turno, :ambiente_id)"
+)
 
 
 def obtener(db: Session, dashboard: Dashboard, rango: RangoDashboard) -> Any:
     """Run the dashboard function for the requesting user and return its JSON."""
+    return _ejecutar(db, _SQL[dashboard], {"desde": rango.desde, "hasta": rango.hasta})
+
+
+def obtener_laboratorios(db: Session, filtro: FiltroLaboratorios) -> Any:
+    """fn_dashboard_laboratorios: per lab x tipo/turno, optional turno/lab filter."""
+    return _ejecutar(db, _SQL_LABORATORIOS, filtro.model_dump())
+
+
+def _ejecutar(db: Session, sql: Any, params: dict[str, Any]) -> Any:
     require(db, Permission.GESTIONAR_AUXILIARES)
     try:
-        return db.execute(
-            _SQL[dashboard], {"desde": rango.desde, "hasta": rango.hasta}
-        ).scalar_one()
+        return db.execute(sql, params).scalar_one()
     except DBAPIError as exc:
         db.rollback()
         mapped = http_error_from_db(exc)

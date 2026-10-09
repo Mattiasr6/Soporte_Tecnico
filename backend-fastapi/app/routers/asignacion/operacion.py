@@ -130,9 +130,12 @@ def listar_atenciones(
     estado: str | None = None,
     ambiente_id: int | None = None,
     participante: UUID | None = None,
+    turno: str | None = None,
+    medio_solicitud: str | None = None,
 ) -> list[dict]:
     """Tickets, newest first. `desde`/`hasta` are whole days in America/La_Paz;
-    `participante` = author or collaborator."""
+    `participante` = author or collaborator; `turno` M/MD/T/N and
+    `medio_solicitud` filter by those columns."""
     require(db, Permission.VER)
     where, params = [], {}
     if desde:
@@ -152,6 +155,12 @@ def listar_atenciones(
     if ambiente_id:
         where.append("a.ambiente_id = :ambiente_id")
         params["ambiente_id"] = ambiente_id
+    if turno:
+        where.append("a.turno = :turno")
+        params["turno"] = turno
+    if medio_solicitud:
+        where.append("a.medio_solicitud = :medio")
+        params["medio"] = medio_solicitud
     if participante:
         where.append(
             "(a.auxiliar_id = cast(:p as uuid) or cast(:p as uuid) = any(a.colaboradores))"
