@@ -42,10 +42,11 @@ frontends already talk to the same FastAPI, so only the presentation layer must 
 
 ## Pending user decisions (block their areas)
 
-- D1 Labs/PCs: `Laboratorios`/`LabPcs` vs `horarios.ambientes`/`ambiente_pcs` (Software follows).
-- D2 Lab attentions: `LabAtenciones` vs `horarios.atenciones`.
-- D3 Shifts/auxiliares: JSON files + `mañana/mediodia/tarde/noche` vs `horarios.perfiles` + `M/MD/T/N`.
-- D4 Novedades: `Novedades` vs `horarios.reportes_turno` + `objetos_perdidos`.
+- ~~D1–D4~~ → decided 2026-10-09 ("mejor preservar angular"): whenever Django and Angular
+  overlap, the Angular/horarios version stays. D1 `horarios.ambientes`/`ambiente_pcs`,
+  D2 `horarios.atenciones`, D3 `horarios.perfiles` + `M/MD/T/N`, D4 `horarios.reportes_turno`
+  + `objetos_perdidos`. Django-only features are ported onto the horarios tables; the old
+  Soporte tables become read-only sources for a later data migration (131 LabAtenciones).
 - ~~D5 Angular role model~~ → decided 2026-10-09: Soporte's 6 roles are the single model in
   Angular; Tecnico gets a real horarios role (see R1/R2).
 
@@ -65,9 +66,10 @@ frontends already talk to the same FastAPI, so only the presentation layer must 
   single role model; guards, menu and user screen read `Usuarios.Role`. Invitado stays
   "pending, no access" (/espera). Route: delegated with R1.
 - [ ] M3 Auditoría (read-only, Jefe): `/api/auditoria`.
-- [ ] M4 Soporte attentions list + ticket (needs D5).
-- [ ] Later areas (dashboards, reports, jerarquía, IA, labs, auxiliares, novedades) are added
-  as tasks once their blocking decision is answered.
+- [ ] M4 Soporte attentions list + ticket (D5 resolved).
+- [ ] M5 Gap map for labs/auxiliares/novedades: Django-only features to port onto horarios.
+- [ ] M6 Data migration: LabAtenciones (131) → `horarios.atenciones`, aux JSON → perfiles.
+- [ ] Later areas (dashboards, reports, jerarquía, IA) are added as tasks per slice.
 
 ## Acceptance (per slice)
 
