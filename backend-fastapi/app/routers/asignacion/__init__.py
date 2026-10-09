@@ -21,6 +21,7 @@ from app.routers.asignacion import (
     ocupacion,
     operacion,
     reportes,
+    tablero,
     turnos,
     usuarios,
 )
@@ -34,6 +35,7 @@ router.include_router(reportes.router)
 router.include_router(operacion.router)
 router.include_router(objetos_perdidos.router)
 router.include_router(dashboards.router)
+router.include_router(tablero.router)
 router.include_router(usuarios.router)
 
 
