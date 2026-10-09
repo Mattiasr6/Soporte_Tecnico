@@ -70,7 +70,7 @@ frontends already talk to the same FastAPI, so only the presentation layer must 
 - [x] M5 Gap map (explorer, 2026-10-09; Engram #126). Ports onto horarios, smallest first:
   - [x] G1 (S) Printable lab-attention ticket; clone an attention into N labs.
   - [x] G2 (S) Objetos "vencido" state (computed, 90 days); encargado toggle on the team screen.
-  - [ ] G3 (M) Turno code + `medio_solicitud` on `horarios.atenciones`; dashboard per lab × category/turno; reports turno filter.
+  - [x] G3 (M) Turno code + `medio_solicitud` on `horarios.atenciones`; dashboard per lab × category/turno; reports turno filter.
   - [ ] G4 (M) Tablero semáforo + day timeline (union over atenciones/reportes/objetos, no new table).
   - [ ] G5 (M) Novedades per lab + cierre validation (`ambiente_id`, `estado`, `validado_por` on `reportes_turno`).
   - [ ] G6 (M) Saturday hours per date and several auxiliares per turno; XLSX/PDF schedule export.
@@ -237,3 +237,52 @@ Strategy: ask-on-risk. Forecast M0–M2 ≈ 400 authored lines. RDD disabled for
     `/atenciones` ticket modal renders, clone 2× into LAB-02 created 2 rows; 0 console errors.
     The print dialog itself was not exercised. No Python touched (no pytest/ruff needed); no
     Angular spec files exist (test-first exception). GitNexus index is for another checkout.
+- 2026-10-09: G3 done (route: delegated, one writer; trigger: 2+ non-trivial files across
+  migration, API and Angular). Commits `6c77a69` feat(asignacion): add turno and medio to
+  atenciones and a lab dashboard, `310b944` feat(horarios): add turno and medio to attentions
+  and a lab dashboard.
+  - Migration `0024_horarios_turno_medio` (inline `_run_sql`, with downgrade):
+    `atenciones.turno` (M/MD/T/N, NOT NULL after backfill) and `medio_solicitud`
+    ('Presencial'|'WhatsApp', default Presencial), CHECK constraints; BEFORE INSERT trigger
+    `trg_atenciones_turno` fills a missing turno from the linked `turnos_trabajo`, else from
+    `fn_turno_horario_de(creado_en)` (horarios_turno hours in La Paz, latest started turno
+    still running, fallback N: same rule as fn_dashboard_detalle `tickets_por_turno`). It also
+    covers the RPC inserts (reparaciones, cambio de estado). Backfill disables
+    `trg_atenciones_actualizado` so `actualizado_en` is untouched. New
+    `fn_dashboard_laboratorios(desde, hasta, turno, ambiente_id)` (permission
+    fn_puede_gestionar_auxiliares like the other dashboards): kpis (total, lab_top, turno_top,
+    auxiliares_activos), por_lab (top_tipo, top_turno), por_tipo, por_turno (all 4, shift
+    order), por_medio, por_mes (January .. month of `hasta`).
+  - API: `AtencionIn` + `turno`/`medio_solicitud` (values checked by the DB → 422);
+    GET `/atenciones?turno=&medio_solicitud=`; GET `/dashboard/laboratorios` (declared before
+    `/{dashboard}`; `FiltroLaboratorios` = range + Literal turno + ambiente_id).
+  - Angular: atenciones list filters Turno and Medio, card chips (turno, WhatsApp), form
+    selects (turno "Automático (turno abierto u hora)" on new, hidden for a new correctivo
+    which goes through the RPC), CSV columns, printable ticket rows, clone keeps the medio.
+    New page `/dashboard-laboratorios` ("Labs por turno" menu item, guard
+    exigirGestionAuxiliares, link from Desempeño): container `dashboard-laboratorios`
+    (mes, turno, lab filters, CSV of the per-lab table) + presentational
+    `dashboard-laboratorios-vista` (KPIs, per-lab table, year trend with
+    `app-grafico-lineas`, bars by lab/turno/category with `app-grafico-barras`, medio bars).
+    No new chart dependency.
+  - Semantics chosen: Django turnos mañana/mediodia/tarde/noche → horarios M/MD/T/N; Django
+    "categoría" (LabCategoria) → horarios `tipo`; Django "auxiliares activos" (distinct
+    auxiliar_nombre) → distinct `auxiliar_id`; Django allowed a null turno, horarios always
+    derives one; permission is the horarios dashboard one (admin/encargado), not Django's
+    `_puede_reportes`.
+  - Tests: RED 13 failed / 58 passed (`test_asignacion_operacion.py` +
+    `test_asignacion_dashboards.py`), GREEN 71 passed; all `tests/test_asignacion*` 169 passed;
+    full suite 90 failed / 248 passed / 39 errors (same failure counts as baseline, seed users).
+    Host ruff check + format clean on the 8 touched Python files.
+  - Migration: test DB and UPDS DB upgrade → 0024, downgrade -1 → 0023, upgrade → 0024 (head).
+  - Checks: horarios image build → "Application bundle generation complete", no errors. Smoke
+    on :4213: paul POST 2 atenciones 201 (explicit T/WhatsApp; the other defaulted to T at
+    17:59 La Paz, medio Presencial), GET filter turno=T&medio=WhatsApp → only the first,
+    turno "mañana" → 422, paul `/dashboard/laboratorios` 403, Jefe (minted) 200 (kpis total 2,
+    LAB-01, turno T) and 200 with turno+lab filter, DELETE 204, 0 smoke rows left. Browser as
+    Jefe: `/dashboard-laboratorios` renders, "Labs por turno" in the menu, 0 console errors.
+    No Angular spec files exist (test-first exception for the Angular part).
+  - Left out: Django `fuera_por_turno`/`fuera_por_auxiliar` (no "fuera de turno" flag in
+    horarios), the 10 "recientes" rows of the Django dashboard, and Django's raw-rows CSV export
+    for labs (the atenciones list CSV now carries turno and medio). GitNexus index is for another
+    checkout (detect_changes not run).
