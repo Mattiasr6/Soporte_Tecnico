@@ -8,9 +8,12 @@ import { ModalComponent } from '../../compartido/modal.component';
 import { AuthService } from '../../core/auth.service';
 import { CatalogosService } from '../../core/catalogos.service';
 import { descargarCsv } from '../../core/exportar';
-import { AmbientePc, Atencion, EstadoAtencion, MedioSolicitud, Perfil, SolicitudBaja, TipoAtencion, TurnoCodigo } from '../../core/modelos';
+import {
+  AmbientePc, Atencion, EstadoAtencion, MedioSolicitud, Perfil, PlantillaAtencion, SolicitudBaja, TipoAtencion, TurnoCodigo,
+} from '../../core/modelos';
 import { NotificacionesService } from '../../core/notificaciones.service';
 import { FiltroOperacion, OperacionService } from '../../core/operacion.service';
+import { SoftwareService } from '../../core/software.service';
 import {
   ACCIONES_PROGRAMA, CATEGORIAS_TICKET, CategoriaTicket, CHECKLIST_PREVENTIVO, COLOR_CATEGORIA, DetallesTicket,
   MEDIOS_SOLICITUD, PEDIDOS_DOCENTE, RESULTADOS_CORRECTIVO, SUBTIPOS_TECNICO, textoDe, TIPOS_PERSONA, TIPOS_TICKET,
@@ -18,6 +21,7 @@ import {
 } from '../../core/tickets';
 import { LaboratorioCroquisComponent } from '../panel/laboratorio-croquis.component';
 import { ClonarAtencionComponent, DatosClonado } from './clonar-atencion.component';
+import { PlantillaSelectorComponent } from './plantilla-selector.component';
 import { TicketAtencionComponent } from './ticket-atencion.component';
 
 const PRIORIDADES: Record<number, { texto: string; clase: string }> = {
@@ -73,7 +77,7 @@ interface FormTicket extends Partial<Atencion> {
   selector: 'app-atenciones-lista',
   imports: [
     FormsModule, IconoComponent, ModalComponent, DatePipe, LaboratorioCroquisComponent, BuscadorComponent, FichasReparacionComponent,
-    TicketAtencionComponent, ClonarAtencionComponent,
+    TicketAtencionComponent, ClonarAtencionComponent, PlantillaSelectorComponent,
   ],
   template: `
     <!-- SOLICITUDES DE BAJA -->
@@ -318,6 +322,9 @@ interface FormTicket extends Partial<Atencion> {
     <app-modal [abierto]="!!form()" [titulo]="form()?.id ? 'Editar ticket' : 'Nuevo ticket'" ancho="xl" (cerrar)="form.set(null)">
       @if (form(); as f) {
         <form class="space-y-4" (ngSubmit)="guardar()" id="form-atencion">
+          @if (!f.id && plantillas().length) {
+            <app-plantilla-selector [plantillas]="plantillas()" (aplicar)="aplicarPlantilla(f, $event)" />
+          }
           <!-- 1. Categoría -->
           <div>
             <label class="etiqueta"><span class="paso">1</span> ¿Qué tipo de atención?</label>
@@ -615,6 +622,7 @@ export class AtencionesListaComponent implements OnInit {
   protected readonly auth = inject(AuthService);
   protected readonly catalogos = inject(CatalogosService);
   private readonly operacion = inject(OperacionService);
+  private readonly software = inject(SoftwareService);
   protected readonly notificaciones = inject(NotificacionesService);
 
   protected readonly tipos = TIPOS_TICKET;
@@ -633,6 +641,8 @@ export class AtencionesListaComponent implements OnInit {
   protected readonly medios = MEDIOS_SOLICITUD;
 
   protected readonly lista = signal<Atencion[]>([]);
+  /** Active attention templates (G7) that prefill a new ticket */
+  protected readonly plantillas = signal<PlantillaAtencion[]>([]);
   protected readonly solicitudes = signal<SolicitudBaja[]>([]);
   protected readonly filtroCategoria = signal<CategoriaTicket | null>(null);
   /** Auxiliares, técnicos y encargados activos (para colaboradores) */
@@ -716,6 +726,7 @@ export class AtencionesListaComponent implements OnInit {
     }
     void this.cargar();
     this.operacion.listarPersonalOperacion().then((l) => this.personal.set(l)).catch(() => this.personal.set([]));
+    this.software.plantillas(true).then((l) => this.plantillas.set(l)).catch(() => this.plantillas.set([]));
   }
 
   protected det(a: Atencion): DetallesTicket {
@@ -890,6 +901,30 @@ export class AtencionesListaComponent implements OnInit {
       const activas = new Set(this.catalogos.pcs().filter((pc) => pc.estado === 'operativa').map((pc) => pc.id));
       f.pcs = f.pcs.filter((id) => activas.has(id));
     }
+  }
+
+  /**
+   * Prefills a new ticket from a template: tipo, texts and turno. Where the
+   * form builds the description itself (programas: acción + programa;
+   * preventivo: checklist), the template text goes to the matching field.
+   */
+  protected aplicarPlantilla(f: FormTicket, p: PlantillaAtencion): void {
+    const categoria = TIPOS_TICKET[p.tipo].categoria;
+    if (categoria !== 'sistema') this.elegirCategoria(f, categoria);
+    this.elegirTipo(f, p.tipo);
+    if (p.tipo === 'programas') {
+      if (p.descripcion) f.det.programas = p.descripcion.slice(0, 200);
+      f.det.accion ??= 'instalar';
+      if (p.solucion) f.solucion = p.solucion;
+    } else if (p.tipo === 'preventivo') {
+      const texto = [p.descripcion, p.solucion].filter(Boolean).join(' — ');
+      if (texto) f.solucion = texto.slice(0, 1000);
+    } else {
+      if (p.descripcion) f.descripcion = p.descripcion;
+      if (p.solucion) f.solucion = p.solucion;
+    }
+    if (p.turno) f.turno = p.turno;
+    this.notificaciones.exito(`Plantilla "${p.nombre}" aplicada: revisa y completa el resto.`);
   }
 
   protected elegirLab(f: FormTicket, id: number | null): void {

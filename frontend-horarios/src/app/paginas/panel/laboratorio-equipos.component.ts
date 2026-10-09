@@ -1,12 +1,15 @@
-import { Component, computed, inject, input, signal } from '@angular/core';
+import { Component, computed, effect, inject, input, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { IconoComponent } from '../../compartido/icono.component';
 import { ModalComponent } from '../../compartido/modal.component';
 import { AuthService } from '../../core/auth.service';
 import { CatalogosService } from '../../core/catalogos.service';
-import { AmbientePc, EstadoPc } from '../../core/modelos';
+import { AmbientePc, EstadoPc, Software, SoftwarePc } from '../../core/modelos';
 import { NotificacionesService } from '../../core/notificaciones.service';
 import { OperacionService } from '../../core/operacion.service';
+import { SoftwareService } from '../../core/software.service';
+import { MarcaSoftwarePc, SoftwarePcComponent } from './software-pc.component';
 
 /** Texto y color de cada estado de PC */
 const ESTADOS: Record<EstadoPc, { texto: string; clase: string }> = {
@@ -21,10 +24,13 @@ const ESTADOS: Record<EstadoPc, { texto: string; clase: string }> = {
  * resumen por estado + lista de equipos con alta / edición / baja.
  * Cambiar el estado pide qué se reparó o por qué (queda en un ticket); dar
  * de baja solo lo hacen el administrador y el encargado.
+ * Software (G7): the lab's software as chips and, per PC, its software states
+ * (OK / Falta / Dañado, Django "Estados"); a change is recorded as a
+ * "programas" attention, so it needs an operator and an active PC.
  */
 @Component({
   selector: 'app-laboratorio-equipos',
-  imports: [FormsModule, IconoComponent, ModalComponent],
+  imports: [FormsModule, IconoComponent, ModalComponent, RouterLink, SoftwarePcComponent],
   template: `
     <section>
       <div class="mb-2 flex items-center justify-between gap-2">
@@ -40,6 +46,17 @@ const ESTADOS: Record<EstadoPc, { texto: string; clase: string }> = {
             <button class="btn-secundario btn-sm" (click)="nuevo()"><app-icono nombre="agregar" [tamano]="14" /> PC manual</button>
           </div>
         }
+      </div>
+
+      <!-- Software del laboratorio -->
+      <div class="mb-2 flex flex-wrap items-center gap-1.5 text-xs">
+        <span class="inline-flex items-center gap-1 font-semibold text-slate-600"><app-icono nombre="software" [tamano]="13" /> Software:</span>
+        @for (s of softwareLab(); track s.id) {
+          <span class="chip bg-slate-100 text-slate-700">{{ s.nombre }}</span>
+        } @empty {
+          <span class="text-slate-400">sin programas asignados</span>
+        }
+        <a class="text-marca-600 hover:underline" routerLink="/software" [queryParams]="{ lab: ambienteId() }">{{ auth.puedeGestionarAuxiliares() ? 'Editar lista' : 'Ver catálogo' }}</a>
       </div>
 
       <!-- Resumen por estado -->
@@ -66,6 +83,7 @@ const ESTADOS: Record<EstadoPc, { texto: string; clase: string }> = {
               @if (pc.estado_en) { <p class="text-[11px] text-slate-400">Cambió {{ pc.cambio?.nombre_completo ?? '—' }}</p> }
             </div>
             <span class="chip" [class]="estados[pc.estado].clase">{{ estados[pc.estado].texto }}</span>
+            <button class="btn-fantasma btn-sm" (click)="abrirSoftware(pc)" title="Software de esta PC" [attr.aria-label]="'Software de ' + pc.etiqueta"><app-icono nombre="software" [tamano]="15" /></button>
             @if (auth.puedeOperar()) {
               <div class="flex gap-1">
                 <button class="btn-fantasma btn-sm" (click)="editar(pc)" title="Editar"><app-icono nombre="editar" [tamano]="15" /></button>
@@ -83,6 +101,17 @@ const ESTADOS: Record<EstadoPc, { texto: string; clase: string }> = {
       </div>
       }
     </section>
+
+    <!-- Software states of one PC -->
+    <app-modal [abierto]="!!pcSoftware()" [titulo]="'Software de ' + (pcSoftware()?.etiqueta ?? '')" ancho="md" (cerrar)="pcSoftware.set(null)">
+      @if (pcSoftware(); as pc) {
+        <app-software-pc [estados]="estadosSoftware()" [cargando]="cargandoSoftware()" [marcando]="marcando()"
+                         [puedeMarcar]="puedeMarcarSoftware(pc)" [aviso]="avisoSoftware(pc)" (marcar)="marcarSoftware(pc, $event)" />
+      }
+      <ng-container pie>
+        <button class="btn-secundario" (click)="pcSoftware.set(null)">Cerrar</button>
+      </ng-container>
+    </app-modal>
 
     <!-- Alta / edición de una PC -->
     <app-modal [abierto]="!!formulario()" [titulo]="editando() ? 'Editar PC' : 'Nueva PC'" ancho="sm" (cerrar)="formulario.set(null)">
@@ -140,6 +169,7 @@ export class LaboratorioEquiposComponent {
   private readonly catalogos = inject(CatalogosService);
   private readonly notificaciones = inject(NotificacionesService);
   private readonly operacion = inject(OperacionService);
+  private readonly software = inject(SoftwareService);
 
   readonly ambienteId = input.required<number>();
 
@@ -155,6 +185,26 @@ export class LaboratorioEquiposComponent {
   /** Lista detallada plegada: el croquis ya muestra las PCs */
   protected readonly abierto = signal(false);
 
+  /** Software assigned to this lab (chips) */
+  protected readonly softwareLab = signal<Software[]>([]);
+  /** PC whose software states are open */
+  protected readonly pcSoftware = signal<AmbientePc | null>(null);
+  protected readonly estadosSoftware = signal<SoftwarePc[]>([]);
+  protected readonly cargandoSoftware = signal(false);
+  protected readonly marcando = signal<number | null>(null);
+
+  constructor() {
+    // Reload the lab's software when the panel switches lab
+    effect(() => {
+      const id = this.ambienteId();
+      this.softwareLab.set([]);
+      this.software.deLaboratorio(id).then(
+        (lista) => { if (this.ambienteId() === id) this.softwareLab.set(lista); },
+        () => { /* tolerant read, like Django: the room still shows */ },
+      );
+    });
+  }
+
   /** PCs de este laboratorio */
   protected readonly pcs = computed(() => this.catalogos.pcsPorAmbiente().get(this.ambienteId()) ?? []);
 
@@ -168,6 +218,45 @@ export class LaboratorioEquiposComponent {
   /** ¿Se eligió otro estado? (solo admin/encargado pueden) */
   protected cambiaEstado(f: Partial<AmbientePc>): boolean {
     return this.auth.puedeOperar() && (f.estado ?? 'operativa') !== this.estadoOriginal;
+  }
+
+  protected puedeMarcarSoftware(pc: AmbientePc): boolean {
+    return this.auth.puedeOperar() && pc.estado === 'operativa';
+  }
+
+  protected avisoSoftware(pc: AmbientePc): string | null {
+    if (!this.auth.puedeOperar()) return null;
+    return pc.estado === 'operativa' ? null : 'La PC no está activa: pásala a Activa para marcar su software (cada cambio queda como atención).';
+  }
+
+  protected abrirSoftware(pc: AmbientePc): void {
+    this.pcSoftware.set(pc);
+    void this.cargarEstados(pc.id);
+  }
+
+  private async cargarEstados(pcId: number): Promise<void> {
+    this.cargandoSoftware.set(true);
+    try {
+      const lista = await this.software.dePc(pcId);
+      if (this.pcSoftware()?.id === pcId) this.estadosSoftware.set(lista);
+    } catch (e) {
+      this.notificaciones.error(e, 'No se pudieron cargar los estados');
+    } finally {
+      this.cargandoSoftware.set(false);
+    }
+  }
+
+  protected async marcarSoftware(pc: AmbientePc, m: MarcaSoftwarePc): Promise<void> {
+    this.marcando.set(m.softwareId);
+    try {
+      const r = await this.software.marcarEnPc(pc.id, m.softwareId, m.estado);
+      if (r.atencion_id) this.notificaciones.exito('Estado guardado; quedó registrado como atención.');
+      await this.cargarEstados(pc.id);
+    } catch (e) {
+      this.notificaciones.error(e, 'No se pudo marcar');
+    } finally {
+      this.marcando.set(null);
+    }
   }
 
   protected caracteristicas(pc: AmbientePc): string {

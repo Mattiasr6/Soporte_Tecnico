@@ -3,16 +3,19 @@ import { IconoComponent } from '../../compartido/icono.component';
 import { ModalComponent } from '../../compartido/modal.component';
 import { AuthService } from '../../core/auth.service';
 import { CatalogosService } from '../../core/catalogos.service';
-import { Software, SoftwareNuevo } from '../../core/modelos';
+import { PlantillaAtencion, PlantillaNueva, Software, SoftwareNuevo } from '../../core/modelos';
 import { NotificacionesService } from '../../core/notificaciones.service';
 import { SoftwareService } from '../../core/software.service';
+import { PlantillaFormComponent } from './plantilla-form.component';
+import { PlantillasListaComponent } from './plantillas-lista.component';
 import { SoftwareCatalogoComponent } from './software-catalogo.component';
 import { SoftwareFormComponent } from './software-form.component';
 import { CeldaSoftware, SoftwareMatrizComponent } from './software-matriz.component';
 
 /**
  * Software of the labs (container), ported from Django `auxiliares/software/`:
- * the lab x software matrix and the catalogue. Everyone with access reads it;
+ * the lab x software matrix, the catalogue and the attention templates (which
+ * prefill the lab attention form). Everyone with access reads it;
  * the Jefe and the Encargado edit (Django `_gestiona_equipo`, API
  * fn_puede_gestionar_auxiliares). Matrix changes are a local draft saved per
  * lab with "Guardar cambios", which replaces each changed lab's whole list
@@ -20,7 +23,10 @@ import { CeldaSoftware, SoftwareMatrizComponent } from './software-matriz.compon
  */
 @Component({
   selector: 'app-software',
-  imports: [IconoComponent, ModalComponent, SoftwareCatalogoComponent, SoftwareFormComponent, SoftwareMatrizComponent],
+  imports: [
+    IconoComponent, ModalComponent, PlantillaFormComponent, PlantillasListaComponent, SoftwareCatalogoComponent, SoftwareFormComponent,
+    SoftwareMatrizComponent,
+  ],
   template: `
     <header class="mb-4">
       <h1 class="text-2xl font-bold">Software de laboratorios</h1>
@@ -61,6 +67,30 @@ import { CeldaSoftware, SoftwareMatrizComponent } from './software-matriz.compon
                              (editar)="abrirForm($event)" (eliminar)="eliminar($event)" />
     </section>
 
+    <section class="mt-8">
+      <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h2 class="text-lg font-semibold">Plantillas de atención</h2>
+          <p class="text-sm text-slate-500">Textos armados que rellenan el formulario de una atención nueva (tipo, descripción, solución y turno).</p>
+        </div>
+        @if (puedeEditar()) {
+          <button class="btn-primario btn-sm" (click)="formPlantilla.set({ editando: null })"><app-icono nombre="agregar" [tamano]="15" /> Nueva plantilla</button>
+        }
+      </div>
+      <app-plantillas-lista [plantillas]="plantillas()" [puedeEditar]="puedeEditar()"
+                            (editar)="formPlantilla.set({ editando: $event })" (eliminar)="eliminarPlantilla($event)" />
+    </section>
+
+    <app-modal [abierto]="!!formPlantilla()" [titulo]="formPlantilla()?.editando ? 'Editar plantilla' : 'Nueva plantilla'" ancho="md" (cerrar)="formPlantilla.set(null)">
+      @if (formPlantilla(); as f) {
+        <app-plantilla-form idForm="form-plantilla" [inicial]="f.editando" (guardar)="guardarPlantilla($event)" />
+      }
+      <ng-container pie>
+        <button class="btn-secundario" (click)="formPlantilla.set(null)">Cancelar</button>
+        <button class="btn-primario" type="submit" form="form-plantilla" [disabled]="guardando()">{{ guardando() ? 'Guardando…' : 'Guardar' }}</button>
+      </ng-container>
+    </app-modal>
+
     <app-modal [abierto]="!!formSoftware()" [titulo]="formSoftware()?.editando ? 'Editar programa' : 'Agregar programa'" ancho="md" (cerrar)="formSoftware.set(null)">
       @if (formSoftware(); as f) {
         <app-software-form idForm="form-software" [inicial]="f.editando" (guardar)="guardarSoftware($event)" />
@@ -88,6 +118,8 @@ export class SoftwareComponent implements OnInit {
   protected readonly guardando = signal(false);
   protected readonly verInactivos = signal(false);
   protected readonly formSoftware = signal<{ editando: Software | null } | null>(null);
+  protected readonly plantillas = signal<PlantillaAtencion[]>([]);
+  protected readonly formPlantilla = signal<{ editando: PlantillaAtencion | null } | null>(null);
   /** Saved state: lab id -> software ids (from the catalogue) */
   private readonly guardado = computed(() => {
     const mapa = new Map<number, Set<number>>();
@@ -106,6 +138,7 @@ export class SoftwareComponent implements OnInit {
 
   ngOnInit(): void {
     void this.cargar();
+    void this.cargarPlantillas();
   }
 
   protected async cargar(): Promise<void> {
@@ -195,6 +228,45 @@ export class SoftwareComponent implements OnInit {
       await this.recargarSinPerderBorrador();
     } catch (e) {
       this.notificaciones.error(e, 'No se eliminó el programa');
+    }
+  }
+
+  private async cargarPlantillas(): Promise<void> {
+    try {
+      this.plantillas.set(await this.servicio.plantillas());
+    } catch (e) {
+      this.notificaciones.error(e, 'No se cargaron las plantillas');
+    }
+  }
+
+  protected async guardarPlantilla(datos: PlantillaNueva): Promise<void> {
+    if (!datos.nombre) {
+      this.notificaciones.aviso('Escribe el nombre de la plantilla.');
+      return;
+    }
+    const editando = this.formPlantilla()?.editando;
+    this.guardando.set(true);
+    try {
+      if (editando) await this.servicio.editarPlantilla(editando.id, datos);
+      else await this.servicio.crearPlantilla(datos);
+      this.formPlantilla.set(null);
+      this.notificaciones.exito('Plantilla guardada');
+      await this.cargarPlantillas();
+    } catch (e) {
+      this.notificaciones.error(e, 'No se guardó la plantilla');
+    } finally {
+      this.guardando.set(false);
+    }
+  }
+
+  protected async eliminarPlantilla(p: PlantillaAtencion): Promise<void> {
+    if (!confirm(`¿Eliminar la plantilla ${p.nombre}?`)) return;
+    try {
+      await this.servicio.eliminarPlantilla(p.id);
+      this.notificaciones.exito('Plantilla eliminada');
+      await this.cargarPlantillas();
+    } catch (e) {
+      this.notificaciones.error(e, 'No se eliminó la plantilla');
     }
   }
 
