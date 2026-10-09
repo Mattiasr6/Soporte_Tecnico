@@ -74,7 +74,7 @@ frontends already talk to the same FastAPI, so only the presentation layer must 
   - [x] G4 (M) Tablero semáforo + day timeline (union over atenciones/reportes/objetos, no new table).
   - [x] G5 (M) Novedades per lab (new `horarios.novedades`) + cierre validation (`estado`, `validado_por`, `validado_en` on `reportes_turno`).
   - [x] G6 (M) Saturday hours per date and several auxiliares per turno; XLSX/PDF schedule export.
-  - [ ] G7 (L) Software inventory (`horarios.software`, `ambiente_software`, `pc_software`, attention templates).
+  - [x] G7 (L) Software inventory (`horarios.software`, `ambiente_software`, `pc_software`, attention templates).
   - [ ] G8 (L) Lab hardware sheet columns on `ambientes`; free fila/col room grid (or keep the 4-PC table layout).
   - [ ] M4b Soporte "Nueva atención" (Django keeps a session batch draft + Wilmercito suggestion).
 - [ ] M6 Data migration: LabAtenciones (131) → `horarios.atenciones`, aux JSON → perfiles.
@@ -438,3 +438,53 @@ Strategy: ask-on-risk. Forecast M0–M2 ≈ 400 authored lines. RDD disabled for
   - Left out: Django's auxiliar view of the planner (the `/auxiliares` page stays manager-only; auxiliares
     can still download the export through the API, no Angular entry for them); the Django team JSON names
     (perfiles are the source); old `N` assignments, if any existed, would be dropped on re-saving the date.
+- 2026-10-09: G7 done (route: delegated, one writer; trigger: 2+ non-trivial files across migration, API and
+  Angular). Commits `fda6a64` feat(asignacion): add software inventory and attention templates on horarios,
+  `5a98ad1` feat(horarios): add software catalogue and lab x software matrix page, `3d821dd` feat(horarios): mark
+  software per PC and prefill attentions from templates.
+  - Migration `0027_horarios_software` (inline `_run_sql`, with downgrade): `software` (nombre unique on
+    lower(btrim), licencia gratuita/mixta/paga, uso ≤250, esencial, docentes, activo), `ambiente_software`
+    (PK ambiente+software, cascades), `pc_software` (PK pc+software, keyed by `ambiente_pcs.id`,
+    instalado/falta/dañado, actualizado_por/en; no row = "falta"), trigger `trg_ambiente_software_borrado` drops
+    the PC states of a software removed from a lab, `plantillas_atencion` (nombre, tipo, descripcion ≤500,
+    solucion ≤1000, turno M/MD/T/N or null, activa). No data migrated: the Soporte tables were empty in prod
+    (Software 0, LabPcs 0).
+  - API (`routers/asignacion/software.py`, `services/asignacion/software.py`, `schemas/asignacion_software.py`):
+    GET/POST `/software`, PUT/DELETE `/software/{id}`; GET/PUT `/ambientes/{id}/software` (replace the list);
+    GET `/ambiente-pcs/{id}/software`, PUT `/ambiente-pcs/{id}/software/{software_id}` {estado};
+    GET `/plantillas-atencion?activas=`, POST, PUT/DELETE `/{id}`. A real PC state change inserts a `programas`
+    attention on that PC ("<sw> instalado|falta|dañado en <pc>", Django solution texts; instalado = resuelto,
+    otherwise pendiente); same estado again = no-op. The attention trigger refuses non-correctivo attentions on a
+    PC that is not operativa, so marking software there is a 422 and rolls back (the panel disables it).
+  - Permission mapping: reads fn_puede_ver (Django: any logged-in user); catalogue, lab list and templates
+    fn_puede_gestionar_auxiliares = Jefe + Encargado (Django `_gestiona_equipo`; dashboard-flag users lose it, as
+    in G6); PC state fn_puede_operar = Jefe, Encargado, Auxiliar, Técnico (Django: any roster auxiliar). DELETE of
+    software/templates is new (Django only deactivated), gestionar only.
+  - Semantics: Django template "categoría" → horarios `tipo` limited to docente/programas/preventivo/personal
+    (correctivo and cambio_estado have their own flows); Django turnos → M/MD/T/N. Applying a template: tipo +
+    turno; docente/personal fill descripción/solución; programas puts the description in "Programa(s)" and
+    defaults the acción to Instalar; preventivo puts both texts in Observaciones. Django never applied lab
+    templates to a form (only listed them); Angular adds the prefill.
+  - Angular: `/software` (menu "Software", link from Laboratorios, `?lab=` highlights a column) container
+    `software` + presentational `software-matriz` (all labs × software, local draft saved per changed lab, count of
+    missing esenciales per lab, inactive rows on demand), `software-catalogo`, `software-form`, `plantillas-lista`,
+    `plantilla-form`; lab panel `laboratorio-equipos` shows the lab software chips and a per-PC "Software" modal
+    (presentational `software-pc`); the attention form shows `plantilla-selector` on new tickets;
+    `core/software.service.ts`; icons `software` (AppWindow) and `plantilla` (FileText).
+  - Tests: new `tests/test_asignacion_software.py` RED 12 failed + 12 teardown errors (tables missing) → GREEN 12
+    passed; all `tests/test_asignacion*` 214 passed. Host ruff check + format clean on the 6 touched Python files.
+  - Migration: UPDS DB and test DB upgrade → 0027, downgrade -1 → 0026, upgrade → 0027 (head).
+  - Checks: horarios image build → "Application bundle generation complete" (parts 2 and 3). Smoke on :4213: paul
+    (Tecnico) GET `/software` 200, POST 403, PUT lab list 403; Jefe (minted) POST 201. Browser as Jefe: matrix
+    tick SMOKE-SW in LAB-01 + "Guardar cambios (1)" → "Laboratorio actualizado", `?lab=1` column highlighted;
+    template created through the form (Programas · Tarde); LAB-01 panel shows the software chip, SCPC101
+    "Software" modal → OK → "quedó registrado como atención" with author/time (attention #12 programas resuelto);
+    new ticket + template → Programa(s) "Office 2021", solución, turno Tarde, acción Instalar; 0 console errors.
+    The prefilled ticket was not saved (lab/PC selection is the existing flow). Smoke rows deleted (software,
+    lab link, PC state, template, attention → 0). Clicks were DOM events. No Angular spec files exist
+    (test-first exception for the Angular part).
+  - Size: ~1150 backend lines (≈515 tests) and ~1000 Angular lines over three commits; above the 400 heuristic
+    because catalogue, matrix, PC states and templates are one Django screen; split by work unit, not further.
+  - Left out: Django `/api/software/esenciales` and `atenciones-pc` endpoints (the matrix shows missing
+    esenciales; PC attentions are already in `/atenciones`), the auxiliar "soy" name on the generated attention
+    (the logged-in perfil is the author), and the per-PC state in the croquis itself (it lives in the inventory).
