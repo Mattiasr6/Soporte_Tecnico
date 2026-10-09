@@ -1719,6 +1719,19 @@ def jerarquia_accion_vista(request: HttpRequest) -> HttpResponse:
     return redirect(destino)
 
 
+ROLES_NOMINA = ("Auxiliar", "Encargado")
+URL_VINCULAR = "/api/laboratorios/equipo/vincular"
+
+
+def _nomina_equipo(token: str) -> list[dict]:
+    try:
+        datos = api_get("/api/laboratorios/equipo", token)
+    except ApiError:
+        return []
+    auxiliares = datos.get("auxiliares") if isinstance(datos, dict) else None
+    return [m for m in auxiliares or [] if isinstance(m, dict)]
+
+
 @con_login
 def usuarios_vista(request: HttpRequest) -> HttpResponse:
     if not _puede_dashboard(request):
@@ -1728,6 +1741,16 @@ def usuarios_vista(request: HttpRequest) -> HttpResponse:
     )
     lista = usuarios if isinstance(usuarios, list) else []
     sesion = request.session.get("usuario") or {}
+    es_jefe = _rol(request) == "Jefe"
+    nomina: list[dict] = []
+    if es_jefe:
+        nomina = _nomina_equipo(str(request.session["jwt"]))
+        por_usuario = {
+            m["usuario_id"]: m["nombre"] for m in nomina if m.get("usuario_id")
+        }
+        for u in lista:
+            if u.get("role") in ROLES_NOMINA:
+                u["nomina"] = por_usuario.get(u.get("id"))
     return render(
         request,
         "atenciones/usuarios.html",
@@ -1735,6 +1758,9 @@ def usuarios_vista(request: HttpRequest) -> HttpResponse:
             "activos": [u for u in lista if u.get("activo")],
             "inactivos": [u for u in lista if not u.get("activo")],
             "roles": ["Tecnico", "Jefe", "Auxiliar", "Encargado"],
+            "roles_nomina": ROLES_NOMINA,
+            "es_jefe": es_jefe,
+            "nomina": [m for m in nomina if m.get("activo")],
             "mi_id": sesion.get("id"),
             "flash": request.session.pop("flash", None),
             "detalle": request.GET.get("detalle", ""),
@@ -1760,8 +1786,42 @@ def usuarios_accion_vista(request: HttpRequest) -> HttpResponse:
             password = request.POST.get("password", "")
             if password:
                 cuerpo["password"] = password
-            api_post("/api/usuarios", token, cuerpo)
+            creado = api_post("/api/usuarios", token, cuerpo)
             texto = "Usuario creado."
+            miembro = request.POST.get("nomina", "")
+            if (
+                miembro
+                and cuerpo["role"] in ROLES_NOMINA
+                and _rol(request) == "Jefe"
+                and isinstance(creado, dict)
+            ):
+                try:
+                    api_post(
+                        URL_VINCULAR,
+                        token,
+                        {"nombre": miembro, "usuario_id": creado.get("id")},
+                    )
+                except ApiError as e:
+                    raise ApiError(
+                        e.status,
+                        f"Usuario creado, pero no se pudo vincular: {_detalle_error(e)}",
+                    ) from e
+                texto = f"Usuario creado y vinculado a {miembro}."
+        elif accion in ("vincular", "desvincular"):
+            if _rol(request) != "Jefe":
+                raise ApiError(403, "Solo el Jefe vincula cuentas a la nómina.")
+            nombre = request.POST.get("nombre", "")
+            api_post(
+                URL_VINCULAR,
+                token,
+                {
+                    "nombre": nombre,
+                    "usuario_id": ident if accion == "vincular" else None,
+                },
+            )
+            texto = (
+                f"Vinculado a {nombre}." if accion == "vincular" else "Desvinculado."
+            )
         elif accion in ("activar", "desactivar"):
             api_patch(
                 f"/api/usuarios/{ident}/activo",

@@ -22,7 +22,7 @@ Opción B: vincular cada entrada de la nómina a una cuenta (`usuario_id`) y res
 ## Tareas
 - [x] T1 Backend: `usuario_id` en nómina + `POST /api/laboratorios/equipo/vincular` + `GET /api/laboratorios/equipo/yo` + autoría por cuenta en laboratorios/software/novedades. Tests pytest.
 - [x] T2 Frontend identidad: sesión toma el nombre vinculado al loguear; eliminar `soy` (ruta, vista, template, links); aviso de cuenta sin vincular; `puede_validar` desde el vínculo. Tests Django.
-- [ ] T3 Frontend admin: en `/usuarios`, elegir miembro de nómina al crear Auxiliar/Encargado y vincular usuarios existentes. Tests Django.
+- [x] T3 Frontend admin: en `/usuarios`, elegir miembro de nómina al crear Auxiliar/Encargado y vincular usuarios existentes. Tests Django.
 - [ ] T4 `/auxiliares/perfil`: datos de la cuenta + cambio de contraseña, link en panel AUXILIARES, `/perfil` redirige ahí para Auxiliar/Encargado. Tests Django.
 
 ## Criterios de aceptación
@@ -36,17 +36,20 @@ Opción B: vincular cada entrada de la nómina a una cuenta (`usuario_id`) y res
 - Frontend: `cd frontend-django && python manage.py test`
 
 ## Entrega
-Rama `feat/login-por-auxiliar` (desde `fix/ui-dev-round`). Pronóstico ~600–800 líneas → supera 400; estrategia `ask-on-risk`, se consulta al superar el umbral.
+Rama `feat/login-por-auxiliar` (desde `fix/ui-dev-round`). Pronóstico ~600–800 líneas → supera 400; estrategia `single-pr` (elegida por el usuario 2026-10-08 al superar ~940 líneas).
 
 ## Progreso
 | Tarea | Ruta | Commit | Riesgo/review |
 |---|---|---|---|
 | T1 | delegada (writer; 5 archivos no triviales) | pendiente | gitnexus `_equipo`: CRITICAL (8 llamadores) → cambio aditivo |
 | T2 | delegada (writer; views_lab/views/templates/tests) | pendiente | gitnexus `_quien_reporta`: HIGH (3 llamadores esperados: novedades/lab_pcs/software); `login_vista`, `lab_nueva_vista`: LOW |
+| T3 | delegada (writer; views/template/tests) | pendiente | gitnexus `usuarios_vista`, `usuarios_accion_vista`: LOW (0 llamadores) |
 
 **T1 evidencia:** Postgres desechable en Docker (`postgres:16-alpine`, tmpfs, :55433) + `alembic upgrade head` + seeds del proyecto + `setval` de secuencias + usuario Encargado de auditoría. Con T1: `2 failed, 195 passed`; base (HEAD sin T1, DB fresca): `2 failed, 182 passed`. Las 2 fallas son preexistentes (`test_seed::test_el_csv_se_puede_deduplicar_por_created_at` por datos del CSV; `test_equipo_crud_jefe_y_403_tecnico` por dict exacto, ajustado a `encargado`+`usuario_id`). Spot check tras el ajuste: `14 passed`. `test_equipo_vinculo.py` 13/13. Se quitó de `data/equipo_auxiliares.json` la entrada basura `TEST-LAB-aux` (la escribe `test_laboratorios._crear_atencion` sin restaurar; archivo gitignored).
 
 **T2 evidencia:** helper `cargar_identidad_auxiliar` (views_lab) llamado tras login y re-login por contraseña; lee `GET /api/laboratorios/equipo/yo` → `auxiliar_nombre`/`auxiliar_encargado` en sesión (404/ApiError → se limpian). `_sin_vinculo` reintenta una vez por request (cubre vinculación posterior al login). Sin vínculo: novedades y nueva atención muestran el aviso y bloquean crear/devolver/validar/rechazar/enviar; marcar PC devuelve 403 JSON; timeline sin guard (solo lectura). `soy` eliminado (vista, URL, template, context processor, links "cambiar"). En nueva atención el auxiliar principal es fijo (readonly + forzado en servidor) para Auxiliar/Encargado; extras libres. RED: 8/10 tests nuevos (`IdentidadAuxiliarTest`) fallaban; GREEN: 10/10. Suite: 48 tests, 3 fallas preexistentes en base (`test_lista`, `test_navbar_auxiliar`, `test_navbar_jefe`). Runner: venv temporal Python 3.12 + requirements (el `.venv` del repo es symlink roto y Python 3.14 rompe Django 4.2), `DJANGO_SECRET_KEY=test`.
+
+**T3 evidencia:** `/usuarios` (solo Jefe) lee `GET /api/laboratorios/equipo` (ApiError → nómina vacía) y muestra en cada cuenta Auxiliar/Encargado activa su miembro vinculado o "Sin vincular", un selector de miembros activos (los vinculados a otra cuenta se marcan "(vinculado)") con "Vincular" y, si hay vínculo, "Desvincular". Nuevas acciones `vincular`/`desvincular` en `usuarios_accion_vista` → `POST /api/laboratorios/equipo/vincular` (`usuario_id` null al desvincular); no-Jefe recibe flash de error sin llamar a la API. Crear Auxiliar/Encargado con miembro de nómina vincula con el `id` devuelto; si el vínculo falla el usuario queda creado y se muestra "Usuario creado, pero no se pudo vincular: …". `test_usuarios_lista` pasa a `assert_any_call` (el Jefe ahora también consulta la nómina). RED: 7/9 tests nuevos (`VinculoNominaTest`) fallaban; GREEN: 9/9. Suite `tests.test_views`: 57 tests, solo las 3 fallas preexistentes.
 
 ## Próximo paso
 T3 vinculación desde `/usuarios`, luego T4 `/auxiliares/perfil`.

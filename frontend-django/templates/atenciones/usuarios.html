@@ -27,7 +27,35 @@
       <tbody>
         {% for u in activos %}
         <tr>
-          <td data-th="Nombre"><strong>{{ u.display_name }}</strong></td>
+          <td data-th="Nombre"><strong>{{ u.display_name }}</strong>
+            {% if es_jefe and u.role in roles_nomina %}
+            <div class="vinculo-nomina">
+              {% if u.nomina %}
+              <small>Nómina: <strong>{{ u.nomina }}</strong></small>
+              <form method="post" action="{% url 'usuarios_accion' %}" class="fila-form">
+                {% csrf_token %}
+                <input type="hidden" name="accion" value="desvincular">
+                <input type="hidden" name="id" value="{{ u.id }}">
+                <input type="hidden" name="nombre" value="{{ u.nomina }}">
+                <button class="btn ghost" type="submit">Desvincular</button>
+              </form>
+              {% else %}
+              <small class="jerq-off">Sin vincular</small>
+              {% endif %}
+              {% if nomina %}
+              <form method="post" action="{% url 'usuarios_accion' %}" class="fila-form">
+                {% csrf_token %}
+                <input type="hidden" name="accion" value="vincular">
+                <input type="hidden" name="id" value="{{ u.id }}">
+                <select name="nombre" required aria-label="Miembro de nómina">
+                  {% for m in nomina %}<option value="{{ m.nombre }}"{% if m.nombre == u.nomina %} selected{% endif %}>{{ m.nombre }}{% if m.usuario_id and m.usuario_id != u.id %} (vinculado){% endif %}</option>{% endfor %}
+                </select>
+                <button class="btn ghost" type="submit">Vincular</button>
+              </form>
+              {% endif %}
+            </div>
+            {% endif %}
+          </td>
           <td data-th="Rol">
             {% if u.id != mi_id %}
             <form method="post" action="{% url 'usuarios_accion' %}" class="fila-form">
@@ -90,6 +118,13 @@
       <select id="role" name="role">
         {% for r in roles %}<option value="{{ r }}">{{ r }}</option>{% endfor %}
       </select>
+      {% if es_jefe and nomina %}
+      <label for="nomina">Miembro de nómina (solo Auxiliar/Encargado, opcional)</label>
+      <select id="nomina" name="nomina">
+        <option value="">Sin vincular</option>
+        {% for m in nomina %}<option value="{{ m.nombre }}">{{ m.nombre }}{% if m.usuario_id %} (vinculado){% endif %}</option>{% endfor %}
+      </select>
+      {% endif %}
       <label for="password">Contraseña (opcional)</label>
       <input id="password" type="password" name="password" placeholder="Mínimo 8 caracteres">
       <button class="btn" type="submit">Crear</button>

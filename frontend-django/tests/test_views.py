@@ -492,7 +492,7 @@ class VistasTest(TestCase):
         ]
         r = self.client.get("/usuarios/")
         self.assertEqual(r.status_code, 200)
-        mock_get.assert_called_once_with(
+        mock_get.assert_any_call(
             "/api/usuarios", "t", {"incluir_inactivos": "true"}
         )
         self.assertContains(r, "Activo Uno")
@@ -725,3 +725,173 @@ class IdentidadAuxiliarTest(TestCase):
         )
         payload = mock_post.call_args[0][2]
         self.assertEqual(payload["auxiliar_nombre"], "Ana Pérez + Beto")
+
+
+EQUIPO_NOMINA = {
+    "auxiliares": [
+        {"nombre": "Ana Rojas", "activo": True, "encargado": False, "usuario_id": 21},
+        {"nombre": "Luis Paz", "activo": True, "encargado": False, "usuario_id": None},
+        {"nombre": "Baja Vieja", "activo": False, "encargado": False, "usuario_id": None},
+    ]
+}
+USUARIOS_AUX = [
+    {"id": 21, "display_name": "Cuenta Ana", "role": "Auxiliar", "activo": True},
+    {"id": 22, "display_name": "Cuenta Nueva", "role": "Encargado", "activo": True},
+    {"id": 2, "display_name": "Diego", "role": "Tecnico", "activo": True},
+]
+URL_VINCULAR = "/api/laboratorios/equipo/vincular"
+
+
+def _fake_usuarios(path, *a, **k):
+    if path == "/api/laboratorios/equipo":
+        return EQUIPO_NOMINA
+    if path == "/api/usuarios":
+        return USUARIOS_AUX
+    return []
+
+
+class VinculoNominaTest(TestCase):
+    def _como(self, usuario):
+        session = self.client.session
+        session["jwt"] = "t"
+        session["usuario"] = usuario
+        session.save()
+        self.client.cookies[_settings.SESSION_COOKIE_NAME] = session.session_key
+
+    def _flash(self):
+        return self.client.session.get("flash")
+
+    @patch("atenciones.views.api_get", side_effect=_fake_usuarios)
+    def test_lista_muestra_vinculado_y_sin_vincular(self, _get):
+        self._como(JEFE)
+        r = self.client.get("/usuarios/")
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, "Nómina: <strong>Ana Rojas</strong>", html=False)
+        self.assertContains(r, "Sin vincular")
+        self.assertContains(r, 'value="vincular"')
+        self.assertContains(r, 'value="desvincular"')
+        # Solo miembros activos en el selector; el ya vinculado se marca.
+        self.assertContains(r, "Luis Paz")
+        self.assertContains(r, "Ana Rojas (vinculado)")
+        self.assertNotContains(r, "Baja Vieja")
+
+    @patch("atenciones.views.api_get", side_effect=_fake_usuarios)
+    def test_no_jefe_no_ve_controles_de_vinculo(self, _get):
+        self._como(MATTIAS)
+        r = self.client.get("/usuarios/")
+        self.assertEqual(r.status_code, 200)
+        self.assertNotContains(r, 'value="vincular"')
+        self.assertNotContains(r, 'value="desvincular"')
+
+    @patch("atenciones.views.api_post")
+    def test_vincular_envia_payload(self, mock_post):
+        self._como(JEFE)
+        r = self.client.post(
+            "/usuarios/accion/",
+            {"accion": "vincular", "id": "22", "nombre": "Luis Paz"},
+        )
+        self.assertRedirects(r, "/usuarios/", fetch_redirect_response=False)
+        mock_post.assert_called_once_with(
+            URL_VINCULAR, "t", {"nombre": "Luis Paz", "usuario_id": 22}
+        )
+        self.assertEqual(self._flash()["tipo"], "ok")
+
+    @patch("atenciones.views.api_post")
+    def test_desvincular_envia_usuario_id_null(self, mock_post):
+        self._como(JEFE)
+        self.client.post(
+            "/usuarios/accion/",
+            {"accion": "desvincular", "id": "21", "nombre": "Ana Rojas"},
+        )
+        mock_post.assert_called_once_with(
+            URL_VINCULAR, "t", {"nombre": "Ana Rojas", "usuario_id": None}
+        )
+
+    @patch("atenciones.views.api_post")
+    def test_vincular_error_api_se_muestra(self, mock_post):
+        from atenciones.api import ApiError
+
+        mock_post.side_effect = ApiError(400, "El usuario está desactivado")
+        self._como(JEFE)
+        self.client.post(
+            "/usuarios/accion/",
+            {"accion": "vincular", "id": "22", "nombre": "Luis Paz"},
+        )
+        self.assertEqual(
+            self._flash(), {"tipo": "error", "texto": "El usuario está desactivado"}
+        )
+
+    @patch("atenciones.views.api_post")
+    def test_no_jefe_no_puede_vincular(self, mock_post):
+        self._como(MATTIAS)
+        self.client.post(
+            "/usuarios/accion/",
+            {"accion": "vincular", "id": "22", "nombre": "Luis Paz"},
+        )
+        mock_post.assert_not_called()
+        self.assertEqual(self._flash()["tipo"], "error")
+
+    @patch("atenciones.views.api_post")
+    def test_crear_con_miembro_de_nomina_vincula_nuevo_id(self, mock_post):
+        mock_post.side_effect = lambda path, *a, **k: (
+            {"id": 30, "display_name": "Luis"} if path == "/api/usuarios" else {}
+        )
+        self._como(JEFE)
+        self.client.post(
+            "/usuarios/accion/",
+            {
+                "accion": "crear",
+                "email": "luis@upds.edu.bo",
+                "nombre": "Luis",
+                "role": "Auxiliar",
+                "password": "",
+                "nomina": "Luis Paz",
+            },
+        )
+        self.assertEqual(mock_post.call_count, 2)
+        mock_post.assert_called_with(
+            URL_VINCULAR, "t", {"nombre": "Luis Paz", "usuario_id": 30}
+        )
+        self.assertEqual(self._flash()["tipo"], "ok")
+
+    @patch("atenciones.views.api_post")
+    def test_crear_si_falla_vinculo_usuario_queda_creado(self, mock_post):
+        from atenciones.api import ApiError
+
+        def _fake(path, *a, **k):
+            if path == "/api/usuarios":
+                return {"id": 30}
+            raise ApiError(404, "Auxiliar 'Luis Paz' no existe")
+
+        mock_post.side_effect = _fake
+        self._como(JEFE)
+        self.client.post(
+            "/usuarios/accion/",
+            {
+                "accion": "crear",
+                "email": "luis@upds.edu.bo",
+                "nombre": "Luis",
+                "role": "Auxiliar",
+                "nomina": "Luis Paz",
+            },
+        )
+        flash = self._flash()
+        self.assertEqual(flash["tipo"], "error")
+        self.assertIn("Usuario creado", flash["texto"])
+        self.assertIn("Auxiliar 'Luis Paz' no existe", flash["texto"])
+
+    @patch("atenciones.views.api_post")
+    def test_crear_tecnico_ignora_nomina(self, mock_post):
+        mock_post.return_value = {"id": 31}
+        self._como(JEFE)
+        self.client.post(
+            "/usuarios/accion/",
+            {
+                "accion": "crear",
+                "email": "t@upds.edu.bo",
+                "nombre": "T",
+                "role": "Tecnico",
+                "nomina": "Luis Paz",
+            },
+        )
+        mock_post.assert_called_once()
