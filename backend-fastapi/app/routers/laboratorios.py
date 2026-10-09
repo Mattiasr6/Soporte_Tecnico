@@ -37,11 +37,13 @@ from app.schemas.laboratorio import (
     LaboratorioUpdate,
     LabPcsIn,
     LabStatsOut,
+    MiembroYoOut,
     PorAuxiliarFuera,
     PorLab,
     PorTurno,
     PorTurnoFuera,
     TurnoHorario,
+    VinculoIn,
 )
 from app.services.auditoria import diff, registrar
 from app.services.horarios import esta_fuera_de_horario
@@ -235,9 +237,49 @@ def _equipo() -> list[dict[str, Any]]:
                     "nombre": str(item["nombre"]).strip(),
                     "activo": bool(item.get("activo", True)),
                     "encargado": bool(item.get("encargado", False)),
+                    "usuario_id": _usuario_id_o_none(item.get("usuario_id")),
                 }
             )
     return out
+
+
+def _usuario_id_o_none(valor: object) -> int | None:
+    if isinstance(valor, bool) or not isinstance(valor, int):
+        return None
+    return valor
+
+
+def _guardar_equipo(miembros: list[dict[str, Any]]) -> None:
+    """Persiste la nómina; las entradas sin vínculo no ganan la clave usuario_id."""
+    limpio = []
+    for m in miembros:
+        fila = {k: v for k, v in m.items() if k != "usuario_id"}
+        if m.get("usuario_id") is not None:
+            fila["usuario_id"] = m["usuario_id"]
+        limpio.append(fila)
+    _write_json(_EQUIPO_FILE, {"auxiliares": limpio})
+
+
+ROLES_NOMINA: tuple[str, ...] = ("Auxiliar", "Encargado")
+SIN_VINCULO = "Tu cuenta no está vinculada a la nómina; pedile al Jefe que la vincule"
+
+
+def _miembro_de_cuenta(usuario_id: int) -> dict[str, Any] | None:
+    return next((m for m in _equipo() if m["usuario_id"] == usuario_id), None)
+
+
+def nombre_vinculado(user: Usuario) -> str | None:
+    """Nombre de nómina con el que firma la cuenta.
+
+    Auxiliar/Encargado firman siempre con el miembro vinculado a su cuenta (403 si no
+    hay vínculo). Para Técnico/Jefe devuelve None: siguen eligiendo el nombre.
+    """
+    if user.role not in ROLES_NOMINA:
+        return None
+    miembro = _miembro_de_cuenta(user.id)
+    if miembro is None:
+        raise forbidden(SIN_VINCULO)
+    return str(miembro["nombre"])
 
 
 def _horarios() -> dict[str, dict[str, Any]]:
@@ -295,8 +337,10 @@ def add_auxiliar(dto: AuxiliarCreate, db: DbSession, user: CurrentUser):
     miembros = _equipo()
     if any(m["nombre"].lower() == nombre.lower() for m in miembros):
         raise bad_request(f"Auxiliar '{nombre}' ya existe")
-    miembros.append({"nombre": nombre, "activo": True, "encargado": False})
-    _write_json(_EQUIPO_FILE, {"auxiliares": miembros})
+    miembros.append(
+        {"nombre": nombre, "activo": True, "encargado": False, "usuario_id": None}
+    )
+    _guardar_equipo(miembros)
     return AuxiliarEntry(nombre=nombre, activo=True, encargado=False)
 
 
@@ -304,6 +348,8 @@ def add_auxiliar(dto: AuxiliarCreate, db: DbSession, user: CurrentUser):
 def replace_equipo(dto: EquipoReplace, db: DbSession, user: CurrentUser):
     _gestiona_equipo(user)
     del db
+    # el vínculo con la cuenta solo lo cambia /equipo/vincular (Jefe): acá se conserva
+    vinculos = {_norm_nb(m["nombre"]): m["usuario_id"] for m in _equipo()}
     vistos: set[str] = set()
     miembros = []
     for item in dto.auxiliares:
@@ -314,9 +360,14 @@ def replace_equipo(dto: EquipoReplace, db: DbSession, user: CurrentUser):
             raise bad_request(f"Auxiliar '{nombre}' duplicado")
         vistos.add(nombre.lower())
         miembros.append(
-            {"nombre": nombre, "activo": item.activo, "encargado": item.encargado}
+            {
+                "nombre": nombre,
+                "activo": item.activo,
+                "encargado": item.encargado,
+                "usuario_id": vinculos.get(_norm_nb(nombre)),
+            }
         )
-    _write_json(_EQUIPO_FILE, {"auxiliares": miembros})
+    _guardar_equipo(miembros)
     return EquipoOut(auxiliares=[AuxiliarEntry(**m) for m in miembros])
 
 
@@ -332,8 +383,47 @@ def set_encargado(dto: EncargadoIn, db: DbSession, user: CurrentUser):
             break
     else:
         raise not_found(f"Auxiliar '{nombre}' no existe")
-    _write_json(_EQUIPO_FILE, {"auxiliares": miembros})
+    _guardar_equipo(miembros)
     return EquipoOut(auxiliares=[AuxiliarEntry(**m) for m in miembros])
+
+
+@router.post("/equipo/vincular", response_model=EquipoOut)
+def vincular_cuenta(dto: VinculoIn, db: DbSession, user: CurrentUser):
+    """Vincula (o desvincula con usuario_id null) un miembro de la nómina a una cuenta."""
+    if not is_privileged(user):
+        raise forbidden("Solo un jefe puede vincular cuentas a la nómina")
+    miembros = _equipo()
+    clave = _norm_nb(dto.nombre)
+    miembro = next((m for m in miembros if _norm_nb(m["nombre"]) == clave), None)
+    if miembro is None:
+        raise not_found(f"Auxiliar '{dto.nombre.strip()}' no existe")
+    if dto.usuario_id is not None:
+        cuenta = db.get(Usuario, dto.usuario_id)
+        if cuenta is None:
+            raise not_found("Usuario no encontrado")
+        if not cuenta.activo:
+            raise bad_request("El usuario está desactivado")
+        if cuenta.role not in ROLES_NOMINA:
+            raise bad_request("Solo se vinculan cuentas Auxiliar o Encargado")
+        for m in miembros:  # una cuenta, un miembro: revincular la mueve
+            if m["usuario_id"] == dto.usuario_id:
+                m["usuario_id"] = None
+    miembro["usuario_id"] = dto.usuario_id
+    _guardar_equipo(miembros)
+    return EquipoOut(auxiliares=[AuxiliarEntry(**m) for m in miembros])
+
+
+@router.get("/equipo/yo", response_model=MiembroYoOut)
+def miembro_yo(db: DbSession, user: CurrentUser) -> MiembroYoOut:
+    del db
+    miembro = _miembro_de_cuenta(user.id)
+    if miembro is None:
+        raise not_found(SIN_VINCULO)
+    return MiembroYoOut(
+        nombre=miembro["nombre"],
+        encargado=miembro["encargado"],
+        activo=miembro["activo"],
+    )
 
 
 @router.get("/horarios")
@@ -682,6 +772,12 @@ def create_lab_atencion(dto: LabAtencionCreate, db: DbSession, user: CurrentUser
     aux_nombre = dto.auxiliar_nombre.strip() or user.display_name
     nomina = {_norm_nb(m["nombre"]) for m in _equipo()}
     partes = [p.strip() for p in aux_nombre.split("+") if p.strip()] or [aux_nombre]
+    propio = nombre_vinculado(user)
+    if propio is not None:
+        # el principal es siempre la cuenta; los extras siguen yendo por nombre
+        extras = [p for p in partes[1:] if _norm_nb(p) != _norm_nb(propio)]
+        partes = [propio, *extras]
+        aux_nombre = " + ".join(partes)
     for p in partes:
         if _norm_nb(p) not in nomina:
             raise bad_request(f"Auxiliar '{p}' no esta en la nomina")

@@ -17,7 +17,7 @@ from app.core.security import CurrentUser
 from app.db.session import DbSession
 from app.models.laboratorio import Laboratorio
 from app.models.novedad import Novedad
-from app.routers.laboratorios import TURNOS, _gestiona_equipo
+from app.routers.laboratorios import TURNOS, _gestiona_equipo, nombre_vinculado
 from app.schemas.novedad import NovedadAccion, NovedadOut
 
 router = APIRouter(prefix="/api/novedades", tags=["novedades"])
@@ -150,7 +150,7 @@ async def crear(
 ) -> Any:
     tipo = (tipo or "").strip()
     texto = (texto or "").strip()
-    auxiliar_nombre = (auxiliar_nombre or "").strip()
+    auxiliar_nombre = nombre_vinculado(user) or (auxiliar_nombre or "").strip()
     if tipo not in TIPOS:
         raise bad_request("tipo debe ser novedad, objeto o cierre")
     if not texto or len(texto) > 2000:
@@ -213,7 +213,8 @@ def accionar(
             _gestiona_equipo(user)
         except HTTPException:
             es_gestion = False
-        if not es_gestion and _norm(dto.auxiliar_nombre or "") != _norm(
+        quien = nombre_vinculado(user) if not es_gestion else None
+        if not es_gestion and _norm(quien or dto.auxiliar_nombre or "") != _norm(
             fila.auxiliar_nombre
         ):
             raise bad_request("Solo el reportante o un encargado puede devolver")

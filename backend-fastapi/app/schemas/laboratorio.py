@@ -172,6 +172,7 @@ class AuxiliarEntry(BaseModel):
     nombre: str
     activo: bool = True
     encargado: bool = False
+    usuario_id: int | None = None
 
 
 class AuxiliarCreate(BaseModel):
@@ -184,6 +185,17 @@ class EquipoOut(BaseModel):
 
 class EquipoReplace(BaseModel):
     auxiliares: list[AuxiliarEntry] = []
+
+
+class VinculoIn(BaseModel):
+    nombre: str
+    usuario_id: int | None = None
+
+
+class MiembroYoOut(BaseModel):
+    nombre: str
+    encargado: bool
+    activo: bool
 
 
 class EncargadoIn(BaseModel):

@@ -19,6 +19,7 @@ from app.routers.laboratorios import (
     _gestiona_equipo,
     _norm_nb,
     _serializar,
+    nombre_vinculado,
 )
 from app.schemas.software import (
     LabSoftwareIn,
@@ -327,7 +328,11 @@ def marcar_estado(
         raise bad_request("Software no existe")
     if dto.estado not in ESTADOS_PC:
         raise bad_request("estado debe ser instalado, falta o dañado")
-    nombre_aux = (dto.auxiliar_nombre or "").strip() or user.display_name
+    nombre_aux = (
+        nombre_vinculado(user)
+        or (dto.auxiliar_nombre or "").strip()
+        or user.display_name
+    )
     nomina = {_norm_nb(m["nombre"]) for m in _equipo()}
     if _norm_nb(nombre_aux) not in nomina:
         raise bad_request(f"Auxiliar '{nombre_aux}' no esta en la nomina")
