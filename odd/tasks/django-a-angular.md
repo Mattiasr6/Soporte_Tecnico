@@ -68,8 +68,8 @@ frontends already talk to the same FastAPI, so only the presentation layer must 
 - [x] M3 Auditoría (read-only, Jefe or dashboard flag): `/api/auditoria`. Route: delegated with M4.
 - [x] M4 Soporte attentions list + ticket (D5 resolved). Route: delegated with M3.
 - [x] M5 Gap map (explorer, 2026-10-09; Engram #126). Ports onto horarios, smallest first:
-  - [ ] G1 (S) Printable lab-attention ticket; clone an attention into N labs.
-  - [ ] G2 (S) Objetos "vencido" state (computed, 90 days); encargado toggle on the team screen.
+  - [x] G1 (S) Printable lab-attention ticket; clone an attention into N labs.
+  - [x] G2 (S) Objetos "vencido" state (computed, 90 days); encargado toggle on the team screen.
   - [ ] G3 (M) Turno code + `medio_solicitud` on `horarios.atenciones`; dashboard per lab × category/turno; reports turno filter.
   - [ ] G4 (M) Tablero semáforo + day timeline (union over atenciones/reportes/objetos, no new table).
   - [ ] G5 (M) Novedades per lab + cierre validation (`ambiente_id`, `estado`, `validado_por` on `reportes_turno`).
@@ -193,3 +193,47 @@ Strategy: ask-on-risk. Forecast M0–M2 ≈ 400 authored lines. RDD disabled for
     Auditoría item, ticket modal and edit form open with the area preselected; 0 console
     errors. No Angular spec files exist (test-first exception for the Angular parts).
   - GitNexus `detect_changes` unavailable: the index is for another checkout.
+- 2026-10-09: G1–G2 done (route: delegated, one writer; trigger: 2+ non-trivial files per task).
+  Commits `64e9d0f` feat(horarios): add printable attention ticket and clone into labs,
+  `8f52194` feat(horarios): show expired lost objects and toggle encargado role. No backend change.
+  - G1 ticket: "Ver e imprimir ticket" on every record of `/atenciones` opens a modal with
+    `ticket-atencion.component.ts` (presentational: folio, fecha, tipo, lab, autor,
+    colaboradores, estado of the batch, prioridad, solicitante, PCs, descripción, detalle,
+    solución). "Imprimir" adds `imprimiendo` to `<body>` and calls `window.print()`; the
+    `@media print` rule in `src/styles.css` prints only `.zona-impresion` in black on white
+    (normal page printing unchanged). New `imprimir` (Printer) icon.
+  - G1 clone: "Clonar en otros laboratorios" (puedeOperar, tipos docente/programas/preventivo/
+    personal) opens `clonar-atencion.component.ts` (presentational: edit descripción, solución,
+    prioridad; 0–99 copies per lab, several per lab allowed, live count). The container sends one
+    bulk POST `/api/asignacion/atenciones` with lab-level copies (same tipo, detalles, docente/
+    solicitante, colaboradores; current turno; copier is the author). The bulk POST has no
+    duplicate check (Django needed `forzar_duplicado` only on `/api/laboratorios`), so no backend
+    change.
+  - G1 left out: correctivo (changes PC states via fichas) and cambio_estado are not clonable;
+    the copy date (Django `fecha_registro`) is not editable because `creado_en` is not writable
+    in `AtencionIn`; the Django owner/encargado-only clone rule became Angular's puedeOperar,
+    same as edit/delete on this screen.
+  - G2 vencido: `core/objetos.ts` `estadoVisible` mirrors `routers/novedades.py`
+    `_estado_efectivo` (still pending and more than 90 days since registration); the horarios
+    backend has no 90-day rule (only the 9-month photo cleanup), so it is computed client-side on
+    the La Paz calendar date of `encontrado_en`. `objeto-estado-chip.component.ts`
+    (presentational) shows Vencido; new filter tab "Vencidos +90 días"; "En custodia" no longer
+    counts them; Entregar stays available. Left out: Django's "Purgar vencidos" (horarios already
+    deletes rows only for gestionar and clears photos after 9 months).
+  - G2 encargado: section "Encargados" on `/auxiliares` with `encargados-equipo.component.ts`
+    (presentational switch list of active auxiliares + encargados, `listarEquipo()`); the
+    container PATCHes `/api/asignacion/usuarios/{perfil_id}` with rol encargado/auxiliar via
+    `UsuariosService`. The endpoint is admin-only (`fn_es_admin` = Jefe), so the switch is
+    enabled only for the Jefe; an Encargado sees it disabled with a note (Django let the
+    Encargado toggle its JSON roster; the backend rule wins).
+  - Checks: horarios image build → "Application bundle generation complete", no errors (both
+    tasks); new strings present in the served lazy chunks. Smoke on :4213: paul `/asignacion/me`
+    200, `/ambientes` 200, POST `/atenciones` origin 201, clone POST (2 in LAB-02 + 1 in LAB-03)
+    201 → 3 rows, DELETE cleanup 204; Jefe (minted token) GET `/usuarios` 200 (syncs perfiles),
+    `/auxiliares?rol=auxiliar&rol=encargado&activo=true` 200, PATCH rol as paul 403, as Encargado
+    403, as Jefe → encargado 200 and back → auxiliar 200; POST `/objetos-perdidos` (2026-06-01 and
+    2026-10-01) 201, GET 200, DELETE 204. Browser as Jefe: objetos tabs "En custodia 1 · Vencidos
+    +90 días 1", the old one shows "Vencido" with Entregar; `/auxiliares` switch on/off works;
+    `/atenciones` ticket modal renders, clone 2× into LAB-02 created 2 rows; 0 console errors.
+    The print dialog itself was not exercised. No Python touched (no pytest/ruff needed); no
+    Angular spec files exist (test-first exception). GitNexus index is for another checkout.
