@@ -11,7 +11,7 @@ import { Asignacion, BloqueHorario, Ocupacion } from '../../core/modelos';
 import { NotificacionesService } from '../../core/notificaciones.service';
 import { OcupacionService } from '../../core/ocupacion.service';
 import { PanelesService, PestanaLaboratorio } from '../../core/paneles.service';
-import { ErrorSistema, SupabaseService } from '../../core/supabase.service';
+import { AsignacionesService } from '../../core/asignaciones.service';
 
 /**
  * Detalle de un laboratorio (panel lateral):
@@ -185,7 +185,7 @@ export class LaboratorioDetalleComponent {
   protected readonly catalogos = inject(CatalogosService);
   protected readonly paneles = inject(PanelesService);
   private readonly ocupacion = inject(OcupacionService);
-  private readonly supabase = inject(SupabaseService);
+  private readonly asignacionesServicio = inject(AsignacionesService);
   private readonly notificaciones = inject(NotificacionesService);
 
   readonly ambienteId = input.required<number>();
@@ -244,16 +244,12 @@ export class LaboratorioDetalleComponent {
   async cargar(): Promise<void> {
     this.cargando.set(true);
     try {
-      const [ocupaciones, respuesta] = await Promise.all([
+      const [ocupaciones, lista] = await Promise.all([
         this.ocupacion.ocupaciones(this.lunes(), sumarDias(this.lunes(), 5)),
-        this.supabase.cliente.from('asignaciones')
-          .select('*, docente:docentes(id,nombres,apellidos), materia:materias(id,nombre), carrera:carreras(id,nombre,color), horarios:asignacion_horarios!inner(*)')
-          .eq('horarios.ambiente_id', this.ambienteId())
-          .gte('fecha_fin', hoyIso()),
+        // Only those with a horario in this lab (and only those horarios), still running
+        this.asignacionesServicio.listar({ ambienteId: this.ambienteId(), finDesde: hoyIso() }),
       ]);
-      if (respuesta.error) throw new ErrorSistema(respuesta.error);
       this.ocupaciones.set(ocupaciones.filter((o) => o.ambiente_id === this.ambienteId()));
-      const lista = (respuesta.data ?? []) as Asignacion[];
       lista.forEach((a) => a.horarios?.sort((x, y) => x.dia_semana - y.dia_semana));
       lista.sort((a, b) => (a.horarios?.[0]?.hora_inicio ?? '').localeCompare(b.horarios?.[0]?.hora_inicio ?? ''));
       this.asignaciones.set(lista);

@@ -47,7 +47,7 @@ El frontend consulta tablas directo con supabase-js (90 `.from()`, 9 `.rpc()`,
 - [x] T6a Turnos y reportes de turno: turnos_programados, turnos_trabajo, horarios_turno, rotacion_sabados,
       perfiles de operación, fn_turno_vigente/fn_asignar_turno, reportes_turno + reporte_tareas + foto de cierre.
 - [x] U1 Integrar upstream d0d7ad1 (UI móvil + reubica en choques, SQL 34 → 0022).
-- [ ] T6b Operación: atenciones, fallas_pc, solicitudes_baja, objetos_perdidos (+ bucket), rpc_cambiar_estado_pcs,
+- [x] T6b Operación: atenciones, fallas_pc, solicitudes_baja, objetos_perdidos (+ bucket), rpc_cambiar_estado_pcs,
       rpc_resolver_baja, rpc_registrar_reparaciones, fn_limpiar_fotos_objetos, `misBajasDesde` (ambiente_pcs) y
       los dos pendientes de T5 (`compartido/ocupacion-detalle`, `panel/laboratorio-detalle`).
 - [ ] T7 Dashboards (`fn_dashboard_*`).
@@ -184,6 +184,34 @@ El frontend consulta tablas directo con supabase-js (90 `.from()`, 9 `.rpc()`,
   usos `.from/.rpc/.storage` iguales antes/después (ninguno nuevo); curl 5013 Jefe GET `/reubicaciones` 200, sin
   token 401; proxy ng serve 4200 401 sin token.
 
+- T6b (delegado, writer): `routers/asignacion/operacion.py` + `objetos_perdidos.py`, `schemas/asignacion_operacion.py`,
+  `services/asignacion/fotos.py` generalizado por carpeta (`reportes-turno` | `objetos-perdidos`, prefijo `objetos/` o
+  `entregas/`) + `servir()` (descarga privada no-store). Endpoints `/api/asignacion`: GET `/atenciones` (`?desde=&hasta=`
+  días La Paz, `?estado=`, `?ambiente_id=`, `?participante=` autor o colaborador), GET `/atenciones/arrastradas` (pendiente/
+  en_proceso por prioridad, pase de turno), POST `/atenciones` (lista → `[{id, pc_id}]`), PATCH `/atenciones` (`{ids, cambios}`),
+  PATCH `/atenciones/{id}`, DELETE `/atenciones?id=` (repetible); POST `/ambiente-pcs/estado` (`rpc_cambiar_estado_pcs`),
+  GET `/ambiente-pcs/mis-bajas?desde=`, POST `/ambientes/{id}/pcs/generar` (`fn_generar_pcs`); GET/POST `/fallas-pc`,
+  PATCH `/fallas-pc/{id}`; POST `/reparaciones` (`rpc_registrar_reparaciones`); GET `/solicitudes-baja` (`?estado=`
+  pendiente por defecto), POST `/solicitudes-baja` (lista), POST `/solicitudes-baja/{id}/resolver` (`rpc_resolver_baja`);
+  GET `/objetos-perdidos` (`?limite=300`), POST `/objetos-perdidos` (multipart con foto), POST `/objetos-perdidos/{id}/entrega`
+  (multipart con foto), DELETE `/objetos-perdidos/{id}`, GET `/objetos-perdidos/{id}/fotos/{objeto|entrega}`,
+  POST `/objetos-perdidos/fotos/limpiar` (`fn_limpiar_fotos_objetos` + borra archivos). Embeds iguales a PostgREST.
+  Permisos = RLS: leer `fn_puede_ver`; atenciones y objetos crear/editar `fn_puede_operar` (predicado solo de rol: un chequeo
+  cubre USING y WITH CHECK); fallas_pc, borrar objeto y resolver baja `fn_puede_gestionar_auxiliares`; solicitud de baja
+  `operar ∧ estado='pendiente'` (el esquema solo acepta 'pendiente', otro → 422, y se escribe explícito). El estado de PCs
+  nunca se actualiza directo: solo las RPC fijan `app.cambio_estado_pc`. Las RPC validan rol, la API lo chequea antes (403).
+  Fotos de objetos: misma validación/WebP que T6a, el servidor guarda foto y fila en una petición (si la fila falla se borra
+  el archivo); borrar archivos = solo vía borrar fila (gestionar) o limpieza (rutas ya sin fila, como la política de storage).
+  Front: `operacion.service.ts` sin supabase (mismos métodos + `generarPcs`), `objetos-perdidos.component.ts` (blobs con
+  Bearer, 6 descargas simultáneas, revoca URLs), `panel/laboratorio-equipos` (generar/cambiar estado vía OperacionService),
+  `panel/laboratorio-detalle` (`AsignacionesService.listar({ambienteId, finDesde})`), `compartido/ocupacion-detalle`
+  (`eliminarReubicacion`). Cambio menor: filtro desde/hasta de atenciones usa días de La Paz (antes UTC de PostgREST).
+  Evidencia: RED 13 fallan → GREEN 13; `pytest test_asignacion_* + horarios_schema + health` 89 passed en
+  `soporte_upds_test` (sin filas residuales, fotos en tmp_path); ruff check/format OK; `ng build` OK sin warnings; curl
+  5013 como Jefe: GET atenciones, arrastradas, fallas-pc, solicitudes-baja, objetos-perdidos, mis-bajas, asignaciones
+  `?ambiente_id=` → 200, POST limpiar 200, sin token 401; proxy ng serve 4200 sin token 401.
+  Supabase restante: `desempeno.component.ts` (`fn_dashboard_*`, T7), `catalogos/usuarios.component.ts` (otro esfuerzo),
+  `core/supabase.service.ts` (T8). Tamaño ~1.45k líneas (570 tests): excede la heurística por 4 tablas + 5 funciones + fotos.
+
 ## Siguiente paso
-T6b Operación (atenciones, fallas_pc, bajas, objetos perdidos + fotos, RPC de PCs/reparaciones) y los dos usos
-supabase pendientes de T5 (`compartido/ocupacion-detalle`, `panel/laboratorio-detalle`).
+T7 Dashboards (`fn_dashboard_operacion|uso|detalle|fallas` en `desempeno.component.ts`).

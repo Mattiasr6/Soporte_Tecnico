@@ -7,7 +7,6 @@ import { Ambiente, Ocupacion } from '../core/modelos';
 import { NotificacionesService } from '../core/notificaciones.service';
 import { OcupacionService } from '../core/ocupacion.service';
 import { PanelesService } from '../core/paneles.service';
-import { SupabaseService, ErrorSistema } from '../core/supabase.service';
 import { IconoComponent } from './icono.component';
 import { ModalComponent } from './modal.component';
 
@@ -111,7 +110,6 @@ export class OcupacionDetalleComponent {
   protected readonly auth = inject(AuthService);
   protected readonly catalogos = inject(CatalogosService);
   private readonly ocupacionServicio = inject(OcupacionService);
-  private readonly supabase = inject(SupabaseService);
   private readonly notificaciones = inject(NotificacionesService);
   protected readonly paneles = inject(PanelesService);
 
@@ -202,9 +200,10 @@ export class OcupacionDetalleComponent {
     const o = this.ocupacion();
     if (!o?.reubicacion_id) return;
     if (!confirm('¿Devolver la clase a su ambiente original ese día?')) return;
-    const { error } = await this.supabase.cliente.from('reubicaciones').delete().eq('id', o.reubicacion_id);
-    if (error) {
-      this.notificaciones.error(new ErrorSistema(error));
+    try {
+      await this.ocupacionServicio.eliminarReubicacion(o.reubicacion_id);
+    } catch (e) {
+      this.notificaciones.error(e);
       return;
     }
     this.notificaciones.exito('La clase volvió a su ambiente.');

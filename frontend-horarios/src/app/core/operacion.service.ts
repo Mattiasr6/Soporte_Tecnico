@@ -1,7 +1,6 @@
 import { inject, Injectable, signal } from '@angular/core';
 import { Atencion, EstadoAtencion, FallaPc, FichaReparacion, HorarioTurno, PcBajaCierre, Perfil, ReporteTurno, RotacionSabado, SolicitudBaja, TareaReporte, TurnoCodigo, TurnoProgramado, TurnoTrabajo } from './modelos';
 import { AuthService } from './auth.service';
-import { ErrorSistema, SupabaseService } from './supabase.service';
 import { ApiService } from './api.service';
 import { comprimirFoto } from './fotos';
 import { aMinutos } from './fechas';
@@ -37,10 +36,15 @@ export function turnosDeHoy(programados: TurnoProgramado[], perfilId: string, ho
   return { actual, proximo };
 }
 
-/** Columnas con relaciones embebidas para las atenciones */
-const SELECT_ATENCION =
-  '*, ambiente:ambientes(codigo), pc:ambiente_pcs(etiqueta), docente:docentes(nombres, apellidos), ' +
-  'autor:perfiles!atenciones_auxiliar_id_fkey(nombre_completo)';
+/** Columns the API does not accept on write (id, timestamps and embeds) */
+const NO_ESCRIBIBLES = ['id', 'creado_en', 'actualizado_en', 'ambiente', 'pc', 'docente', 'autor'];
+
+/** Only the writable columns of a ticket */
+function escribibles(fila: Partial<Atencion>): Record<string, unknown> {
+  const datos = { ...fila } as Record<string, unknown>;
+  for (const k of NO_ESCRIBIBLES) delete datos[k];
+  return datos;
+}
 
 /** Filtros de la lista de atenciones / mantenimiento */
 export interface FiltroOperacion {
@@ -58,7 +62,6 @@ export interface FiltroOperacion {
  */
 @Injectable({ providedIn: 'root' })
 export class OperacionService {
-  private readonly supabase = inject(SupabaseService);
   private readonly api = inject(ApiService);
   private readonly auth = inject(AuthService);
 
@@ -74,22 +77,17 @@ export class OperacionService {
   readonly pendientes = signal<Atencion[]>([]);
   readonly cargando = signal(false);
 
-  private get cliente() {
-    return this.supabase.cliente;
-  }
-
   /** Refresca el turno actual, el último cerrado y los pendientes */
   async refrescar(): Promise<void> {
     this.cargando.set(true);
     try {
       const [estado, pend] = await Promise.all([
         this.api.get<{ abierto: TurnoTrabajo | null; ultimo_cerrado: TurnoTrabajo | null }>('/turnos-trabajo/estado'),
-        this.cliente.from('atenciones').select(SELECT_ATENCION).in('estado', ['pendiente', 'en_proceso']).order('prioridad').order('creado_en'),
+        this.api.get<Atencion[]>('/atenciones/arrastradas'),
       ]);
-      if (pend.error) throw new ErrorSistema(pend.error);
       this.turnoActual.set(estado.abierto);
       this.ultimoCerrado.set(estado.ultimo_cerrado);
-      this.pendientes.set((pend.data as unknown as Atencion[]) ?? []);
+      this.pendientes.set(pend);
     } finally {
       this.cargando.set(false);
     }
@@ -110,30 +108,21 @@ export class OperacionService {
   // ----- Atenciones -----
 
   /** Lista de atenciones con filtros (para reportes) */
-  async listarAtenciones(filtro: FiltroOperacion = {}): Promise<Atencion[]> {
-    let q = this.cliente.from('atenciones').select(SELECT_ATENCION).order('creado_en', { ascending: false });
-    if (filtro.desde) q = q.gte('creado_en', filtro.desde);
-    if (filtro.hasta) q = q.lte('creado_en', `${filtro.hasta}T23:59:59`);
-    if (filtro.estado) q = q.eq('estado', filtro.estado);
-    if (filtro.ambienteId) q = q.eq('ambiente_id', filtro.ambienteId);
-    if (filtro.participante) q = q.or(`auxiliar_id.eq.${filtro.participante},colaboradores.cs.{${filtro.participante}}`);
-    const { data, error } = await q;
-    if (error) throw new ErrorSistema(error);
-    return (data as unknown as Atencion[]) ?? [];
+  listarAtenciones(filtro: FiltroOperacion = {}): Promise<Atencion[]> {
+    const params: Record<string, string | number> = {};
+    if (filtro.desde) params['desde'] = filtro.desde;
+    if (filtro.hasta) params['hasta'] = filtro.hasta;
+    if (filtro.estado) params['estado'] = filtro.estado;
+    if (filtro.ambienteId) params['ambiente_id'] = filtro.ambienteId;
+    if (filtro.participante) params['participante'] = filtro.participante;
+    return this.api.get<Atencion[]>('/atenciones', params);
   }
 
   /** Crea o actualiza una atención */
   async guardarAtencion(fila: Partial<Atencion>): Promise<void> {
-    const datos = { ...fila } as Record<string, unknown>;
-    const id = datos['id'];
-    delete datos['id'];
-    // No persistir relaciones embebidas
-    for (const k of ['ambiente', 'pc', 'docente', 'autor']) delete datos[k];
-    const consulta = id
-      ? this.cliente.from('atenciones').update(datos).eq('id', id)
-      : this.cliente.from('atenciones').insert(datos);
-    const { error } = await consulta;
-    if (error) throw new ErrorSistema(error);
+    const datos = escribibles(fila);
+    if (fila.id) await this.api.patch(`/atenciones/${fila.id}`, datos);
+    else await this.api.post('/atenciones', [datos]);
     await this.refrescar();
   }
 
@@ -141,25 +130,28 @@ export class OperacionService {
   /** Crea tickets y devuelve su id y PC */
   async crearAtenciones(filas: Partial<Atencion>[]): Promise<{ id: number; pc_id: number | null }[]> {
     if (!filas.length) return [];
-    const { data, error } = await this.cliente.from('atenciones').insert(filas).select('id, pc_id');
-    if (error) throw new ErrorSistema(error);
+    const creados = await this.api.post<{ id: number; pc_id: number | null }[]>('/atenciones', filas.map(escribibles));
     await this.refrescar();
-    return (data ?? []) as { id: number; pc_id: number | null }[];
+    return creados;
   }
 
   /** Cambia el estado de PCs (ticket = false si ya queda registrado en otro ticket, ej. un correctivo) */
   async cambiarEstadoPcs(ids: number[], estado: string, detalle: string, ticket = true): Promise<void> {
     if (!ids.length) return;
-    await this.supabase.rpc('rpc_cambiar_estado_pcs', { p_ids: ids, p_estado: estado, p_detalle: detalle, p_ticket: ticket });
+    await this.api.post('/ambiente-pcs/estado', { ids, estado, detalle, ticket });
+  }
+
+  /** Crea la PC docente y `cantidad` PCs numeradas en un laboratorio (fn_generar_pcs); devuelve cuántas creó */
+  async generarPcs(ambienteId: number, cantidad: number): Promise<number> {
+    const r = await this.api.post<{ creadas: number }>(`/ambientes/${ambienteId}/pcs/generar`, { cantidad });
+    return r.creadas;
   }
 
   // ----- Fichas de reparación -----
 
   /** Catálogo de fallas (todas; la ficha muestra solo las activas) */
   async cargarFallas(): Promise<FallaPc[]> {
-    const { data, error } = await this.cliente.from('fallas_pc').select('*').order('orden').order('nombre');
-    if (error) throw new ErrorSistema(error);
-    const lista = (data as FallaPc[]) ?? [];
+    const lista = await this.api.get<FallaPc[]>('/fallas-pc');
     this.fallas.set(lista);
     return lista;
   }
@@ -167,33 +159,25 @@ export class OperacionService {
   /** Agrega una falla al catálogo (admin y encargado) */
   async agregarFalla(nombre: string, categoria: FallaPc['categoria']): Promise<void> {
     const orden = Math.max(0, ...this.fallas().filter((f) => f.categoria === categoria).map((f) => f.orden)) + 1;
-    const { error } = await this.cliente.from('fallas_pc').insert({ nombre: nombre.trim(), categoria, orden });
-    if (error) throw new ErrorSistema(error);
+    await this.api.post('/fallas-pc', { nombre: nombre.trim(), categoria, orden });
     await this.cargarFallas();
   }
 
   async actualizarFalla(id: number, cambios: Partial<Pick<FallaPc, 'nombre' | 'categoria' | 'activo'>>): Promise<void> {
-    const { error } = await this.cliente.from('fallas_pc').update(cambios).eq('id', id);
-    if (error) throw new ErrorSistema(error);
+    await this.api.patch(`/fallas-pc/${id}`, cambios);
     await this.cargarFallas();
   }
 
   /** Guarda las fichas: un ticket correctivo por PC y su cambio de estado */
   async registrarReparaciones(fichas: FichaReparacion[], colaboradores: string[] = [], prioridad = 2): Promise<number> {
-    const n = await this.supabase.rpc<number>('rpc_registrar_reparaciones', {
-      p_fichas: fichas, p_colaboradores: colaboradores, p_prioridad: prioridad,
-    });
+    const r = await this.api.post<{ registradas: number }>('/reparaciones', { fichas, colaboradores, prioridad });
     await this.refrescar();
-    return n;
+    return r.registradas;
   }
 
   /** Solicitudes de baja pendientes (las resuelve admin/encargado) */
-  async solicitudesBaja(): Promise<SolicitudBaja[]> {
-    const { data, error } = await this.cliente.from('solicitudes_baja')
-      .select('*, pc:ambiente_pcs(etiqueta, ambiente:ambientes(codigo)), autor:perfiles!solicitudes_baja_solicitado_por_fkey(nombre_completo)')
-      .eq('estado', 'pendiente').order('solicitado_en');
-    if (error) throw new ErrorSistema(error);
-    return (data as unknown as SolicitudBaja[]) ?? [];
+  solicitudesBaja(): Promise<SolicitudBaja[]> {
+    return this.api.get<SolicitudBaja[]>('/solicitudes-baja', { estado: 'pendiente' });
   }
 
   /** Pide la baja de PCs (si ya hay una pendiente para esa PC, no se repite) */
@@ -202,36 +186,36 @@ export class OperacionService {
     const filas = pcIds.filter((id) => !pendientes.has(id))
       .map((pc_id) => ({ pc_id, motivo, atencion_id: atencionPorPc.get(pc_id) ?? null }));
     if (!filas.length) return;
-    const { error } = await this.cliente.from('solicitudes_baja').insert(filas);
-    if (error) throw new ErrorSistema(error);
+    await this.api.post('/solicitudes-baja', filas);
   }
 
   async resolverBaja(id: number, aprobar: boolean, respuesta: string | null): Promise<void> {
-    await this.supabase.rpc('rpc_resolver_baja', { p_id: id, p_aprobar: aprobar, p_respuesta: respuesta });
+    await this.api.post(`/solicitudes-baja/${id}/resolver`, { aprobar, respuesta });
   }
 
   /** Aplica los mismos cambios a varios tickets */
   async actualizarAtenciones(ids: number[], cambios: Partial<Atencion>): Promise<void> {
     if (!ids.length) return;
-    const { error } = await this.cliente.from('atenciones').update(cambios).in('id', ids);
-    if (error) throw new ErrorSistema(error);
+    await this.api.patch('/atenciones', { ids, cambios: escribibles(cambios) });
   }
 
   /** Cambia el estado de varios tickets (ej. todo un lote) */
   async cambiarEstadoAtenciones(ids: number[], estado: EstadoAtencion): Promise<void> {
     const resuelto = estado === 'resuelto';
-    const { error } = await this.cliente.from('atenciones').update({
-      estado,
-      resuelto_por: resuelto ? this.auth.perfil()?.id : null,
-      resuelto_en: resuelto ? new Date().toISOString() : null,
-    }).in('id', ids);
-    if (error) throw new ErrorSistema(error);
+    await this.api.patch('/atenciones', {
+      ids,
+      cambios: {
+        estado,
+        resuelto_por: resuelto ? this.auth.perfil()?.id ?? null : null,
+        resuelto_en: resuelto ? new Date().toISOString() : null,
+      },
+    });
     await this.refrescar();
   }
 
   async eliminarAtenciones(ids: number[]): Promise<void> {
-    const { error } = await this.cliente.from('atenciones').delete().in('id', ids);
-    if (error) throw new ErrorSistema(error);
+    if (!ids.length) return;
+    await this.api.delete(`/atenciones?${ids.map((id) => `id=${encodeURIComponent(id)}`).join('&')}`);
     await this.refrescar();
   }
 
@@ -274,14 +258,10 @@ export class OperacionService {
 
   /** PCs que el usuario dio de baja desde un momento (las que saldrán en su cierre) */
   async misBajasDesde(desde: string): Promise<PcBajaCierre[]> {
-    const id = this.auth.perfil()?.id;
-    if (!id) return [];
-    const { data, error } = await this.cliente.from('ambiente_pcs')
-      .select('etiqueta, motivo_baja, estado_detalle, estado_en, ambiente:ambientes(codigo)')
-      .eq('estado', 'baja').eq('estado_por', id).gte('estado_en', desde).order('estado_en');
-    if (error) throw new ErrorSistema(error);
+    if (!this.auth.perfil()?.id) return [];
     type Fila = { etiqueta: string; motivo_baja: string | null; estado_detalle: string | null; estado_en: string; ambiente: { codigo: string } | null };
-    return ((data ?? []) as unknown as Fila[]).map((p) => ({
+    const data = await this.api.get<Fila[]>('/ambiente-pcs/mis-bajas', { desde });
+    return data.map((p) => ({
       etiqueta: p.etiqueta, lab: p.ambiente?.codigo ?? null, motivo: p.motivo_baja ?? p.estado_detalle, en: p.estado_en,
     }));
   }

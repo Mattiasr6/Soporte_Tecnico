@@ -1,5 +1,5 @@
 import { DatePipe } from '@angular/common';
-import { Component, computed, inject, OnInit, signal } from '@angular/core';
+import { Component, computed, inject, OnDestroy, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { environment } from '../../../environments/environment';
 import { normalizar } from '../../compartido/buscador.component';
@@ -11,12 +11,10 @@ import { fechaActual, horaActual } from '../../core/fechas';
 import { comprimirFoto } from '../../core/fotos';
 import { ObjetoPerdido } from '../../core/modelos';
 import { NotificacionesService } from '../../core/notificaciones.service';
-import { ErrorSistema, SupabaseService } from '../../core/supabase.service';
+import { ApiService } from '../../core/api.service';
 
-const BUCKET = 'objetos-perdidos';
-const SELECT_OBJETO =
-  '*, ambiente:ambientes(codigo, color), encontro:perfiles!objetos_perdidos_encontrado_por_fkey(nombre_completo), ' +
-  'entrego:perfiles!objetos_perdidos_entregado_por_fkey(nombre_completo)';
+/** Photos downloaded at the same time (each one is an authenticated request) */
+const DESCARGAS_SIMULTANEAS = 6;
 /** Nombres frecuentes para elegir con un toque */
 const SUGERENCIAS = [
   'Celular', 'Cargador', 'Memoria USB', 'Mochila', 'Billetera', 'Audífonos', 'Llaves', 'Carnet / credencial',
@@ -225,10 +223,10 @@ interface FormEntrega { objeto: ObjetoPerdido; entregadoA: string; documento: st
     </app-modal>
   `,
 })
-export class ObjetosPerdidosComponent implements OnInit {
+export class ObjetosPerdidosComponent implements OnInit, OnDestroy {
   protected readonly auth = inject(AuthService);
   protected readonly catalogos = inject(CatalogosService);
-  private readonly supabase = inject(SupabaseService);
+  private readonly api = inject(ApiService);
   private readonly notificaciones = inject(NotificacionesService);
 
   protected readonly sugerencias = SUGERENCIAS;
@@ -237,7 +235,7 @@ export class ObjetosPerdidosComponent implements OnInit {
   ];
 
   protected readonly objetos = signal<ObjetoPerdido[]>([]);
-  /** Enlaces temporales de las fotos (ruta -> url) */
+  /** URLs locales (blob) de las fotos ya descargadas (ruta -> url) */
   protected readonly urls = signal<Map<string, string>>(new Map());
   protected readonly cargando = signal(false);
   protected readonly guardando = signal(false);
@@ -260,6 +258,10 @@ export class ObjetosPerdidosComponent implements OnInit {
     void this.cargar();
   }
 
+  ngOnDestroy(): void {
+    for (const url of this.urls().values()) URL.revokeObjectURL(url);
+  }
+
   protected cuenta(estado: 'en_custodia' | 'entregado' | null): number {
     return this.objetos().filter((o) => !estado || o.estado === estado).length;
   }
@@ -273,12 +275,9 @@ export class ObjetosPerdidosComponent implements OnInit {
     this.cargando.set(true);
     await this.limpiarFotosViejas().catch((e) => console.error(e));
     try {
-      const { data, error } = await this.supabase.cliente.from('objetos_perdidos').select(SELECT_OBJETO)
-        .order('encontrado_en', { ascending: false }).limit(300);
-      if (error) throw new ErrorSistema(error);
-      const lista = (data ?? []) as unknown as ObjetoPerdido[];
+      const lista = await this.api.get<ObjetoPerdido[]>('/objetos-perdidos', { limite: 300 });
       this.objetos.set(lista);
-      await this.firmarFotos(lista.flatMap((o) => [o.foto_path, o.foto_entrega_path]).filter((p): p is string => !!p));
+      await this.descargarFotos(lista);
     } catch (e) {
       this.notificaciones.error(e, 'No se cargaron los objetos');
     } finally {
@@ -288,19 +287,39 @@ export class ObjetosPerdidosComponent implements OnInit {
 
   /** Borra las fotos de más de 9 meses (el registro se queda); si falla, se reintenta la próxima vez */
   private async limpiarFotosViejas(): Promise<void> {
-    const { data, error } = await this.supabase.cliente.rpc('fn_limpiar_fotos_objetos');
-    if (error) throw new ErrorSistema(error);
-    const rutas = (data ?? []) as string[];
-    if (rutas.length) await this.supabase.cliente.storage.from(BUCKET).remove(rutas);
+    // The API clears the photos in the DB and deletes their files
+    await this.api.post('/objetos-perdidos/fotos/limpiar');
   }
 
-  /** Pide enlaces temporales (1 hora) de las fotos que aún no tienen */
-  private async firmarFotos(rutas: string[]): Promise<void> {
-    const faltan = rutas.filter((r) => !this.urls().has(r));
-    if (!faltan.length) return;
-    const { data } = await this.supabase.cliente.storage.from(BUCKET).createSignedUrls(faltan, 3600);
+  /**
+   * Descarga (con el token de la sesión, un <img src> no puede mandarlo) las
+   * fotos que aún no tienen URL local y libera las de fotos que ya no están.
+   * Una foto que no baja simplemente no se muestra.
+   */
+  private async descargarFotos(lista: ObjetoPerdido[]): Promise<void> {
+    const pedidas = lista.flatMap((o) => [
+      { ruta: o.foto_path, url: `/objetos-perdidos/${o.id}/fotos/objeto` },
+      { ruta: o.foto_entrega_path, url: `/objetos-perdidos/${o.id}/fotos/entrega` },
+    ]).filter((p): p is { ruta: string; url: string } => !!p.ruta);
+    const vigentes = new Set(pedidas.map((p) => p.ruta));
     const mapa = new Map(this.urls());
-    for (const d of data ?? []) if (d.path && d.signedUrl) mapa.set(d.path, d.signedUrl);
+    for (const [ruta, url] of mapa) {
+      if (!vigentes.has(ruta)) {
+        URL.revokeObjectURL(url);
+        mapa.delete(ruta);
+      }
+    }
+    const faltan = pedidas.filter((p) => !mapa.has(p.ruta));
+    const descargar = async (): Promise<void> => {
+      for (let p = faltan.shift(); p; p = faltan.shift()) {
+        try {
+          mapa.set(p.ruta, URL.createObjectURL(await this.api.getBlob(p.url)));
+        } catch {
+          /* sin foto: no se muestra */
+        }
+      }
+    };
+    await Promise.all(Array.from({ length: DESCARGAS_SIMULTANEAS }, descargar));
     this.urls.set(mapa);
   }
 
@@ -329,13 +348,13 @@ export class ObjetosPerdidosComponent implements OnInit {
     else this.entrega.update((f) => (f ? { ...f, foto: archivo, vista } : f));
   }
 
-  /** Comprime y sube la foto; devuelve la ruta en el bucket */
-  private async subirFoto(archivo: File, carpeta: 'objetos' | 'entregas'): Promise<string> {
+  /** Formulario multipart con la foto comprimida (la API guarda la foto y la fila juntas) */
+  private async formularioConFoto(archivo: File, campos: Record<string, string | number | null>): Promise<FormData> {
     const blob = await comprimirFoto(archivo);
-    const ruta = `${carpeta}/${fechaActual(environment.zonaHoraria).slice(0, 7)}/${crypto.randomUUID()}.jpg`;
-    const { error } = await this.supabase.cliente.storage.from(BUCKET).upload(ruta, blob, { contentType: 'image/jpeg' });
-    if (error) throw new Error(`No se pudo subir la foto: ${error.message}`);
-    return ruta;
+    const form = new FormData();
+    for (const [k, v] of Object.entries(campos)) if (v !== null && v !== '') form.append(k, String(v));
+    form.append('foto', new File([blob], 'foto.jpg', { type: 'image/jpeg' }));
+    return form;
   }
 
   protected async guardarRegistro(): Promise<void> {
@@ -347,12 +366,10 @@ export class ObjetosPerdidosComponent implements OnInit {
     if (!f.foto) return this.notificaciones.aviso('Toma o elige la foto del objeto.');
     this.guardando.set(true);
     try {
-      const foto_path = await this.subirFoto(f.foto, 'objetos');
-      const { error } = await this.supabase.cliente.from('objetos_perdidos').insert({
+      await this.api.postForm('/objetos-perdidos', await this.formularioConFoto(f.foto, {
         nombre: f.nombre.trim(), descripcion: f.descripcion.trim() || null, ambiente_id: f.ambienteId,
-        encontrado_en: `${f.fechaHora}:00${DESFASE_LA_PAZ}`, foto_path,
-      });
-      if (error) throw new ErrorSistema(error);
+        encontrado_en: `${f.fechaHora}:00${DESFASE_LA_PAZ}`,
+      }));
       this.notificaciones.exito('Objeto registrado.');
       this.registro.set(null);
       this.filtroEstado.set('en_custodia');
@@ -371,12 +388,10 @@ export class ObjetosPerdidosComponent implements OnInit {
     if (!f.foto) return this.notificaciones.aviso('Toma la foto de la entrega.');
     this.guardando.set(true);
     try {
-      const foto_entrega_path = await this.subirFoto(f.foto, 'entregas');
-      const { error } = await this.supabase.cliente.from('objetos_perdidos').update({
-        estado: 'entregado', entregado_a: f.entregadoA.trim(), entregado_documento: f.documento.trim() || null,
-        observacion_entrega: f.observacion.trim() || null, foto_entrega_path,
-      }).eq('id', f.objeto.id);
-      if (error) throw new ErrorSistema(error);
+      await this.api.postForm(`/objetos-perdidos/${f.objeto.id}/entrega`, await this.formularioConFoto(f.foto, {
+        entregado_a: f.entregadoA.trim(), entregado_documento: f.documento.trim() || null,
+        observacion_entrega: f.observacion.trim() || null,
+      }));
       this.notificaciones.exito(`${f.objeto.nombre}: entregado.`);
       this.entrega.set(null);
       await this.cargar();
@@ -390,9 +405,8 @@ export class ObjetosPerdidosComponent implements OnInit {
   protected async eliminar(o: ObjetoPerdido): Promise<void> {
     if (!confirm(`¿Eliminar el registro de "${o.nombre}" y sus fotos?`)) return;
     try {
-      const { error } = await this.supabase.cliente.from('objetos_perdidos').delete().eq('id', o.id);
-      if (error) throw new ErrorSistema(error);
-      await this.supabase.cliente.storage.from(BUCKET).remove([o.foto_path, o.foto_entrega_path].filter((p): p is string => !!p));
+      // The API deletes the record and its photo files
+      await this.api.delete(`/objetos-perdidos/${o.id}`);
       this.notificaciones.exito('Eliminado.');
       await this.cargar();
     } catch (e) {

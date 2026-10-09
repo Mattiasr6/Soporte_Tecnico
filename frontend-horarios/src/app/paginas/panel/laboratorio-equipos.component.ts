@@ -6,7 +6,7 @@ import { AuthService } from '../../core/auth.service';
 import { CatalogosService } from '../../core/catalogos.service';
 import { AmbientePc, EstadoPc } from '../../core/modelos';
 import { NotificacionesService } from '../../core/notificaciones.service';
-import { SupabaseService } from '../../core/supabase.service';
+import { OperacionService } from '../../core/operacion.service';
 
 /** Texto y color de cada estado de PC */
 const ESTADOS: Record<EstadoPc, { texto: string; clase: string }> = {
@@ -139,7 +139,7 @@ export class LaboratorioEquiposComponent {
   protected readonly auth = inject(AuthService);
   private readonly catalogos = inject(CatalogosService);
   private readonly notificaciones = inject(NotificacionesService);
-  private readonly supabase = inject(SupabaseService);
+  private readonly operacion = inject(OperacionService);
 
   readonly ambienteId = input.required<number>();
 
@@ -198,7 +198,7 @@ export class LaboratorioEquiposComponent {
     }
     this.generando.set(true);
     try {
-      const creadas = await this.supabase.rpc<number>('fn_generar_pcs', { p_ambiente_id: this.ambienteId(), p_cantidad: cantidad });
+      const creadas = await this.operacion.generarPcs(this.ambienteId(), cantidad);
       await this.catalogos.recargar('ambiente_pcs');
       this.notificaciones.exito(`${creadas} PC(s) creadas.`);
     } catch (e) {
@@ -243,8 +243,8 @@ export class LaboratorioEquiposComponent {
       // El estado no se guarda aquí: una PC nueva entra activa y el cambio va por la función (deja ticket)
       if (!datos.id) fila['estado'] = 'operativa';
       const guardada = (await this.catalogos.guardar('ambiente_pcs', fila)) as unknown as { id: number };
-      if (cambia) {
-        await this.supabase.rpc('rpc_cambiar_estado_pcs', { p_ids: [guardada.id], p_estado: datos.estado, p_detalle: this.detalle.trim(), p_ticket: true });
+      if (cambia && datos.estado) {
+        await this.operacion.cambiarEstadoPcs([guardada.id], datos.estado, this.detalle.trim(), true);
         await this.catalogos.recargar('ambiente_pcs');
       }
       this.notificaciones.exito('Guardado.');

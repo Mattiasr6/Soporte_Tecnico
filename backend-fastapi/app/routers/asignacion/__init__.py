@@ -16,7 +16,9 @@ from app.db.asignacion import AsignacionDb
 from app.routers.asignacion import (
     catalogos,
     horarios_academicos,
+    objetos_perdidos,
     ocupacion,
+    operacion,
     reportes,
     turnos,
 )
@@ -27,6 +29,8 @@ router.include_router(horarios_academicos.router)
 router.include_router(ocupacion.router)
 router.include_router(turnos.router)
 router.include_router(reportes.router)
+router.include_router(operacion.router)
+router.include_router(objetos_perdidos.router)
 
 
 class PerfilOut(BaseModel):
