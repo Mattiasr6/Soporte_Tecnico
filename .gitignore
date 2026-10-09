@@ -67,3 +67,6 @@ frontend-django-idea2/
 
 # Planillas internas (datos personales, repo público): solo local
 docs/csv/
+
+# UPDS integration dev stack secrets
+deploy/podman/.env.upds
