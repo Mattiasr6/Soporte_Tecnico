@@ -65,8 +65,8 @@ frontends already talk to the same FastAPI, so only the presentation layer must 
 - [x] R2 D5 Angular: Soporte roles (Tecnico, Jefe, Auxiliar, Encargado, Decano, Invitado) are the
   single role model; guards, menu and user screen read `Usuarios.Role`. Invitado stays
   "pending, no access" (/espera). Route: delegated with R1.
-- [ ] M3 Auditoría (read-only, Jefe): `/api/auditoria`.
-- [ ] M4 Soporte attentions list + ticket (D5 resolved).
+- [x] M3 Auditoría (read-only, Jefe or dashboard flag): `/api/auditoria`. Route: delegated with M4.
+- [x] M4 Soporte attentions list + ticket (D5 resolved). Route: delegated with M3.
 - [ ] M5 Gap map for labs/auxiliares/novedades: Django-only features to port onto horarios.
 - [ ] M6 Data migration: LabAtenciones (131) → `horarios.atenciones`, aux JSON → perfiles.
 - [ ] Later areas (dashboards, reports, jerarquía, IA) are added as tasks per slice.
@@ -144,3 +144,43 @@ Strategy: ask-on-risk. Forecast M0–M2 ≈ 400 authored lines. RDD disabled for
     spec files exist (test-first exception for R2).
   - Known limitation: a técnico only appears in the collaborator list after he opened the
     Angular app once (perfiles are created lazily by `ensure_perfil`; the users screen syncs all).
+- 2026-10-09: M3–M4 done (route: delegated, one writer; trigger: 2+ non-trivial files).
+  Commits `35d7177` feat(horarios): add read-only audit trail screen, `069711a`
+  feat(horarios): add Soporte attentions list and ticket.
+  - M3: `/auditoria` (menu item "Auditoría", guard `exigirDashboard`). Django and the backend
+    both allow Jefe **or** `Usuarios.CanViewDashboard` (`is_privileged`), which Angular could not
+    see, so `/asignacion/me` now also returns `can_view_dashboard` (backend change, 4 lines) and
+    `AuthService.puedeVerDashboard` mirrors it. Same filters (entidad, acción, limite 200) and
+    columns (Cuándo, Quién + rol/#id, Acción, Entidad, Detalle). Files: `core/auditoria.service.ts`,
+    `paginas/auditoria/auditoria.component.ts` (container), `auditoria-tabla.component.ts`
+    (presentational), `History` icon as `historial`.
+  - M3 tests: RED 2 failed / 17 passed on `tests/test_asignacion_base.py` (key set + new
+    `test_me_exposes_can_view_dashboard_flag`), GREEN 19 passed; host ruff check + format clean.
+  - M4: `/soporte/atenciones` under a new "Soporte" menu section (guard `exigirSoporte`:
+    Jefe, Técnico, Decano = Django's "everyone but Auxiliar/Encargado"; Invitado never enters
+    Angular). Same as `lista_vista`: GET `/api/atenciones` (backend: Jefe/dashboard see all,
+    others their own), search on descripción/área, categoría and mes filtered client-side,
+    técnico filter (Jefe/dashboard only, `usuario_id` server-side, users incl. "(de baja)"),
+    columns Fecha, Área, Categoría, Técnico, Fuera de turno, "Ver más" +50 up to 500. Ticket in
+    a modal; owner-only Editar (PUT `/api/atenciones/{id}`, area picker over
+    `/api/jerarquia/arbol`, collaborators from `/api/usuarios`, empty fields omitted like
+    `_cuerpo_edicion`) and Eliminar (DELETE, confirm). `Perfil.usuario_id` added for the owner
+    check. Files: `core/soporte.service.ts`, `paginas/soporte/atenciones-soporte.component.ts`
+    (container), `atenciones-soporte-tabla`, `ticket-soporte`, `ticket-soporte-form`
+    (presentational).
+  - M4 size: ~730 authored lines, over the 400 heuristic because list + ticket + edit form with
+    the area picker form one behavior; not split.
+  - Not migrated: "Nueva atención" (`nueva_vista`: session batch draft + Wilmercito
+    suggestion), the hierarchy counts (`conteos_json`) in the area picker, and clearing a
+    collaborator (the backend ignores `colaborador_id: null`, same as Django).
+  - Checks: horarios image build → "Application bundle generation complete", no errors (both
+    slices). Smoke on :4213: paul (Tecnico) `/asignacion/me` 200 `can_view_dashboard:false`,
+    `/api/auditoria` 403; Jefe token (minted in the api container) `/api/auditoria` 200 with
+    and without filters (0 rows in the UPDS DB). paul `/api/atenciones` 200 (584, own only),
+    Jefe 200 (2936), Jefe `?usuario_id=3` 584; `/api/jerarquia/arbol` 200; `/api/usuarios` 200;
+    `?incluir_inactivos=true` 200; PUT own (unchanged categoría) 204; PUT/DELETE another
+    user's 403; DELETE missing 404. `/auditoria` and `/soporte/atenciones` → 200 (SPA) and in
+    `main-*.js`. Browser as paul: list renders 584 rows, Soporte section in the menu, no
+    Auditoría item, ticket modal and edit form open with the area preselected; 0 console
+    errors. No Angular spec files exist (test-first exception for the Angular parts).
+  - GitNexus `detect_changes` unavailable: the index is for another checkout.
