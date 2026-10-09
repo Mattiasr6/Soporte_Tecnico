@@ -1,4 +1,5 @@
-# UPDS integration dev stack (feat/sistemas-upds-dev): api 5013, web 8013, pg 5435.
+# UPDS integration dev stack (feat/sistemas-upds-dev): api 5013, web 8013,
+# horarios 4213, pg 5435.
 # Isolated from prod (soporte-prod) and dev (soporte-dev): own project name,
 # own volume and own database. Mounts the checkout this file lives in.
 name: soporte-upds
@@ -52,6 +53,16 @@ services:
     ports:
       - "8013:8013"
     depends_on: [api]
+
+  horarios:
+    # ASIGNACION Angular app built and served by nginx; /api is proxied to the
+    # api service, so the browser stays same-origin and needs no CORS entry.
+    build:
+      context: ../../frontend-horarios
+    ports:
+      - "4213:4213"
+    depends_on: [api]
+    restart: unless-stopped
 
 volumes:
   pgdata-upds:

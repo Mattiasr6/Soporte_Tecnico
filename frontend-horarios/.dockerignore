@@ -1,0 +1,9 @@
+node_modules
+dist
+.angular
+.claude
+.vscode
+supabase
+*.png
+Dockerfile
+.dockerignore

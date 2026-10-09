@@ -128,6 +128,16 @@ En **Laboratorios**, al tocar un laboratorio se abre su **croquis** dibujado com
    ```
 4. Para producción: `npm run build` genera `dist/sistema-laboratorios/browser`, que se puede publicar en cualquier hosting estático (Netlify, Vercel, Nginx…). Configure el servidor para que todas las rutas apunten a `index.html`.
 
+### Stack UPDS (Podman, tailnet)
+La imagen (`Dockerfile` multi-stage: `ng build` en Node 24 → nginx) sirve la app en `:4213` y
+reenvía `/api/` a la API FastAPI (`api:5013`), así que `apiUrl: '/api'` funciona sin CORS:
+```bash
+cd deploy/podman
+podman-compose --env-file .env.upds -f upds.compose.yml up -d --build horarios
+# http://100.78.144.4:4213
+```
+Para desarrollo local sigue valiendo `npm start` (proxy de `/api` a `127.0.0.1:5013`).
+
 ## Estructura
 
 ```

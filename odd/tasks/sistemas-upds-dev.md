@@ -56,6 +56,7 @@ El frontend consulta tablas directo con supabase-js (90 `.from()`, 9 `.rpc()`,
 - [x] T8 (alcance ampliado por el usuario 2026-10-09) Roles Decano e Invitado en Soporte (6 roles);
       pantalla de usuarios de horarios sobre los usuarios de Soporte; quitar Supabase del frontend
       (`@supabase/supabase-js`, `core/supabase.service.ts`, `environment.supabase*`).
+- [x] T9 Servir frontend-horarios en el stack UPDS (:4213, nginx + proxy /api).
 
 ## Progreso
 - 0ce5310 entorno aislado soporte-upds (migrado 0020 + seed).
@@ -274,7 +275,22 @@ El frontend consulta tablas directo con supabase-js (90 `.from()`, 9 `.rpc()`,
   supabase); curl 5013 sin token → 401 en GET/POST `/usuarios`, PATCH `/usuarios/{id}`, POST `/usuarios/{id}/password`.
   Smoke autenticado no hecho (sin contraseña de prod en esta sesión).
   Pendiente: definir permisos de Decano/Invitado en Soporte; `frontend-horarios/supabase/` (SQL de referencia) queda.
+- T9 (delegado, writer). `frontend-horarios/Dockerfile` multi-stage: `node:24.20.0-alpine` (Angular 22 exige
+  `^22.22.3 || ^24.15.0 || >=26`) `npm ci` + `ng build --configuration production` → `nginx:1.31.5-alpine` con
+  `dist/sistema-laboratorios/browser`. `nginx.conf`: listen 4213, fallback SPA `try_files $uri $uri/ /index.html`,
+  `location /api/` → `proxy_pass http://api:5013` (ruta intacta, Host + X-Forwarded-*), `client_max_body_size 10m`
+  (fotos ≤ 5 MB en `fotos.MAX_BYTES` + overhead multipart, así el 413 lo da FastAPI), `.js/.css/fuentes` con
+  `immutable` 1 año, `index.html` y rutas SPA `no-cache`. `.dockerignore` excluye node_modules, dist, .angular,
+  supabase/ y el PNG de la raíz. Servicio `horarios` en `upds.compose.yml` publicado `"4213:4213"`, depends_on api.
+  Sin cambio de CORS: `apiUrl: '/api'` relativo = mismo origen.
+  Evidencia: `podman-compose --env-file .env.upds -f upds.compose.yml config` exit 0; `up -d --build --no-deps
+  horarios` exit 0 (build OK, initial 370 kB), contenedor `soporte-upds_horarios_1` Up; curl `100.78.144.4:4213`:
+  `/` 200 text/html (título "Laboratorios UPDS"), `/turno` 200 (fallback), `/main-*.js` 200 con
+  `Cache-Control: public, max-age=31536000, immutable`, asset inexistente 404, `/api/asignacion/usuarios` sin token
+  → 401 "Falta token Bearer" (llega a FastAPI); POST de 7 MB por el proxy → 401 (no 413 de nginx); `grep` de
+  `localhost|127.0.0.1` en el build servido: vacío. `podman ps`: soporte-prod_* y soporte-dev_* sin cambios.
+  Prueba visual en navegador pendiente.
 
 ## Siguiente paso
-Feature completa (T1–T8). Siguiente: revisión manual en navegador (pantalla de usuarios con un Jefe), definir permisos
-de Decano/Invitado en Soporte, y decidir entrega (PRs encadenados por `ask-on-risk`).
+Prueba visual de horarios en :4213 y luego unificar fuentes duplicadas (auxiliares, turnos,
+laboratorios/ambientes, atenciones, novedades) y login único.

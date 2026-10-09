@@ -1,9 +1,10 @@
 # Podman (espejo prod/dev)
 
-‎| stack | api | web | pg |
-‎|---|---|---|---|
-‎| prod | 127.0.0.1:5002 | :8001 | :5433 |
-‎| dev | 127.0.0.1:5012 | :8011 | :5434 |
+‎| stack | api | web | horarios | pg |
+‎|---|---|---|---|---|
+‎| prod | 127.0.0.1:5002 | :8001 | — | :5433 |
+‎| dev | 127.0.0.1:5012 | :8011 | — | :5434 |
+‎| upds | 127.0.0.1:5013 | :8013 | :4213 | 127.0.0.1:5435 |
 
 Mismos puertos que systemd hoy. Cero cambios de codigo.
 
@@ -22,3 +23,7 @@ Mismos puertos que systemd hoy. Cero cambios de codigo.
 ‎```
 ‎Notas: `pgbackup` vuelca `db` (prod real). Dev usa `5434`;
 ‎al migrar dev hay que mover su `DATABASE_URL` de `:5433` a `:5434`.
+
+UPDS (`upds.compose.yml`, proyecto `soporte-upds`): `horarios` es el build de
+`frontend-horarios` servido por nginx en `:4213`, con `/api` proxied a `api:5013`
+(mismo origen, sin CORS). `podman-compose --env-file .env.upds -f upds.compose.yml up -d --build horarios`.
