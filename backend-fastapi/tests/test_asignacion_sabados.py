@@ -15,13 +15,16 @@ Ported from Django `auxiliares/horarios-sabados/` and
 Every row the tests create is removed at teardown.
 """
 
+import io
 import os
 from collections.abc import Callable, Iterator
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from uuid import uuid4
+from zoneinfo import ZoneInfo
 
 import pytest
 from fastapi.testclient import TestClient
+from openpyxl import load_workbook
 from sqlalchemy import text
 
 from app.db.base import SessionLocal
@@ -128,7 +131,7 @@ def _turno(dia: dict, turno: str) -> dict:
 
 @pytest.mark.parametrize(
     "path",
-    ["/sabados"],
+    ["/sabados", "/horarios/export.xlsx", "/horarios/export.pdf"],
 )
 def test_reads_need_token_and_staff(make_usuario, path: str) -> None:
     assert client.get(f"{API}{path}").status_code == 401
@@ -327,3 +330,104 @@ def test_deleting_a_perfil_drops_its_saturdays(make_usuario) -> None:
         db.commit()
     m = _turno(_dia(enc, SABADO), "M")
     assert [a["id"] for a in m["auxiliares"]] == [p1]
+
+
+# --- export ---------------------------------------------------------------------
+
+
+def _hoja(contenido: bytes) -> list[tuple]:
+    hoja = load_workbook(io.BytesIO(contenido)).active
+    assert hoja is not None
+    return [tuple(c for c in fila) for fila in hoja.iter_rows(values_only=True)]
+
+
+def test_export_saturdays_xlsx_and_pdf(make_usuario) -> None:
+    a1, a2 = make_usuario("Auxiliar"), make_usuario("Auxiliar")
+    libre = make_usuario("Auxiliar")
+    enc = make_usuario("Encargado")
+    p1, p2 = _perfil_id(a1), _perfil_id(a2)
+    _perfil_id(libre)
+    body = {
+        "turnos": [
+            {
+                "turno": "M",
+                "hora_inicio": "08:00",
+                "hora_fin": "12:30",
+                "auxiliares": [p1],
+            },
+            {"turno": "T", "auxiliares": [p2]},
+        ]
+    }
+    assert (
+        client.put(f"{API}/sabados/{SABADO}", json=body, headers=_auth(enc)).status_code
+        == 200
+    )
+    params = {"tipo": "sabado", **MES_PARAMS}
+
+    r = client.get(f"{API}/horarios/export.xlsx", params=params, headers=_auth(a1))
+    assert r.status_code == 200, r.text
+    assert r.headers["content-type"].startswith(
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+    assert "sabados_2035-03.xlsx" in r.headers["content-disposition"]
+    assert r.content[:4] == b"PK\x03\x04"
+    filas = _hoja(r.content)
+    assert "03-2035" in str(filas[0][0])
+    assert filas[1] == ("NOMBRE", "SÁBADO", "TURNO", "INICIO", "FIN")
+    t_ini, t_fin = (h[:5] for h in _defaults(enc)["T"])
+    assert (a1.display_name, "10/03/2035", "Mañana", "08:00", "12:30") in filas
+    assert (a2.display_name, "10/03/2035", "Tarde", t_ini, t_fin) in filas
+    assert (libre.display_name, None, "Libre", None, None) in filas
+
+    pdf = client.get(f"{API}/horarios/export.pdf", params=params, headers=_auth(a1))
+    assert pdf.status_code == 200, pdf.text
+    assert pdf.headers["content-type"] == "application/pdf"
+    assert "sabados_2035-03.pdf" in pdf.headers["content-disposition"]
+    assert pdf.content[:5] == b"%PDF-"
+    assert len(pdf.content) > 1000
+
+
+def test_export_weekly_uses_the_vigente_shift(make_usuario) -> None:
+    aux, enc = make_usuario("Auxiliar"), make_usuario("Encargado")
+    pid = _perfil_id(aux)
+    ayer = (
+        datetime.now(ZoneInfo("America/La_Paz")).date() - timedelta(days=1)
+    ).isoformat()
+    prog = {"desde": ayer, "filas": [{"perfil_id": pid, "turno": "T"}]}
+    assert (
+        client.put(
+            f"{API}/turnos-programados", json=prog, headers=_auth(enc)
+        ).status_code
+        == 200
+    )
+    t_ini, t_fin = (h[:5] for h in _defaults(enc)["T"])
+
+    r = client.get(
+        f"{API}/horarios/export.xlsx", params={"tipo": "semanal"}, headers=_auth(aux)
+    )
+    assert r.status_code == 200, r.text
+    assert "horarios_semanales.xlsx" in r.headers["content-disposition"]
+    filas = _hoja(r.content)
+    assert filas[1] == ("NOMBRE", "TURNO", "INICIO", "FIN")
+    assert (aux.display_name, "Tarde", t_ini, t_fin) in filas
+    # The encargado has no programmed or usual shift.
+    assert (enc.display_name, "Sin turno", None, None) in filas
+
+    pdf = client.get(
+        f"{API}/horarios/export.pdf", params={"tipo": "semanal"}, headers=_auth(aux)
+    )
+    assert pdf.status_code == 200
+    assert pdf.content[:5] == b"%PDF-"
+
+    bad = client.get(
+        f"{API}/horarios/export.xlsx", params={"tipo": "anual"}, headers=_auth(aux)
+    )
+    assert bad.status_code == 422
+
+
+def test_default_export_is_the_current_month(make_usuario) -> None:
+    aux = make_usuario("Auxiliar")
+    hoy = datetime.now(ZoneInfo("America/La_Paz")).date()
+    r = client.get(f"{API}/horarios/export.xlsx", headers=_auth(aux))
+    assert r.status_code == 200, r.text
+    assert f"sabados_{hoy:%Y-%m}.xlsx" in r.headers["content-disposition"]

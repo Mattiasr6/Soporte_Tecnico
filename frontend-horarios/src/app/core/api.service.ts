@@ -30,8 +30,8 @@ export class ApiService {
   }
 
   /** Binary download (e.g. a photo); the interceptor adds the Bearer token */
-  getBlob(path: string): Promise<Blob> {
-    return this.run(this.http.get(`${this.base}${path}`, { responseType: 'blob' }));
+  getBlob(path: string, params?: Record<string, string | number | boolean>): Promise<Blob> {
+    return this.run(this.http.get(`${this.base}${path}`, { params, responseType: 'blob' }));
   }
 
   /** Multipart upload (the browser sets the content type and boundary) */

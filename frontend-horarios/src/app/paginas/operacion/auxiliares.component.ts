@@ -12,6 +12,7 @@ import { NotificacionesService } from '../../core/notificaciones.service';
 import { OperacionService, turnosDeHoy } from '../../core/operacion.service';
 import { environment } from '../../../environments/environment';
 import { aMinutos, fechaActual, fechaCorta, hhmm } from '../../core/fechas';
+import { descargarBlob } from '../../core/exportar';
 
 const NOMBRE_TURNO: Record<string, string> = { M: 'Mañana', MD: 'Mediodía', T: 'Tarde', N: 'Noche' };
 
@@ -107,6 +108,14 @@ const NOMBRE_TURNO: Record<string, string> = { M: 'Mañana', MD: 'Mediodía', T:
         <app-icono nombre="check" [tamano]="16" /> {{ guardando() ? 'Guardando…' : 'Guardar turnos' }}
       </button>
       <p class="text-xs text-slate-500">Solo se guardan los auxiliares a los que les elegiste un turno.</p>
+      <div class="ml-auto flex gap-2">
+        <button class="btn-secundario btn-sm" (click)="exportar('semanal', 'xlsx')" [disabled]="!!exportando()" title="Horario semanal en Excel">
+          <app-icono nombre="descargar" [tamano]="15" /> {{ exportando() === 'semanal-xlsx' ? 'Generando…' : 'Excel semanal' }}
+        </button>
+        <button class="btn-secundario btn-sm" (click)="exportar('semanal', 'pdf')" [disabled]="!!exportando()" title="Horario semanal en PDF">
+          <app-icono nombre="descargar" [tamano]="15" /> {{ exportando() === 'semanal-pdf' ? 'Generando…' : 'PDF semanal' }}
+        </button>
+      </div>
     </div>
 
     <!-- LISTADO Y TURNOS: tarjetas en el celular -->
@@ -187,7 +196,14 @@ const NOMBRE_TURNO: Record<string, string> = { M: 'Mañana', MD: 'Mediodía', T:
       <h2 class="mb-1 text-lg font-semibold">Rotación de sábados</h2>
       <p class="mb-2 text-sm text-slate-600">Elige el turno de cada persona en cada sábado del mes. Varios pueden cubrir el mismo turno; con el reloj cambias el horario de ese sábado.</p>
       <app-planificador-sabados [plan]="sabados()" [equipo]="equipo()" [guardando]="guardando()"
-                                (mover)="moverMes($event)" (guardar)="guardarSabados($event)" (limpiar)="limpiarSabado($event)" />
+                                (mover)="moverMes($event)" (guardar)="guardarSabados($event)" (limpiar)="limpiarSabado($event)">
+        <button class="btn-secundario" (click)="exportar('sabado', 'xlsx')" [disabled]="!!exportando()" title="Sábados del mes en Excel">
+          <app-icono nombre="descargar" [tamano]="16" /> {{ exportando() === 'sabado-xlsx' ? 'Generando…' : 'Excel' }}
+        </button>
+        <button class="btn-secundario" (click)="exportar('sabado', 'pdf')" [disabled]="!!exportando()" title="Sábados del mes en PDF">
+          <app-icono nombre="descargar" [tamano]="16" /> {{ exportando() === 'sabado-pdf' ? 'Generando…' : 'PDF' }}
+        </button>
+      </app-planificador-sabados>
     </section>
   `,
 })
@@ -206,6 +222,8 @@ export class AuxiliaresComponent implements OnInit {
   protected readonly sabados = signal<SabadosMes | null>(null);
   /** Month of the planner */
   private mesSabados = { anio: 0, mes: 0 };
+  /** Export being generated ('semanal-xlsx', 'sabado-pdf'...) */
+  protected readonly exportando = signal<string | null>(null);
   protected readonly turnosProgramados = signal<TurnoProgramado[]>([]);
   protected readonly guardando = signal(false);
 
@@ -415,6 +433,21 @@ export class AuxiliaresComponent implements OnInit {
       await this.cargarSabados();
     } catch (e) {
       this.notificaciones.error(e, 'No se limpió el sábado');
+    }
+  }
+
+  /** Downloads the weekly schedule or this month's Saturdays as XLSX/PDF */
+  protected async exportar(tipo: 'semanal' | 'sabado', formato: 'xlsx' | 'pdf'): Promise<void> {
+    const { anio, mes } = this.mesSabados;
+    this.exportando.set(`${tipo}-${formato}`);
+    try {
+      const blob = await this.op.exportarHorarios(formato, tipo, anio, mes);
+      const nombre = tipo === 'semanal' ? 'horarios_semanales' : `sabados_${anio}-${String(mes).padStart(2, '0')}`;
+      descargarBlob(`${nombre}.${formato}`, blob);
+    } catch (e) {
+      this.notificaciones.error(e, 'No se pudo exportar el archivo');
+    } finally {
+      this.exportando.set(null);
     }
   }
 }

@@ -365,6 +365,16 @@ export class OperacionService {
     await this.api.delete(`/sabados/${fecha}`);
   }
 
+  /**
+   * Schedule export built by the API (weekly shifts or the Saturdays of a
+   * month), downloaded as a blob so the Bearer token goes with it.
+   */
+  exportarHorarios(formato: 'xlsx' | 'pdf', tipo: 'semanal' | 'sabado', anio?: number, mes?: number): Promise<Blob> {
+    const params: Record<string, string | number> = { tipo };
+    if (tipo === 'sabado' && anio && mes) Object.assign(params, { anio, mes });
+    return this.api.getBlob(`/horarios/export.${formato}`, params);
+  }
+
   /** Horario de cada turno, en orden de inicio */
   async cargarHorarios(): Promise<HorarioTurno[]> {
     const lista = await this.api.get<HorarioTurno[]>('/horarios-turno');

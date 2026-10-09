@@ -12,3 +12,12 @@ export function descargarCsv(nombreArchivo: string, encabezados: string[], filas
   enlace.click();
   URL.revokeObjectURL(enlace.href);
 }
+
+/** Saves a downloaded file (e.g. an XLSX/PDF fetched with the token) */
+export function descargarBlob(nombreArchivo: string, blob: Blob): void {
+  const enlace = document.createElement('a');
+  enlace.href = URL.createObjectURL(blob);
+  enlace.download = nombreArchivo;
+  enlace.click();
+  setTimeout(() => URL.revokeObjectURL(enlace.href), 1000);
+}
