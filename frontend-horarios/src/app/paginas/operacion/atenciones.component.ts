@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, computed, input } from '@angular/core';
 import { AtencionesListaComponent } from './atenciones-lista.component';
 
 /** Página de Atenciones (tickets): encabezado + la lista con alta, estados y export. */
@@ -10,7 +10,11 @@ import { AtencionesListaComponent } from './atenciones-lista.component';
       <h1 class="text-2xl font-bold">Atenciones</h1>
       <p class="mt-0.5 text-sm text-slate-600">Atención a docentes, trabajos técnicos (programas y mantenimiento preventivo o correctivo) y atención personal.</p>
     </header>
-    <app-atenciones-lista />
+    <app-atenciones-lista [labInicial]="labId()" />
   `,
 })
-export class AtencionesComponent {}
+export class AtencionesComponent {
+  /** `?lab=<ambiente id>` (e.g. from the lab board), bound by the router */
+  readonly lab = input<string>();
+  protected readonly labId = computed(() => Number(this.lab()) || null);
+}

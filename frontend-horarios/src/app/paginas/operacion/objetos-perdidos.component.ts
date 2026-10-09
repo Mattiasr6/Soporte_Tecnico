@@ -1,5 +1,5 @@
 import { DatePipe } from '@angular/common';
-import { Component, computed, inject, OnDestroy, OnInit, signal } from '@angular/core';
+import { Component, computed, inject, input, OnDestroy, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { environment } from '../../../environments/environment';
 import { normalizar } from '../../compartido/buscador.component';
@@ -242,6 +242,8 @@ export class ObjetosPerdidosComponent implements OnInit, OnDestroy {
   protected readonly guardando = signal(false);
   protected readonly filtroEstado = signal<EstadoObjetoVisible | null>('en_custodia');
   protected readonly filtroLab = signal<number | null>(null);
+  /** `?lab=<ambiente id>` (e.g. from the lab board), bound by the router */
+  readonly lab = input<string>();
   protected readonly busqueda = signal('');
   protected readonly registro = signal<FormRegistro | null>(null);
   protected readonly entrega = signal<FormEntrega | null>(null);
@@ -262,6 +264,8 @@ export class ObjetosPerdidosComponent implements OnInit, OnDestroy {
   });
 
   ngOnInit(): void {
+    const lab = Number(this.lab());
+    if (lab) this.filtroLab.set(lab);
     void this.cargar();
   }
 

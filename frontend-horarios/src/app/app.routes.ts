@@ -27,6 +27,8 @@ export const routes: Routes = [
       { path: 'horario', title: 'Mi horario', canActivate: [exigirOperacion], loadComponent: () => import('./paginas/operacion/horario.component').then((m) => m.HorarioComponent) },
       { path: 'atenciones', title: 'Atenciones', canActivate: [exigirOperacion], loadComponent: () => import('./paginas/operacion/atenciones.component').then((m) => m.AtencionesComponent) },
       { path: 'objetos-perdidos', title: 'Objetos perdidos', canActivate: [exigirOperacion], loadComponent: () => import('./paginas/operacion/objetos-perdidos.component').then((m) => m.ObjetosPerdidosComponent) },
+      { path: 'tablero-laboratorios', title: 'Tablero de laboratorios', loadComponent: () => import('./paginas/operacion/tablero-laboratorios.component').then((m) => m.TableroLaboratoriosComponent) },
+      { path: 'timeline', title: 'Actividad del día', loadComponent: () => import('./paginas/operacion/timeline.component').then((m) => m.TimelineComponent) },
       { path: 'desempeno', title: 'Desempeño', canActivate: [exigirGestionAuxiliares], loadComponent: () => import('./paginas/operacion/desempeno.component').then((m) => m.DesempenoComponent) },
       { path: 'dashboard-laboratorios', title: 'Laboratorios por turno', canActivate: [exigirGestionAuxiliares], loadComponent: () => import('./paginas/operacion/dashboard-laboratorios.component').then((m) => m.DashboardLaboratoriosComponent) },
       { path: 'auxiliares', title: 'Auxiliares', canActivate: [exigirGestionAuxiliares], loadComponent: () => import('./paginas/operacion/auxiliares.component').then((m) => m.AuxiliaresComponent) },

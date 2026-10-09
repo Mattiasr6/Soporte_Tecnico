@@ -1,5 +1,5 @@
 import { DatePipe } from '@angular/common';
-import { Component, computed, ElementRef, inject, OnInit, signal, viewChild } from '@angular/core';
+import { Component, computed, ElementRef, inject, input, OnInit, signal, viewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { BuscadorComponent, normalizar, OpcionBuscador } from '../../compartido/buscador.component';
 import { FichasReparacionComponent } from '../../compartido/fichas-reparacion.component';
@@ -610,6 +610,8 @@ interface FormTicket extends Partial<Atencion> {
   `,
 })
 export class AtencionesListaComponent implements OnInit {
+  /** Lab to filter by when the page opens (shows every author's records) */
+  readonly labInicial = input<number | null>(null);
   protected readonly auth = inject(AuthService);
   protected readonly catalogos = inject(CatalogosService);
   private readonly operacion = inject(OperacionService);
@@ -707,6 +709,11 @@ export class AtencionesListaComponent implements OnInit {
   });
 
   ngOnInit(): void {
+    const lab = this.labInicial();
+    if (lab) {
+      this.filtroLab = lab;
+      this.soloMios = false;
+    }
     void this.cargar();
     this.operacion.listarPersonalOperacion().then((l) => this.personal.set(l)).catch(() => this.personal.set([]));
   }
