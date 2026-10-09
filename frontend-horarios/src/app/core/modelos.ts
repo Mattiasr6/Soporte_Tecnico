@@ -608,3 +608,49 @@ export interface IgnorarChoque {
   asignacion_horario_ids?: number[];
   asignacion_horario_id?: number | null;
 }
+
+/** Software licence (Django `Software.Licencia`) */
+export type LicenciaSoftware = 'gratuita' | 'mixta' | 'paga';
+/** State of one software on one PC; a PC without a record reads as "falta" */
+export type EstadoSoftwarePc = 'instalado' | 'falta' | 'dañado';
+/** Attention tipos a template can prefill (correctivo and cambio_estado have their own flows) */
+export type TipoPlantilla = Extract<TipoAtencion, 'docente' | 'programas' | 'preventivo' | 'personal'>;
+
+/** Software catalogue entry (horarios.software) with the labs that have it */
+export interface Software {
+  id: number;
+  nombre: string;
+  licencia: LicenciaSoftware;
+  uso: string;
+  esencial: boolean;
+  docentes: boolean;
+  activo: boolean;
+  /** ids of the labs (ambientes) where it is installed */
+  ambientes: number[];
+}
+
+/** Writable fields of a software */
+export type SoftwareNuevo = Omit<Software, 'id' | 'ambientes'>;
+
+/** One software of the PC's lab with its state on that PC */
+export interface SoftwarePc {
+  software_id: number;
+  nombre: string;
+  estado: EstadoSoftwarePc;
+  actualizado_en: string | null;
+  /** nombre_completo of who set the state */
+  actualizado_por: string | null;
+}
+
+/** Prefilled lab attention (horarios.plantillas_atencion, Django LabPlantillas) */
+export interface PlantillaAtencion {
+  id: number;
+  nombre: string;
+  tipo: TipoPlantilla;
+  descripcion: string;
+  solucion: string;
+  turno: TurnoCodigo | null;
+  activa: boolean;
+}
+
+export type PlantillaNueva = Omit<PlantillaAtencion, 'id'>;

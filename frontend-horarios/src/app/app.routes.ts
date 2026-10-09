@@ -35,6 +35,7 @@ export const routes: Routes = [
       { path: 'dashboard-laboratorios', title: 'Laboratorios por turno', canActivate: [exigirGestionAuxiliares], loadComponent: () => import('./paginas/operacion/dashboard-laboratorios.component').then((m) => m.DashboardLaboratoriosComponent) },
       { path: 'auxiliares', title: 'Auxiliares', canActivate: [exigirGestionAuxiliares], loadComponent: () => import('./paginas/operacion/auxiliares.component').then((m) => m.AuxiliaresComponent) },
       { path: 'laboratorios', title: 'Laboratorios', loadComponent: () => import('./paginas/laboratorios/laboratorios.component').then((m) => m.LaboratoriosComponent) },
+      { path: 'software', title: 'Software de laboratorios', loadComponent: () => import('./paginas/laboratorios/software.component').then((m) => m.SoftwareComponent) },
       { path: 'registros', title: 'Registros', loadComponent: () => import('./paginas/registros/registros.component').then((m) => m.RegistrosComponent) },
       { path: 'auditoria', title: 'Auditoría', canActivate: [exigirDashboard], loadComponent: () => import('./paginas/auditoria/auditoria.component').then((m) => m.AuditoriaComponent) },
       { path: 'soporte/atenciones', title: 'Atenciones de Soporte', canActivate: [exigirSoporte], loadComponent: () => import('./paginas/soporte/atenciones-soporte.component').then((m) => m.AtencionesSoporteComponent) },

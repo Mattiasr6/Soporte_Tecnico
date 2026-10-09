@@ -1,7 +1,7 @@
 import { Component, effect, ElementRef, inject, input } from '@angular/core';
 import {
-  Activity, ArrowLeftRight, ClipboardCheck, Megaphone, Ban, Camera, ChartColumn, Handshake, Package, Trophy, BookOpen, Building2, CalendarCheck, CalendarDays, CalendarPlus, CalendarRange, Check,
-  ChevronDown, ChevronLeft, ChevronRight, ChevronUp, CircleCheck, Copy, ClipboardList, History, Clock, Cpu, Download, Eye, Gauge, GraduationCap, Info,
+  Activity, AppWindow, ArrowLeftRight, ClipboardCheck, Megaphone, Ban, Camera, ChartColumn, Handshake, Package, Trophy, BookOpen, Building2, CalendarCheck, CalendarDays, CalendarPlus, CalendarRange, Check,
+  ChevronDown, ChevronLeft, ChevronRight, ChevronUp, CircleCheck, Copy, ClipboardList, History, Clock, Cpu, Download, Eye, FileText, Gauge, GraduationCap, Info,
   KeyRound, LayoutGrid, Layers, List, Lock, LogOut, MapPin, Menu, Monitor, Palette, Pencil, Plus, Printer, Repeat,
   RotateCcw, School, Search, Settings, Shuffle, Star, Sun, Moon, Table2, TriangleAlert, Trash2, User, Users, Wrench, X,
 } from 'lucide';
@@ -30,6 +30,7 @@ const ICONOS: Record<string, NodoIcono> = {
   arriba: ChevronUp as NodoIcono, abajo: ChevronDown as NodoIcono, copiar: Copy as NodoIcono, historial: History as NodoIcono,
   imprimir: Printer as NodoIcono, tablero: Gauge as NodoIcono, actividad: Activity as NodoIcono,
   novedad: Megaphone as NodoIcono, cierre: ClipboardCheck as NodoIcono,
+  software: AppWindow as NodoIcono, plantilla: FileText as NodoIcono,
 };
 
 /**

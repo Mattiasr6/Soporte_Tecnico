@@ -1,4 +1,5 @@
 import { Component, computed, inject } from '@angular/core';
+import { RouterLink } from '@angular/router';
 import { environment } from '../../../environments/environment';
 import { IconoComponent } from '../../compartido/icono.component';
 import { AuthService } from '../../core/auth.service';
@@ -22,11 +23,14 @@ const ESTADOS: Record<string, { texto: string; clase: string }> = {
  */
 @Component({
   selector: 'app-laboratorios',
-  imports: [IconoComponent, AmbientesComponent],
+  imports: [IconoComponent, AmbientesComponent, RouterLink],
   template: `
-    <header class="mb-4">
-      <h1 class="text-2xl font-semibold tracking-tight">Laboratorios</h1>
-      <p class="mt-0.5 text-slate-600">Toque un laboratorio para ver el croquis de sus PCs, su horario y sus clases.</p>
+    <header class="mb-4 flex flex-wrap items-end justify-between gap-3">
+      <div>
+        <h1 class="text-2xl font-semibold tracking-tight">Laboratorios</h1>
+        <p class="mt-0.5 text-slate-600">Toque un laboratorio para ver el croquis de sus PCs, su horario y sus clases.</p>
+      </div>
+      <a class="btn-secundario" routerLink="/software"><app-icono nombre="software" [tamano]="16" /> Software de los labs</a>
     </header>
 
     <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
