@@ -72,7 +72,7 @@ frontends already talk to the same FastAPI, so only the presentation layer must 
   - [x] G2 (S) Objetos "vencido" state (computed, 90 days); encargado toggle on the team screen.
   - [x] G3 (M) Turno code + `medio_solicitud` on `horarios.atenciones`; dashboard per lab × category/turno; reports turno filter.
   - [x] G4 (M) Tablero semáforo + day timeline (union over atenciones/reportes/objetos, no new table).
-  - [ ] G5 (M) Novedades per lab + cierre validation (`ambiente_id`, `estado`, `validado_por` on `reportes_turno`).
+  - [x] G5 (M) Novedades per lab (new `horarios.novedades`) + cierre validation (`estado`, `validado_por`, `validado_en` on `reportes_turno`).
   - [ ] G6 (M) Saturday hours per date and several auxiliares per turno; XLSX/PDF schedule export.
   - [ ] G7 (L) Software inventory (`horarios.software`, `ambiente_software`, `pc_software`, attention templates).
   - [ ] G8 (L) Lab hardware sheet columns on `ambientes`; free fila/col room grid (or keep the 4-PC table layout).
@@ -336,3 +336,54 @@ Strategy: ask-on-risk. Forecast M0–M2 ≈ 400 authored lines. RDD disabled for
   - Left out: Django "cierre" events (G5 adds cierre validation), the auxiliar "soy" identity
     redirect (Angular uses the logged-in perfil), and created-but-pending tasks as separate events
     (they belong to their report).
+- 2026-10-09: G5 done (route: delegated, one writer; trigger: 2+ non-trivial files across migration,
+  API and Angular). Commits `5281161` feat(asignacion): add lab novedades and shift-close validation,
+  `28c2e00` feat(horarios): add lab novedades and shift-close validation pages.
+  - Table decision: novedades got their own table `horarios.novedades` (migration
+    `0025_horarios_novedades_cierre`, inline `_run_sql`, with downgrade) instead of `ambiente_id` on
+    `reportes_turno`. A report is one per shift close; its triggers compute shift hours,
+    `minutos_retraso` and the `pcs_baja` snapshot, its photo expires at the next noon, its writes are
+    tied to `fn_puede_cerrar_turno`, and the dashboards count it. A novedad is a free notice any
+    operator posts at any time, about one lab or none, shown 3 days; mixing them would break all of
+    that. Columns: fecha (La Paz), turno M/MD/T/N (default `fn_turno_horario_de(now())`), ambiente_id
+    (nullable, ON DELETE SET NULL), texto (1–2000), foto_path, autor_id (default fn_usuario_actual),
+    creado_en. Photo reuses `services/asignacion/fotos.py` (folder `novedades`, WebP, 5 MB).
+  - Novedades API: GET `/novedades?turno=&ambiente_id=` (fn_puede_ver; `fecha >= today - 3`, same as
+    Django `dias=3`), POST multipart (fn_puede_operar; texto, turno?, ambiente_id?, foto? in one
+    request; the stored photo is removed if the insert fails), DELETE (author or
+    fn_puede_gestionar_auxiliares; Django had no delete), GET `/{id}/foto` (fn_puede_ver). Rows are
+    kept after 3 days (Django parity; the timeline still shows them); no purge button.
+  - Cierre validation: `reportes_turno.estado` pendiente/validado/rechazado (+ CHECK that
+    `validado_en` is set exactly when decided), `validado_por`, `validado_en`. No rejection note
+    (Django has none). `fn_decidir_reporte(id, estado)`: fn_puede_gestionar_auxiliares (Jefe,
+    Encargado = Django `_gestiona_equipo`), 403 "No puede validar su propio cierre de turno." when
+    `auxiliar_id` is the requester, 422 once decided. Trigger `trg_reportes_turno_estado` sends a
+    decided report back to pendiente when turno, novedades or a new photo change (photo expiry does
+    not). API: POST `/reportes-turno/{id}/validacion {estado}`, GET `/reportes-turno?estado=`, reports
+    embed `validador`. Existing reports start pendiente (UPDS had 0; prod history would show as
+    pending — user decision if that should be backfilled).
+  - Timeline: new events `novedad` (photo via `/novedades/{id}/foto`) and `cierre_validado` /
+    `cierre_rechazado` (at `validado_en`, author = validator).
+  - Angular: `/novedades` (menu "Novedades", every role reads; create for puedeOperar) container
+    `novedades` + presentational `novedades-lista`, `novedad-form`; `/cierres` (menu "Cierres de
+    turno", guard exigirGestionAuxiliares) container `cierres` + presentational `cierres-lista`
+    (tabs Pendientes/Validados/Rechazados, Validar/Rechazar, "Es tu cierre" note for own closes, key
+    photo); `core/novedades.service.ts`; estado chip on `/turno` report history; icons `novedad`
+    (Megaphone) and `cierre` (ClipboardCheck).
+  - Tests: new `tests/test_asignacion_novedades.py` RED 11 failed (+10 teardown errors, table missing)
+    → GREEN 11 passed; all `tests/test_asignacion*` 187 passed; full suite
+    (`--continue-on-collection-errors`) 89 failed / 267 passed / 39 errors (baseline failures, seed
+    users). Host ruff check + format clean on the 8 touched Python files.
+  - Migration: test DB and UPDS DB upgrade → 0025, downgrade -1 → 0024, upgrade → 0025 (head).
+  - Checks: horarios image build → "Application bundle generation complete". Smoke on :4213: paul
+    (Tecnico) POST novedad with photo 201 (turno T, LAB-01), filters turno=T&lab → [id], turno=N → 0,
+    photo 200; Encargado closes his turno 201 pendiente, validates own → 403 "propio", paul → 403,
+    Jefe → 200 validado (validador Wilmer), again → 422; timeline has `cierre_validado`. Browser as Jefe
+    (minted token): menu shows Novedades and Cierres de turno; novedad created through the form with a
+    photo (thumbnail blob shown); /cierres shows "Es tu cierre" on Jefe's own close and Validar on the
+    Encargado's, validating moves it to Validados "Validado por Wilmer Cerruto"; timeline shows both
+    novedades with photos and the cierre events; 0 console errors. Smoke rows deleted (2 novedades,
+    4 reports → 0 left). No Angular spec files exist (test-first exception for the Angular part).
+  - Left out: Django purge button (by request); a report written by a manager on behalf of an
+    auxiliar has that auxiliar as author, so the writing manager could validate it (no `creado_por`
+    column); novedad rows and photos are never deleted (no cleanup job, Django parity).
