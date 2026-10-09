@@ -44,10 +44,13 @@ services:
     env_file: [.env.upds]
     environment:
       FASTAPI_URL: http://api:5013
+      # Reachable over the tailnet like the dev stack (8011).
+      DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1,100.78.144.4
+      DJANGO_CSRF_TRUSTED_ORIGINS: http://localhost:8013,http://127.0.0.1:8013,http://100.78.144.4:8013
     volumes:
       - ../../frontend-django:/app
     ports:
-      - "127.0.0.1:8013:8013"
+      - "8013:8013"
     depends_on: [api]
 
 volumes:
