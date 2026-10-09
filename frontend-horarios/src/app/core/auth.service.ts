@@ -23,6 +23,8 @@ interface MeResponse {
   rol: string | null;
   /** Soporte role (Usuarios.Role) */
   role: string;
+  /** Usuarios.CanViewDashboard: reports/audit access without the Jefe role */
+  can_view_dashboard: boolean;
   activo: boolean;
   turno_habitual: Perfil['turno_habitual'];
   sabado_rotativo: boolean;
@@ -90,6 +92,8 @@ export class AuthService {
   readonly puedeOperar = computed(() => this.tieneRol('Jefe', 'Encargado', 'Auxiliar', 'Tecnico'));
   /** Gestión de auxiliares (listado, turnos, rotación): Jefe, Encargado */
   readonly puedeGestionarAuxiliares = computed(() => this.tieneRol('Jefe', 'Encargado'));
+  /** Reportes y auditoría: Jefe o usuario con dashboard (backend `is_privileged`) */
+  readonly puedeVerDashboard = computed(() => this.esAdmin() || this.perfil()?.can_view_dashboard === true);
   /** Cerrar turno: quien gestiona auxiliares, o el auxiliar en su turno (el técnico no tiene turno) */
   readonly puedeCerrarTurno = computed(() => this.puedeGestionarAuxiliares() || this.esAuxiliar());
 
@@ -125,6 +129,7 @@ export class AuthService {
       correo: me.correo,
       rol,
       role,
+      can_view_dashboard: me.can_view_dashboard === true,
       activo: me.activo,
       turno_habitual: me.turno_habitual,
       sabado_rotativo: me.sabado_rotativo,

@@ -132,6 +132,7 @@ export class LayoutComponent implements OnInit {
     { ruta: '/auxiliares', texto: 'Auxiliares', icono: 'usuarios', visible: (a) => a.puedeGestionarAuxiliares() },
     { ruta: '/laboratorios', texto: 'Laboratorios', icono: 'laboratorio' },
     { ruta: '/registros', texto: 'Registros', icono: 'registros' },
+    { ruta: '/auditoria', texto: 'Auditoría', icono: 'historial', visible: (a) => a.puedeVerDashboard() },
     { ruta: '/configuracion', texto: 'Configuración', icono: 'configuracion', visible: (a) => a.esAdmin() },
   ];
   /** "Mi cuenta": every logged-in role sees it */

@@ -44,6 +44,14 @@ export const exigirGestionAuxiliares: CanActivateFn = async () => {
   return auth.puedeGestionarAuxiliares() ? true : router.createUrlTree(['/']);
 };
 
+/** Reportes y auditoría: Jefe o usuario con dashboard */
+export const exigirDashboard: CanActivateFn = async () => {
+  const auth = inject(AuthService);
+  const router = inject(Router);
+  await auth.inicializar();
+  return auth.puedeVerDashboard() ? true : router.createUrlTree(['/']);
+};
+
 /** Solo Jefe (administrador) */
 export const exigirAdmin: CanActivateFn = async () => {
   const auth = inject(AuthService);

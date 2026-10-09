@@ -44,6 +44,8 @@ export interface Perfil {
   rol: Rol;
   /** Soporte role; only present in the own perfil and in user management */
   role?: RolSoporte;
+  /** Usuarios.CanViewDashboard; only present in the own perfil */
+  can_view_dashboard?: boolean;
   activo: boolean;
   /** Turno habitual del auxiliar (solo informativo) */
   turno_habitual?: TurnoCodigo | null;

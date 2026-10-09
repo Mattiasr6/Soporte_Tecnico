@@ -1,5 +1,5 @@
 import { Routes } from '@angular/router';
-import { exigirGestionAuxiliares, exigirInvitado, exigirOperacion, exigirSesion, soloSinSesion } from './core/guards';
+import { exigirDashboard, exigirGestionAuxiliares, exigirInvitado, exigirOperacion, exigirSesion, soloSinSesion } from './core/guards';
 
 /**
  * Rutas del sistema: 3 pantallas. Asignar, ceder y eventos se hacen desde
@@ -31,6 +31,7 @@ export const routes: Routes = [
       { path: 'auxiliares', title: 'Auxiliares', canActivate: [exigirGestionAuxiliares], loadComponent: () => import('./paginas/operacion/auxiliares.component').then((m) => m.AuxiliaresComponent) },
       { path: 'laboratorios', title: 'Laboratorios', loadComponent: () => import('./paginas/laboratorios/laboratorios.component').then((m) => m.LaboratoriosComponent) },
       { path: 'registros', title: 'Registros', loadComponent: () => import('./paginas/registros/registros.component').then((m) => m.RegistrosComponent) },
+      { path: 'auditoria', title: 'Auditoría', canActivate: [exigirDashboard], loadComponent: () => import('./paginas/auditoria/auditoria.component').then((m) => m.AuditoriaComponent) },
       { path: 'cuenta/perfil', title: 'Perfil', loadComponent: () => import('./paginas/cuenta/perfil.component').then((m) => m.PerfilComponent) },
       { path: 'cuenta/notas', title: 'Bloc de notas', loadComponent: () => import('./paginas/cuenta/notas.component').then((m) => m.NotasComponent) },
       { path: 'configuracion', title: 'Configuración', loadComponent: () => import('./paginas/configuracion/configuracion.component').then((m) => m.ConfiguracionComponent) },

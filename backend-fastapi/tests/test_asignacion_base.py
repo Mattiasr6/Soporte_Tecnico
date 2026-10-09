@@ -116,6 +116,7 @@ def test_me_creates_admin_perfil_bound_to_db_context(make_usuario) -> None:
         "correo",
         "rol",
         "role",
+        "can_view_dashboard",
         "activo",
         "turno_habitual",
         "sabado_rotativo",
@@ -134,6 +135,19 @@ def test_me_creates_admin_perfil_bound_to_db_context(make_usuario) -> None:
         )
         current = db.execute(text("select horarios.fn_usuario_actual()")).scalar()
     assert str(current) == body["perfil_id"]
+
+
+def test_me_exposes_can_view_dashboard_flag(make_usuario) -> None:
+    """Angular mirrors `is_privileged` (Jefe or CanViewDashboard) in its menu and guards."""
+    tecnico = make_usuario("Tecnico")
+    assert client.get(ME, headers=_auth(tecnico)).json()["can_view_dashboard"] is False
+    with SessionLocal() as db:
+        db.execute(
+            text('update "Usuarios" set "CanViewDashboard" = true where "Id" = :uid'),
+            {"uid": tecnico.id},
+        )
+        db.commit()
+    assert client.get(ME, headers=_auth(tecnico)).json()["can_view_dashboard"] is True
 
 
 def test_role_change_in_usuarios_resyncs_perfil(make_usuario) -> None:

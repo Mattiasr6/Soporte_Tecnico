@@ -45,6 +45,9 @@ class PerfilOut(BaseModel):
     rol: str | None
     # Soporte role (Usuarios.Role): the role model of the Angular app.
     role: str
+    # Usuarios.CanViewDashboard: with the Jefe role it forms `is_privileged`,
+    # which gates reports and the audit trail; Angular mirrors it in menu/guards.
+    can_view_dashboard: bool
     activo: bool
     turno_habitual: str | None
     sabado_rotativo: bool
@@ -75,6 +78,7 @@ def me(user: CurrentUser, db: AsignacionDb) -> PerfilOut:
         correo=row.correo,
         rol=row.rol,
         role=row.role,
+        can_view_dashboard=user.can_view_dashboard,
         activo=row.activo,
         turno_habitual=row.turno_habitual,
         sabado_rotativo=row.sabado_rotativo,
