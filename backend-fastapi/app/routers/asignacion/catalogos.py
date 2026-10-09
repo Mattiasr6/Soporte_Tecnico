@@ -4,6 +4,8 @@ Permissions follow the old RLS policies (99_rls_reference.sql):
 - read: fn_puede_ver (every active role except invitado);
 - carreras, materias, docentes (+ relations), ambientes, feriados: fn_puede_editar;
 - ambiente_pcs: create/update fn_puede_operar, delete fn_puede_gestionar_auxiliares;
+- lab hardware sheet (ambientes procesador..pcs_docentes, capacidad):
+  fn_puede_gestionar_auxiliares (Django `puede_ficha`: Jefe/Encargado);
 - sistemas_academicos, bloques_horario, tipos_reserva: read-only here (the UI
   never edits them; their RLS write rule was fn_es_admin).
 Orderings and embeds match the PostgREST queries the Angular app used.
@@ -19,6 +21,7 @@ from sqlalchemy.orm import Session
 from app.db.asignacion import AsignacionDb
 from app.schemas.asignacion_catalogos import (
     AmbienteCreate,
+    AmbienteFichaIn,
     AmbienteOut,
     AmbientePcCreate,
     AmbientePcOut,
@@ -295,6 +298,22 @@ def update_ambiente(ambiente_id: int, body: AmbienteUpdate, db: AsignacionDb) ->
         body.model_dump(exclude_unset=True),
         Permission.EDITAR,
     )
+    return _one(db, _AMBIENTES, "", ambiente_id)
+
+
+@router.put("/ambientes/{ambiente_id}/ficha", response_model=AmbienteOut)
+def put_ambiente_ficha(
+    ambiente_id: int, body: AmbienteFichaIn, db: AsignacionDb
+) -> dict:
+    """Replace the lab hardware sheet (Django "Guardar ficha")."""
+    values: dict[str, object] = {}
+    for campo, valor in body.model_dump().items():
+        if isinstance(valor, str):
+            valor = valor.strip() or None
+        if campo == "capacidad" and valor is None:
+            continue  # shared NOT NULL column: keep the current value
+        values[campo] = valor
+    _update(db, "ambientes", ambiente_id, values, Permission.GESTIONAR_AUXILIARES)
     return _one(db, _AMBIENTES, "", ambiente_id)
 
 

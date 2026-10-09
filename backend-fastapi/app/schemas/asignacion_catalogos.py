@@ -134,6 +134,16 @@ class AmbienteOut(BaseModel):
     estado: str
     color: str
     orden: int
+    # lab hardware sheet (G8): declared standard spec, nullable
+    procesador: str | None = None
+    ram: str | None = None
+    almacenamiento: str | None = None
+    marca: str | None = None
+    gpu: str | None = None
+    monitores: str | None = None
+    sillas: int | None = None
+    pcs_estudiantes: int | None = None
+    pcs_docentes: int | None = None
     creado_en: datetime
     actualizado_en: datetime
 
@@ -160,6 +170,26 @@ class AmbienteUpdate(_In):
     estado: str | None = None
     color: str | None = None
     orden: int | None = None
+
+
+class AmbienteFichaIn(_In):
+    """Whole lab sheet (PUT replaces it): a missing or blank field is cleared.
+
+    `capacidad` is shared with the academic assignment (NOT NULL), so a missing
+    or null value keeps the current one instead of clearing it. Sizes and
+    ranges are checked by the DB (422 with code 23514).
+    """
+
+    procesador: str | None = None
+    ram: str | None = None
+    almacenamiento: str | None = None
+    marca: str | None = None
+    gpu: str | None = None
+    monitores: str | None = None
+    sillas: int | None = None
+    capacidad: int | None = None
+    pcs_estudiantes: int | None = None
+    pcs_docentes: int | None = None
 
 
 # --- ambiente_pcs -------------------------------------------------------------
