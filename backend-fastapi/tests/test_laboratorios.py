@@ -603,7 +603,12 @@ def test_equipo_crud_jefe_y_403_tecnico(api_limpia, archivos_data):
         headers=h(UID_JEFE),
     )
     assert r.status_code == 200, r.text
-    assert r.json() == {"nombre": f"{AUX}1", "activo": True}
+    assert r.json() == {
+        "nombre": f"{AUX}1",
+        "activo": True,
+        "encargado": False,
+        "usuario_id": None,
+    }
     dup = client.post(
         "/api/laboratorios/equipo",
         json={"nombre": f"  {AUX.lower()}1  "},

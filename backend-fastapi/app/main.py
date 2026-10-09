@@ -11,12 +11,14 @@ from app.routers import (
     announcements,
     areas,
     atenciones,
+    auditoria,
     auth,
     horarios,
     ia,
     jerarquia,
     laboratorios,
     novedades,
+    software,
     sugerencias,
     usuarios,
 )
@@ -34,6 +36,8 @@ app.include_router(announcements.router)
 app.include_router(atenciones.router)
 app.include_router(laboratorios.router)
 app.include_router(novedades.router)
+app.include_router(software.router)
+app.include_router(auditoria.router)
 
 
 @app.get("/health")

@@ -4,10 +4,11 @@ import contextlib
 import datetime as _dt
 import json
 import logging
+from urllib.parse import quote
 
 import requests
 from django.conf import settings
-from django.http import HttpRequest, HttpResponse
+from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import redirect, render
 from django.urls import reverse
 
@@ -169,6 +170,8 @@ def _items_lab_desde_post(post: dict[str, object]) -> tuple[list[dict[str, objec
         if callable(_getlist)
         else post.get("auxiliar_extra", [])
     )
+    import re as _re
+    pc_norm = _re.sub(r"\s+", " ", str(post.get("pc_nombre") or "")).strip().upper() or None
     base = {
         "categoria": categoria,
         "auxiliar_nombre": _combinar_auxiliares(
@@ -180,61 +183,52 @@ def _items_lab_desde_post(post: dict[str, object]) -> tuple[list[dict[str, objec
         "descripcion": descripcion,
         "solucion": solucion,
         "observaciones": post.get("observaciones") or None,
+        "pc_nombre": pc_norm,
         "fecha_registro": str(post.get("fecha_registro") or _hoy_iso()),
     }
     return [{**base, "laboratorio_id": lab_id} for lab_id in labs_int], ""
 
 
-@con_login
-def soy_vista(request: HttpRequest) -> HttpResponse:
-    rol = _rol(request)
-    if rol not in ("Auxiliar", "Encargado"):
-        return redirect("lab_lista")
-    token = str(request.session["jwt"])
-    error = ""
-    siguiente = (request.GET.get("next") or request.POST.get("next") or "").strip()
-    destino = siguiente if siguiente.startswith("/") else reverse("lab_nueva")
+AVISO_SIN_VINCULO = (
+    "Tu cuenta no está vinculada a la nómina; pedile al Jefe que la vincule"
+)
+
+
+def _es_auxiliar(request: HttpRequest) -> bool:
+    return _rol(request) in ("Auxiliar", "Encargado")
+
+
+def cargar_identidad_auxiliar(request: HttpRequest) -> None:
+    """Toma de la cuenta logueada su nombre de nómina (sin elegir "quién soy")."""
+    request.session.pop("auxiliar_nombre", None)
+    request.session.pop("auxiliar_encargado", None)
+    if not _es_auxiliar(request):
+        return
     try:
-        datos = api_get("/api/laboratorios/equipo", token)
-    except ApiError as e:
-        datos = None
-        error = str(e.detail) if e.detail else "No se pudo cargar la nómina"
-    miembros = []
-    if isinstance(datos, dict) and isinstance(datos.get("auxiliares"), list):
-        miembros = [m for m in datos["auxiliares"] if isinstance(m, dict)]
-    # ponytail: a confianza, pero cada cuenta solo ve su grupo
-    quiere_encargado = rol == "Encargado"
-    opciones = sorted(
-        str(m.get("nombre", ""))
-        for m in miembros
-        if m.get("activo", True)
-        and bool(m.get("encargado", False)) == quiere_encargado
-        and str(m.get("nombre", "")).strip()
-    )
-    if request.method == "POST":
-        elegido = (request.POST.get("auxiliar") or "").strip()
-        if _norm_nombre(elegido) in {_norm_nombre(n) for n in opciones}:
-            request.session["auxiliar_nombre"] = elegido
-            request.session["auxiliar_encargado"] = quiere_encargado
-            return redirect(destino)
-        error = "Ese nombre no está en tu grupo"
-    actual = str(request.session.get("auxiliar_nombre", ""))
-    return render(
-        request,
-        "atenciones/auxiliares_soy.html",
-        {
-            "opciones": opciones,
-            "actual": actual,
-            "siguiente": destino,
-            "es_encargado": quiere_encargado,
-            "error": error,
-        },
-    )
+        datos = api_get("/api/laboratorios/equipo/yo", str(request.session["jwt"]))
+    except (ApiError, requests.RequestException):
+        return
+    nombre = str(datos.get("nombre", "")).strip() if isinstance(datos, dict) else ""
+    if nombre:
+        request.session["auxiliar_nombre"] = nombre
+        request.session["auxiliar_encargado"] = bool(datos.get("encargado", False))
+
+
+def _sin_vinculo(request: HttpRequest) -> bool:
+    """Auxiliar/Encargado cuya cuenta aún no está vinculada a la nómina.
+
+    Reintenta una vez por request por si el Jefe la vinculó tras el login.
+    """
+    if not _es_auxiliar(request):
+        return False
+    if not (request.session.get("auxiliar_nombre") or "").strip():
+        cargar_identidad_auxiliar(request)
+    return not (request.session.get("auxiliar_nombre") or "").strip()
 
 
 def _quien_reporta(request: HttpRequest) -> str:
     nombre = (request.session.get("auxiliar_nombre") or "").strip()
-    if nombre:
+    if nombre or _es_auxiliar(request):
         return nombre
     usuario = request.session.get("usuario") or {}
     return str(usuario.get("display_name", "")).strip()
@@ -242,6 +236,7 @@ def _quien_reporta(request: HttpRequest) -> str:
 
 NOV_TABS = ("novedades", "objetos", "cierres")
 NOV_TIPO = {"novedades": "novedad", "objetos": "objeto", "cierres": "cierre"}
+NOV_VIGENCIA_DIAS = 3
 
 
 def _detalle_res(res: object) -> object:
@@ -254,27 +249,31 @@ def _detalle_res(res: object) -> object:
 
 @con_login
 def novedades_vista(request: HttpRequest) -> HttpResponse:
-    if _rol(request) in ("Auxiliar", "Encargado") and not (
-        request.session.get("auxiliar_nombre") or ""
-    ).strip():
-        return redirect(f"{reverse('auxiliares_soy')}?next={reverse('novedades')}")
+    sin_vinculo = _sin_vinculo(request)
     tab = (request.POST.get("tab") or request.GET.get("tab") or "novedades").strip()
     if tab not in NOV_TABS:
         tab = "novedades"
+    f_turno = (request.GET.get("f_turno") or "").strip()
+    if f_turno not in TURNOS:
+        f_turno = ""
+    f_lab = (request.GET.get("f_lab") or "").strip()
+    if not f_lab.isdigit():
+        f_lab = ""
     token = str(request.session["jwt"])
-    error = ""
+    error = AVISO_SIN_VINCULO if sin_vinculo else ""
     puede_validar = _puede_reportes(request) or bool(
         request.session.get("auxiliar_encargado")
     )
-    if request.method == "POST":
+    if request.method == "POST" and not (
+        sin_vinculo
+        and request.POST.get("action") in ("crear", "devolver", "validar", "rechazar")
+    ):
         action = request.POST.get("action", "")
         try:
             if action == "crear":
                 nombre = _quien_reporta(request)
                 if not nombre:
-                    return redirect(
-                        f"{reverse('auxiliares_soy')}?next={reverse('novedades')}"
-                    )
+                    raise ApiError(403, AVISO_SIN_VINCULO)
                 data = {
                     "tipo": NOV_TIPO[tab],
                     "texto": (request.POST.get("texto") or "").strip(),
@@ -299,10 +298,18 @@ def novedades_vista(request: HttpRequest) -> HttpResponse:
                 if res.status_code >= 400:
                     raise ApiError(res.status_code, _detalle_res(res))
             elif action in ("devolver", "validar", "rechazar"):
+                cuerpo_accion: dict[str, object] = {
+                    "accion": action,
+                    "auxiliar_nombre": _quien_reporta(request),
+                }
+                if action == "devolver":
+                    cuerpo_accion["entregado_a"] = (
+                        request.POST.get("entregado_a") or ""
+                    ).strip()
                 api_patch(
                     f"/api/novedades/{int(request.POST.get('id', '0'))}",
                     token,
-                    {"accion": action, "auxiliar_nombre": _quien_reporta(request)},
+                    cuerpo_accion,
                 )
             elif action == "purgar":
                 api_post("/api/novedades/purga", token, {})
@@ -311,15 +318,27 @@ def novedades_vista(request: HttpRequest) -> HttpResponse:
         except (ValueError, requests.RequestException):
             error = "No se pudo procesar"
         else:
-            return redirect(f"{reverse('novedades')}?tab={tab}")
+            destino = f"{reverse('novedades')}?tab={tab}"
+            if tab == "novedades" and f_turno:
+                destino += f"&f_turno={quote(f_turno)}"
+            if tab == "novedades" and f_lab:
+                destino += f"&f_lab={quote(f_lab)}"
+            return redirect(destino)
     filas: list[dict[str, object]] = []
     try:
-        datos = api_get("/api/novedades", token, {"tipo": NOV_TIPO[tab]})
+        params: dict[str, str] = {"tipo": NOV_TIPO[tab]}
+        if tab == "novedades":
+            params["dias"] = str(NOV_VIGENCIA_DIAS)
+            if f_turno:
+                params["turno"] = f_turno
+        datos = api_get("/api/novedades", token, params)
     except ApiError as e:
         error = str(e.detail) if e.detail else "No se pudo cargar"
     else:
         if isinstance(datos, list):
             filas = [d for d in datos if isinstance(d, dict)]
+    if tab == "novedades" and f_lab and any("laboratorio_id" in d for d in filas):
+        filas = [d for d in filas if str(d.get("laboratorio_id") or "") == f_lab]
     grupos: dict[str, list[dict[str, object]]] = {}
     if tab == "objetos":
         grupos = {"pendiente": [], "devuelto": [], "vencido": []}
@@ -337,6 +356,9 @@ def novedades_vista(request: HttpRequest) -> HttpResponse:
             "turnos": TURNOS,
             "puede_validar": puede_validar,
             "quien": _quien_reporta(request),
+            "f_turno": f_turno,
+            "f_lab": f_lab,
+            "vigencia_dias": NOV_VIGENCIA_DIAS,
             "error": error,
             "flash": request.session.pop("flash", None),
         },
@@ -363,21 +385,24 @@ def novedad_foto_vista(request: HttpRequest, novedad_id: int) -> HttpResponse:
 
 @con_login
 def lab_nueva_vista(request: HttpRequest) -> HttpResponse:
-    if _rol(request) in ("Auxiliar", "Encargado") and not (
-        request.session.get("auxiliar_nombre") or ""
-    ).strip():
-        return redirect(f"{reverse('auxiliares_soy')}?next={reverse('lab_nueva')}")
+    sin_vinculo = _sin_vinculo(request)
+    aux_fijo = _es_auxiliar(request)
     token = str(request.session["jwt"])
-    error = ""
+    error = AVISO_SIN_VINCULO if sin_vinculo else ""
+    post = request.POST
+    if aux_fijo and request.method == "POST":
+        # El auxiliar principal sale de la cuenta; los extras siguen libres.
+        post = request.POST.copy()
+        post["auxiliar_nombre"] = _quien_reporta(request)
     batch: list[dict[str, object]] = request.session.get("lab_batch", [])
     edit_idx = request.session.get("lab_edit_idx")
     if edit_idx is not None and not (0 <= edit_idx < len(batch)):
         edit_idx = None
         request.session.pop("lab_edit_idx", None)
-    if request.method == "POST":
+    if request.method == "POST" and not sin_vinculo:
         action = request.POST.get("action")
         if action == "agregar":
-            items, error = _items_lab_desde_post(request.POST)
+            items, error = _items_lab_desde_post(post)
             if not error and items:
                 if edit_idx is not None:
                     batch[edit_idx : edit_idx + 1] = items
@@ -397,19 +422,23 @@ def lab_nueva_vista(request: HttpRequest) -> HttpResponse:
             except (IndexError, ValueError):
                 error = "Índice inválido."
             else:
-                labs = [
-                    v
-                    for v in request.POST.getlist("laboratorio_id")
-                    if str(v).strip()
-                ]
-                copias = [
-                    {**origen, "laboratorio_id": int(v), "_forzar": True}
-                    for v in labs
-                ]
-                if not copias:
-                    error = "Elegí al menos un laboratorio."
+                pedidos: list[int] = []
+                for k, v in request.POST.items():
+                    if not k.startswith("copias_"):
+                        continue
+                    try:
+                        lab_id = int(k.split("_", 1)[1])
+                        n = int(str(v or "0"))
+                    except (IndexError, ValueError):
+                        continue
+                    pedidos.extend([lab_id] * min(max(n, 0), 99))
+                if not pedidos:
+                    error = "Poné cuántas copias querés en al menos un laboratorio."
                 else:
-                    batch[idx + 1 : idx + 1] = copias
+                    batch[idx + 1 : idx + 1] = [
+                        {**origen, "laboratorio_id": lab_id, "_forzar": True}
+                        for lab_id in pedidos
+                    ]
                     request.session["lab_batch"] = batch
                     return redirect("lab_nueva")
         elif action == "editar":
@@ -436,7 +465,7 @@ def lab_nueva_vista(request: HttpRequest) -> HttpResponse:
         elif action == "enviar":
             a_enviar = batch
             if not a_enviar and edit_idx is None:
-                directos, error = _items_lab_desde_post(request.POST)
+                directos, error = _items_lab_desde_post(post)
                 if directos:
                     a_enviar = directos
             if not a_enviar:
@@ -472,8 +501,16 @@ def lab_nueva_vista(request: HttpRequest) -> HttpResponse:
         _partes = [p for p in _partes if p]
         aux1 = _partes[0] if _partes else ""
         aux_extras = _partes[1:]
-    if not aux1:
-        aux1 = str(request.session.get("auxiliar_nombre", ""))
+    if aux_fijo:
+        aux1 = _quien_reporta(request)
+    # Prefill desde sala: ?lab=<id>&pc=<nombre> (solo lectura GET, no toca POST).
+    lab_prefill = None
+    _lab_raw = (request.GET.get("lab") or "").strip()
+    if _lab_raw.isdigit():
+        _lab_id = int(_lab_raw)
+        if any(c.get("id") == _lab_id for c in cards["activas"]):
+            lab_prefill = _lab_id
+    pc_prefill = str(request.GET.get("pc") or "").strip()[:50]
     return render(
         request,
         "atenciones/laboratorios_nueva.html",
@@ -486,11 +523,14 @@ def lab_nueva_vista(request: HttpRequest) -> HttpResponse:
             "hoy": _hoy_iso(),
             "edit_item": edit_item,
             "aux1": aux1,
+            "aux_fijo": aux_fijo,
             "aux_extras": aux_extras,
             "edit_idx": edit_idx,
             "turnos": TURNOS,
             "medios": MEDIOS,
             "sugerencias_json": json.dumps(_sugerencias_por_turno(token)),
+            "lab_prefill": lab_prefill,
+            "pc_prefill": pc_prefill,
         },
     )
 
@@ -880,6 +920,173 @@ def lab_dashboard_vista(request: HttpRequest) -> HttpResponse:
 
 
 @con_login
+def lab_tablero_vista(request: HttpRequest) -> HttpResponse:
+    # ponytail: solo lectura, agrega 3 llamadas API y deriva el semáforo en Django.
+    if not (_puede_reportes(request) or _es_encargado(request)):
+        return redirect("lab_lista")
+    token = str(request.session["jwt"])
+    try:
+        cards = api_get("/api/laboratorios/cards", token)
+        atenciones = api_get("/api/laboratorios/atenciones", token)
+        objetos = api_get(
+            "/api/novedades", token, {"tipo": "objeto", "estado": "pendiente"}
+        )
+    except ApiError as e:
+        if e.status in (401, 403):
+            raise
+        _log.error("LAB-TABLERO fallo: %s", e.detail)
+        return render(
+            request, "atenciones/tablero.html", {"error": True}, status=502
+        )
+    labs = []
+    if isinstance(cards, dict):
+        labs = [
+            lab
+            for lab in (cards.get("activas") or [])
+            if isinstance(lab, dict)
+        ]
+    filas = (
+        [a for a in atenciones if isinstance(a, dict)]
+        if isinstance(atenciones, list)
+        else []
+    )
+    pendientes = (
+        [o for o in objetos if isinstance(o, dict)]
+        if isinstance(objetos, list)
+        else []
+    )
+    corte = (_dt.datetime.now(_dt.UTC).date() - _dt.timedelta(days=7)).isoformat()
+    tarjetas = []
+    for lab in labs:
+        lid = lab.get("id")
+        recientes = [
+            a
+            for a in filas
+            if a.get("laboratorio_id") == lid
+            and str(a.get("fecha_registro", "")) >= corte
+        ]
+        vistos: dict[str, str] = {}
+        for a in recientes:
+            crudo = str(a.get("pc_nombre") or "").strip()
+            if crudo and crudo.upper() not in vistos:
+                vistos[crudo.upper()] = crudo
+        pcs_falla = sorted(vistos.values(), key=str.upper)
+        objs = [o for o in pendientes if o.get("laboratorio_id") == lid]
+        ultimas = sorted(
+            (a for a in filas if a.get("laboratorio_id") == lid),
+            key=lambda a: (str(a.get("fecha_registro", "")), int(a.get("id", 0) or 0)),
+            reverse=True,
+        )
+        ultima = ultimas[0] if ultimas else None
+        total_pcs = None
+        with contextlib.suppress(ApiError):
+            pcs = api_get(f"/api/laboratorios/{lid}/pcs", token)
+            if isinstance(pcs, dict):
+                total_pcs = len(pcs.get("pcs", []))
+        semaforo = "verde"
+        if objs:
+            semaforo = "rojo"
+        elif pcs_falla:
+            semaforo = "amarillo"
+        tarjetas.append(
+            {
+                "codigo": lab.get("codigo", ""),
+                "nombre": lab.get("nombre", ""),
+                "lab_id": lid,
+                "semaforo": semaforo,
+                "atenciones_7d": len(recientes),
+                "pcs_falla": pcs_falla,
+                "total_pcs": total_pcs,
+                "objetos": len(objs),
+                "ultima": (
+                    {
+                        "fecha": str(ultima.get("fecha_registro", "")),
+                        "auxiliar": str(ultima.get("auxiliar_nombre", "")),
+                        "categoria": str(ultima.get("categoria", "")),
+                    }
+                    if isinstance(ultima, dict)
+                    else None
+                ),
+            }
+        )
+    resumen = {
+        "rojos": sum(1 for t in tarjetas if t["semaforo"] == "rojo"),
+        "amarillos": sum(1 for t in tarjetas if t["semaforo"] == "amarillo"),
+        "verdes": sum(1 for t in tarjetas if t["semaforo"] == "verde"),
+    }
+    return render(
+        request,
+        "atenciones/tablero.html",
+        {"error": False, "tarjetas": tarjetas, "resumen": resumen},
+    )
+
+
+@con_login
+def lab_timeline_vista(request: HttpRequest) -> HttpResponse:
+    # ponytail: solo lectura, 2 llamadas API y orden cronológico en Django.
+    token = str(request.session["jwt"])
+    hoy = _dt.datetime.now(_dt.UTC).date().isoformat()
+    try:
+        atenciones = api_get("/api/laboratorios/atenciones", token)
+        novedades = api_get("/api/novedades", token, {"dias": "1"})
+    except ApiError as e:
+        if e.status in (401, 403):
+            raise
+        _log.error("LAB-TIMELINE fallo: %s", e.detail)
+        return render(
+            request, "atenciones/timeline.html", {"error": True}, status=502
+        )
+    eventos = []
+    for a in atenciones if isinstance(atenciones, list) else []:
+        if not isinstance(a, dict) or str(a.get("fecha_registro", "")) != hoy:
+            continue
+        eventos.append(
+            {
+                "hora": str(a.get("created_at", ""))[11:16],
+                "icono": "🧰",
+                "titulo": f"{a.get('laboratorio', '')} · {a.get('categoria', '')}",
+                "detalle": str(a.get("descripcion", "")),
+                "auxiliar": str(a.get("auxiliar_nombre", "")),
+                "foto_id": None,
+                "orden": str(a.get("created_at", "")),
+            }
+        )
+    for n in novedades if isinstance(novedades, list) else []:
+        if not isinstance(n, dict) or str(n.get("fecha_registro", "")) != hoy:
+            continue
+        tipo = str(n.get("tipo", ""))
+        estado = str(n.get("estado", ""))
+        if tipo == "objeto":
+            icono = "🎒✅" if estado == "devuelto" else "🎒"
+            titulo = f"Objeto {estado}: {n.get('texto', '')}"
+            if estado == "devuelto" and n.get("entregado_a"):
+                titulo += f" → {n.get('entregado_a')}"
+        elif tipo == "cierre":
+            icono = "🔑✅" if estado == "validado" else "🔑"
+            titulo = f"Cierre {estado}: {n.get('texto', '')}"
+        else:
+            icono = "📢"
+            titulo = str(n.get("texto", ""))
+        eventos.append(
+            {
+                "hora": str(n.get("created_at", ""))[11:16],
+                "icono": icono,
+                "titulo": titulo,
+                "detalle": str(n.get("laboratorio", "") or n.get("turno", "")),
+                "auxiliar": str(n.get("auxiliar_nombre", "")),
+                "foto_id": n.get("id") if n.get("tiene_foto") else None,
+                "orden": str(n.get("created_at", "")),
+            }
+        )
+    eventos.sort(key=lambda e: str(e["orden"]), reverse=True)
+    return render(
+        request,
+        "atenciones/timeline.html",
+        {"error": False, "eventos": eventos, "hoy": hoy},
+    )
+
+
+@con_login
 def horarios_export_xlsx_vista(request: HttpRequest) -> HttpResponse:
     token = str(request.session["jwt"])
     es_pdf = request.path.endswith(".pdf")
@@ -912,6 +1119,260 @@ def horarios_export_xlsx_vista(request: HttpRequest) -> HttpResponse:
     return resp
 
 
+FICHA_CAMPOS = (
+    "procesador",
+    "ram",
+    "disco",
+    "marca",
+    "gpu",
+    "monitores",
+    "sillas",
+    "capacidad",
+    "pcs_estudiantes",
+    "pcs_docentes",
+)
+
+
+@con_login
+def lab_pcs_vista(request: HttpRequest, laboratorio_id: int) -> HttpResponse:
+    token = str(request.session["jwt"])
+    error = ""
+
+    # estados de una PC bajo demanda: GET /pcs/<id>/?estados=<pc_id>
+    pc_estados = request.GET.get("estados")
+    if pc_estados:
+        try:
+            filas_estados = api_get(f"/api/software/pcs/{int(pc_estados)}", token)
+        except (ApiError, ValueError) as e:
+            detalle = str(getattr(e, "detail", "")) or "PC inválida"
+            return JsonResponse({"ok": False, "error": detalle}, status=400)
+        return JsonResponse({"ok": True, "estados": filas_estados})
+
+    nombre_lab = ""
+    ficha: dict[str, object] = {}
+    pcs: dict[str, object] = {"filas": 0, "cols": 0, "pcs": []}
+    cards = _cards(token)
+    for c in cards["activas"] + cards["inactivas"]:
+        if c.get("id") == laboratorio_id:
+            nombre_lab = str(c.get("codigo", ""))
+            ficha = {
+                campo: c.get(campo)
+                for campo in FICHA_CAMPOS
+                if c.get(campo) not in (None, "")
+            }
+            break
+
+    if request.method == "POST":
+        try:
+            cuerpo = json.loads(request.body or b"{}")
+        except ValueError:
+            cuerpo = None
+        if not isinstance(cuerpo, dict):
+            return JsonResponse({"ok": False, "error": "JSON inválido"}, status=400)
+        accion = str(cuerpo.pop("accion", "dibujo"))
+        try:
+            if accion == "marcar":
+                if _sin_vinculo(request):
+                    return JsonResponse(
+                        {"ok": False, "error": AVISO_SIN_VINCULO}, status=403
+                    )
+                pc_id = int(cuerpo.pop("pc_id", 0))
+                cuerpo.setdefault("auxiliar_nombre", _quien_reporta(request))
+                api_put(f"/api/software/pcs/{pc_id}", token, cuerpo)
+            elif accion == "ficha":
+                # se envían todos los campos; vacío = limpiar (el API acepta null)
+                cuerpo = {k: v for k, v in cuerpo.items() if k in FICHA_CAMPOS}
+                api_put(f"/api/laboratorios/{laboratorio_id}", token, cuerpo)
+            else:
+                api_put(f"/api/laboratorios/{laboratorio_id}/pcs", token, cuerpo)
+        except ApiError as e:
+            detalle = str(e.detail) if e.detail else "No se pudo guardar"
+            return JsonResponse({"ok": False, "error": detalle}, status=400)
+        except (TypeError, ValueError):
+            return JsonResponse({"ok": False, "error": "JSON inválido"}, status=400)
+        return JsonResponse({"ok": True})
+
+    try:
+        datos = api_get(f"/api/laboratorios/{laboratorio_id}/pcs", token)
+    except ApiError as e:
+        if e.status in (401, 403):
+            return redirect("login")
+        _flash(request, "error", str(e.detail) if e.detail else "No se pudo cargar")
+        return redirect("lab_lista")
+    if isinstance(datos, dict):
+        pcs = datos
+    # software del lab: lectura tolerante (si falla, la sala se ve igual)
+    sw_lab: list[dict[str, object]] = []
+    try:
+        sw_lab = [
+            s
+            for s in (api_get(f"/api/software/laboratorios/{laboratorio_id}", token) or [])
+            if isinstance(s, dict)
+        ]
+    except ApiError:
+        sw_lab = []
+    prefijo = None
+    base = None
+    import re as _re
+
+    m = _re.search(r"(\d+)", nombre_lab)
+    if m and nombre_lab.upper().startswith("LAB"):
+        n = int(m.group(1))
+        prefijo, base = "SCPC ", n * 100
+    pcs_json = json.dumps(
+        {
+            "filas": int(pcs.get("filas") or 0),
+            "cols": int(pcs.get("cols") or 0),
+            "pcs": [
+                {
+                    "id": int(p.get("id") or 0),
+                    "nombre": str(p.get("nombre", "")),
+                    "fila": int(p.get("fila") or 0),
+                    "col": int(p.get("col") or 0),
+                    "activa": bool(p.get("activa", True)),
+                }
+                for p in (pcs.get("pcs") or [])
+                if isinstance(p, dict)
+            ],
+        }
+    )
+    meta_json = json.dumps({"prefijo": prefijo, "base": base})
+    return render(
+        request,
+        "atenciones/laboratorios_pcs.html",
+        {
+            "lab_id": laboratorio_id,
+            "lab_codigo": nombre_lab or f"Lab #{laboratorio_id}",
+            "pcs_json": pcs_json,
+            "meta_json": meta_json,
+            "ficha_json": json.dumps(ficha),
+            "sw_lab_json": json.dumps(sw_lab),
+            "puede_ficha": _rol(request) in ("Jefe", "Encargado"),
+            "quien": _quien_reporta(request),
+            "error": error,
+        },
+    )
+
+
+def _sw_desde_post(post: object) -> dict[str, object]:
+    def get(campo: str) -> str:
+        return str(post.get(campo, "") or "").strip()  # type: ignore[union-attr]
+
+    def marca(campo: str) -> bool:
+        return post.get(campo) in ("on", "1", "true", "True")  # type: ignore[union-attr]
+
+    return {
+        "nombre": get("nombre"),
+        "licencia": get("licencia") or "gratuita",
+        "uso": get("uso"),
+        "esencial": marca("esencial"),
+        "docentes": marca("docentes"),
+        "activo": marca("activo"),
+    }
+
+
+def _plantilla_desde_post(post: object) -> dict[str, object]:
+    def get(campo: str) -> str:
+        return str(post.get(campo, "") or "").strip()  # type: ignore[union-attr]
+
+    return {
+        "nombre": get("nombre"),
+        "categoria": get("categoria") or "SOFTWARE",
+        "descripcion": get("descripcion"),
+        "solucion": get("solucion"),
+        "turno": get("turno") or None,
+        "activa": post.get("activa") in ("on", "1", "true", "True"),  # type: ignore[union-attr]
+    }
+
+
+@con_login
+def software_vista(request: HttpRequest) -> HttpResponse:
+    token = str(request.session["jwt"])
+    error = ""
+    lab_sel = request.GET.get("lab", "").strip()
+    if request.method == "POST":
+        action = request.POST.get("action", "")
+        try:
+            if action == "crear":
+                api_post("/api/software", token, _sw_desde_post(request.POST))
+            elif action == "editar":
+                api_put(
+                    f"/api/software/{int(request.POST.get('id', 0))}",
+                    token,
+                    _sw_desde_post(request.POST),
+                )
+            elif action == "plantilla":
+                pid = int(request.POST.get("id", 0) or 0)
+                cuerpo = _plantilla_desde_post(request.POST)
+                if pid:
+                    api_put(f"/api/software/plantillas/{pid}", token, cuerpo)
+                else:
+                    api_post("/api/software/plantillas", token, cuerpo)
+            elif action == "matriz":
+                lab_id = int(request.POST.get("lab_id", 0))
+                ids = [
+                    int(v)
+                    for v in request.POST.getlist("software_ids")
+                    if str(v).strip()
+                ]
+                api_put(f"/api/software/laboratorios/{lab_id}", token, {"software_ids": ids})
+                lab_sel = str(lab_id)
+            else:
+                error = "Acción desconocida."
+        except ApiError as e:
+            error = str(e.detail) if e.detail else "No se pudo guardar"
+        except (TypeError, ValueError):
+            error = "Datos inválidos."
+        else:
+            if not error:
+                destino = reverse("software") + (f"?lab={lab_sel}" if lab_sel else "")
+                return redirect(destino)
+    sws: list[dict[str, object]] = []
+    plantillas: list[dict[str, object]] = []
+    try:
+        sws = [s for s in (api_get("/api/software", token) or []) if isinstance(s, dict)]
+    except ApiError as e:
+        error = str(e.detail) if e.detail else "No se pudo cargar"
+    try:
+        plantillas = [
+            p
+            for p in (api_get("/api/software/plantillas", token) or [])
+            if isinstance(p, dict)
+        ]
+    except ApiError:
+        plantillas = []
+    cards = _cards(token)
+    sw_lab_ids: list[int] = []
+    if lab_sel:
+        try:
+            sw_lab_ids = [
+                int(s.get("id") or 0)
+                for s in (api_get(f"/api/software/laboratorios/{int(lab_sel)}", token) or [])
+                if isinstance(s, dict)
+            ]
+        except (ApiError, ValueError):
+            sw_lab_ids = []
+    return render(
+        request,
+        "atenciones/software.html",
+        {
+            "sws": sws,
+            "plantillas": plantillas,
+            "sws_json": json.dumps(sws),
+            "plantillas_json": json.dumps(plantillas),
+            "labs": cards["activas"],
+            "lab_sel": lab_sel,
+            "sw_lab_ids": sw_lab_ids,
+            "categorias": _categorias(token),
+            "turnos": TURNOS,
+            "puede_editar": _rol(request) in ("Jefe", "Encargado"),
+            "quien": _quien_reporta(request),
+            "error": error,
+            "flash": request.session.pop("flash", None),
+        },
+    )
+
+
 @con_login
 def lab_export_csv_vista(request: HttpRequest) -> HttpResponse:
     if not (_puede_reportes(request) or _es_encargado(request)):
@@ -931,3 +1392,49 @@ def lab_export_csv_vista(request: HttpRequest) -> HttpResponse:
     resp = HttpResponse(res.text, content_type="text/csv")
     resp["Content-Disposition"] = "attachment; filename=lab_atenciones.csv"
     return resp
+
+
+@con_login
+def auditoria_vista(request: HttpRequest) -> HttpResponse:
+    """Rastro de cambios esenciales. Solo Jefes (o con dashboard); ni Encargado ni Auxiliar."""
+    if not _puede_reportes(request):
+        return redirect("lab_lista")
+    token = str(request.session["jwt"])
+    error = ""
+    params: dict[str, str] = {"limite": request.GET.get("limite", "200")}
+    for campo in ("entidad", "accion"):
+        valor = (request.GET.get(campo) or "").strip()
+        if valor:
+            params[campo] = valor
+    filas: list[dict[str, object]] = []
+    try:
+        datos = api_get("/api/auditoria", token, params)
+    except ApiError as e:
+        if e.status in (401, 403):
+            return redirect("lab_lista")
+        error = str(e.detail) if e.detail else "No se pudo cargar"
+    else:
+        if isinstance(datos, list):
+            filas = [f for f in datos if isinstance(f, dict)]
+    return render(
+        request,
+        "atenciones/auditoria.html",
+        {
+            "filas": filas,
+            "total": len(filas),
+            "entidad_sel": params.get("entidad", ""),
+            "accion_sel": params.get("accion", ""),
+            "entidades": (
+                "laboratorio",
+                "software",
+                "software_lab",
+                "pcs_lab",
+                "atencion",
+                "atencion_lab",
+                "categoria",
+            ),
+            "acciones": ("crear", "editar", "eliminar"),
+            "error": error,
+            "flash": request.session.pop("flash", None),
+        },
+    )

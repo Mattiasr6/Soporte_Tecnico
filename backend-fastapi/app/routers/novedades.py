@@ -1,13 +1,15 @@
 """Novedades: muro de turno para auxiliares (novedades, objetos, cierres)."""
 
+import io
 import uuid
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import Annotated, Any
 
 from fastapi import APIRouter, File, Form, UploadFile
 from fastapi.exceptions import HTTPException
 from fastapi.responses import FileResponse
+from PIL import Image, UnidentifiedImageError
 from sqlalchemy import select
 
 from app.core.errors import bad_request, not_found
@@ -15,7 +17,7 @@ from app.core.security import CurrentUser
 from app.db.session import DbSession
 from app.models.laboratorio import Laboratorio
 from app.models.novedad import Novedad
-from app.routers.laboratorios import TURNOS, _gestiona_equipo
+from app.routers.laboratorios import TURNOS, _gestiona_equipo, nombre_vinculado
 from app.schemas.novedad import NovedadAccion, NovedadOut
 
 router = APIRouter(prefix="/api/novedades", tags=["novedades"])
@@ -25,7 +27,8 @@ ESTADO_INICIAL = {"novedad": "publicado", "objeto": "pendiente", "cierre": "pend
 
 _FOTOS_DIR = Path(__file__).resolve().parent.parent.parent / "data" / "aux_reportes"
 _MAX_FOTO = 5 * 1024 * 1024
-_FOTO_EXT = {"image/jpeg": "jpg", "image/png": "png", "image/webp": "webp"}
+_FOTO_TIPOS = ("image/jpeg", "image/png", "image/webp")
+_WEBP_CALIDAD = 80
 
 
 def _norm(s: str) -> str:
@@ -70,6 +73,8 @@ def _serializar(db: DbSession, rows: list[Novedad]) -> list[dict[str, object]]:
             "laboratorio": nombres.get(r.laboratorio_id or -1, ""),
             "tiene_foto": bool(r.foto_path),
             "estado": _estado_efectivo(r, hoy),
+            "entregado_a": r.entregado_a,
+            "dias": (hoy - r.fecha_registro).days,
             "fecha_registro": r.fecha_registro,
             "created_at": r.created_at,
         }
@@ -78,15 +83,25 @@ def _serializar(db: DbSession, rows: list[Novedad]) -> list[dict[str, object]]:
 
 
 def _guardar_foto(foto: UploadFile, contenido: bytes) -> str:
-    ext = _FOTO_EXT.get((foto.content_type or "").lower())
-    if ext is None:
+    """Guarda la foto convertida a WebP. Todo lo que entra (JPG/PNG/WEBP)
+    sale como .webp para que el volumen sea parejo y liviano."""
+    if (foto.content_type or "").lower() not in _FOTO_TIPOS:
         raise bad_request("Foto debe ser JPG, PNG o WEBP")
     if not contenido or len(contenido) > _MAX_FOTO:
         raise bad_request("Foto vacia o mayor a 5MB")
+    try:
+        with Image.open(io.BytesIO(contenido)) as img:
+            if img.mode not in ("RGB", "RGBA"):
+                img = img.convert("RGB")
+            buf = io.BytesIO()
+            img.save(buf, "WEBP", quality=_WEBP_CALIDAD)
+            webp = buf.getvalue()
+    except (UnidentifiedImageError, OSError, SyntaxError, ValueError):
+        raise bad_request("Foto inválida") from None
     carpeta = _FOTOS_DIR / datetime.now(UTC).strftime("%Y-%m")
     carpeta.mkdir(parents=True, exist_ok=True)
-    relativo = f"{carpeta.name}/{uuid.uuid4().hex}.{ext}"
-    (_FOTOS_DIR / relativo).write_bytes(contenido)
+    relativo = f"{carpeta.name}/{uuid.uuid4().hex}.webp"
+    (_FOTOS_DIR / relativo).write_bytes(webp)
     return relativo
 
 
@@ -96,6 +111,8 @@ def listar(
     user: CurrentUser,
     tipo: str | None = None,
     estado: str | None = None,
+    dias: int | None = None,
+    turno: str | None = None,
 ) -> Any:
     del user
     q = select(Novedad).order_by(Novedad.fecha_registro.desc(), Novedad.id.desc())
@@ -103,6 +120,16 @@ def listar(
         if tipo not in TIPOS:
             raise bad_request("tipo debe ser novedad, objeto o cierre")
         q = q.where(Novedad.tipo == tipo)
+    if dias is not None:
+        if dias < 1:
+            raise bad_request("dias debe ser >= 1")
+        q = q.where(
+            Novedad.fecha_registro >= datetime.now(UTC).date() - timedelta(days=dias)
+        )
+    if turno is not None:
+        if turno not in TURNOS:
+            raise bad_request(f"Turno debe ser uno de: {', '.join(TURNOS)}")
+        q = q.where(Novedad.turno == turno)
     filas = list(db.scalars(q).all())
     salida = _serializar(db, filas)
     if estado is not None:
@@ -123,7 +150,7 @@ async def crear(
 ) -> Any:
     tipo = (tipo or "").strip()
     texto = (texto or "").strip()
-    auxiliar_nombre = (auxiliar_nombre or "").strip()
+    auxiliar_nombre = nombre_vinculado(user) or (auxiliar_nombre or "").strip()
     if tipo not in TIPOS:
         raise bad_request("tipo debe ser novedad, objeto o cierre")
     if not texto or len(texto) > 2000:
@@ -145,6 +172,8 @@ async def crear(
         foto_path = _guardar_foto(foto, await foto.read())
     if tipo == "cierre" and not foto_path:
         raise bad_request("El cierre de turno exige foto de las llaves")
+    if tipo == "objeto" and not foto_path:
+        raise bad_request("El objeto exige foto")
     now = datetime.now(UTC)
     fila = Novedad(
         usuario_id=user.id,
@@ -176,16 +205,21 @@ def accionar(
     if accion == "devolver":
         if fila.tipo != "objeto" or _estado_efectivo(fila, hoy) != "pendiente":
             raise bad_request("Solo se puede devolver un objeto pendiente")
+        entregado = (dto.entregado_a or "").strip()
+        if not entregado:
+            raise bad_request("Falta a quién se entrega el objeto")
         es_gestion = True
         try:
             _gestiona_equipo(user)
         except HTTPException:
             es_gestion = False
-        if not es_gestion and _norm(dto.auxiliar_nombre or "") != _norm(
+        quien = nombre_vinculado(user) if not es_gestion else None
+        if not es_gestion and _norm(quien or dto.auxiliar_nombre or "") != _norm(
             fila.auxiliar_nombre
         ):
             raise bad_request("Solo el reportante o un encargado puede devolver")
         fila.estado = "devuelto"
+        fila.entregado_a = entregado
     elif accion in ("validar", "rechazar"):
         if fila.tipo != "cierre" or fila.estado != "pendiente":
             raise bad_request("Solo se valida un cierre pendiente")

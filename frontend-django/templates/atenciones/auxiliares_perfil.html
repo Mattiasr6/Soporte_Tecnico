@@ -1,0 +1,50 @@
+{% extends "atenciones/base.html" %}
+{% block titulo %}Perfil — Auxiliares{% endblock %}
+{% block contenido %}
+<div class="page-wide">
+  <div class="page-head">
+    <div>
+      <h1>Perfil</h1>
+      <p class="sub">Tu cuenta de auxiliar</p>
+    </div>
+  </div>
+
+  {% if flash %}<p class="flash {{ flash.tipo }}">{{ flash.texto }}</p>{% endif %}
+  {% if aviso_vinculo %}<p class="flash error">{{ aviso_vinculo }}</p>{% endif %}
+
+  <div class="dos-col">
+    <section class="bloque">
+      <header><h2>Tu cuenta</h2></header>
+
+      <div class="perfil-cabecera">
+        <span class="perfil-avatar">{{ perfil.display_name|slice:":1" }}</span>
+        <div class="perfil-datos">
+          <strong>{{ perfil.display_name }}</strong>
+          <small>{{ perfil.role }}</small>
+          <small>{{ perfil.email }}</small>
+        </div>
+      </div>
+      <p class="sub">
+        Nómina: {% if nomina %}<strong>{{ nomina }}</strong>{% else %}<span class="jerq-off">Sin vincular</span>{% endif %}
+      </p>
+      <p class="sub">El nombre, el correo y el vínculo con la nómina los maneja el Jefe.</p>
+    </section>
+
+    <section class="bloque">
+      <header><h2>Contraseña</h2></header>
+      <form method="post" action="{% url 'auxiliares_perfil_guardar' %}" class="jerq-form">
+        {% csrf_token %}
+        <input type="hidden" name="accion" value="password">
+        <label for="perfil-actual">Contraseña actual</label>
+        <input type="password" id="perfil-actual" name="actual" required autocomplete="current-password">
+        <label for="perfil-nueva">Contraseña nueva</label>
+        <input type="password" id="perfil-nueva" name="nueva" required minlength="8" autocomplete="new-password">
+        <label for="perfil-repetir">Repetir la nueva</label>
+        <input type="password" id="perfil-repetir" name="repetir" required minlength="8" autocomplete="new-password">
+        <p class="sub">Mínimo 8 caracteres. Seguís con la sesión abierta después del cambio.</p>
+        <button class="btn" type="submit">Cambiar contraseña</button>
+      </form>
+    </section>
+  </div>
+</div>
+{% endblock %}

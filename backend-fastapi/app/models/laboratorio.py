@@ -18,6 +18,32 @@ class Laboratorio(Base):
     activa: Mapped[bool] = mapped_column(
         "Activa", Boolean, nullable=False, default=True
     )
+    filas_pc: Mapped[int] = mapped_column(
+        "FilasPc", Integer, nullable=False, default=0
+    )
+    cols_pc: Mapped[int] = mapped_column(
+        "ColsPc", Integer, nullable=False, default=0
+    )
+    procesador: Mapped[str | None] = mapped_column(
+        "Procesador", String(200), nullable=True
+    )
+    ram: Mapped[str | None] = mapped_column("Ram", String(100), nullable=True)
+    disco: Mapped[str | None] = mapped_column("Disco", String(100), nullable=True)
+    marca: Mapped[str | None] = mapped_column("Marca", String(100), nullable=True)
+    gpu: Mapped[str | None] = mapped_column("Gpu", String(100), nullable=True)
+    monitores: Mapped[str | None] = mapped_column(
+        "Monitores", String(100), nullable=True
+    )
+    sillas: Mapped[int | None] = mapped_column("Sillas", Integer, nullable=True)
+    capacidad: Mapped[int | None] = mapped_column(
+        "Capacidad", Integer, nullable=True
+    )
+    pcs_estudiantes: Mapped[int | None] = mapped_column(
+        "PcsEstudiantes", Integer, nullable=True
+    )
+    pcs_docentes: Mapped[int | None] = mapped_column(
+        "PcsDocentes", Integer, nullable=True
+    )
     created_at: Mapped[datetime] = mapped_column("CreatedAt", DateTime(timezone=True))
 
 
@@ -59,6 +85,9 @@ class LabAtencion(Base):
     )
     auxiliar_nombre: Mapped[str] = mapped_column(
         "AuxiliarNombre", String(255), nullable=False
+    )
+    pc_nombre: Mapped[str | None] = mapped_column(
+        "PcNombre", String(50), nullable=True
     )
     descripcion: Mapped[str] = mapped_column(
         "Descripcion", String(1000), nullable=False

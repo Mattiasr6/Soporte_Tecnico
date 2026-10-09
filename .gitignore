@@ -62,3 +62,8 @@ unsloth_compiled_cache/
 *.user
 *.userosscache
 .vercel/
+# Playground local de ideas Django (nunca va a git, no afecta dev ni agentes)
+frontend-django-idea2/
+
+# Planillas internas (datos personales, repo público): solo local
+docs/csv/

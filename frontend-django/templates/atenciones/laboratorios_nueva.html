@@ -9,6 +9,16 @@
   <form method="post" id="form-lab">
     {% csrf_token %}
     {% include "atenciones/_lab_card_picker.html" %}
+    {% if not edit_item and lab_prefill %}
+    <script>(function(){var r=document.querySelector('input[name="laboratorio_id"][value="{{ lab_prefill }}"]');if(r){r.checked=true;r.dispatchEvent(new Event("change",{bubbles:true}));}})();</script>
+    {% endif %}
+    {% if not edit_item and pc_prefill %}
+    <p class="sub">PC: <b>{{ pc_prefill }}</b> (desde sala)</p>
+    <input type="hidden" name="pc_nombre" value="{{ pc_prefill }}">
+    {% elif edit_item and edit_item.pc_nombre %}
+    <p class="sub">PC: <b>{{ edit_item.pc_nombre }}</b></p>
+    <input type="hidden" name="pc_nombre" value="{{ edit_item.pc_nombre }}">
+    {% endif %}
     <label for="cat-select">Categoría</label>
     <select id="cat-select" name="categoria" required>
       <option value="">— Elegí categoría —</option>
@@ -35,7 +45,7 @@
       {% endfor %}
     </select>
     <label for="id_aux">Auxiliar(es)</label>
-    <input type="text" id="id_aux" name="auxiliar_nombre" list="aux-sugerencias" value="{{ aux1 }}" placeholder="Elegí turno y escribí para filtrar" autocomplete="off">
+    {% if aux_fijo %}<input type="text" id="id_aux" name="auxiliar_nombre" value="{{ aux1 }}" readonly title="Tu nombre sale de tu cuenta">{% else %}<input type="text" id="id_aux" name="auxiliar_nombre" list="aux-sugerencias" value="{{ aux1 }}" placeholder="Elegí turno y escribí para filtrar" autocomplete="off">{% endif %}
     <datalist id="aux-sugerencias"></datalist>
     <div id="aux-extras">
       {% for a in aux_extras %}<div class="aux-extra"><input type="text" name="auxiliar_extra" list="aux-sugerencias" value="{{ a }}" autocomplete="off"><button type="button" class="link-btn aux-quitar">Quitar</button></div>{% endfor %}
@@ -116,7 +126,9 @@
       <input type="hidden" name="idx" value="{{ forloop.counter0 }}">
       <div class="pills">
         {% for lab in activas %}
-        <label class="pill tick-lab"><input type="checkbox" name="laboratorio_id" value="{{ lab.id }}"> {{ lab.codigo }}</label>
+        <label class="pill tick-lab">{{ lab.codigo }}
+          <input type="number" name="copias_{{ lab.id }}" min="0" max="99" value="0" aria-label="Copias en {{ lab.codigo }}">
+        </label>
         {% endfor %}
       </div>
       <p class="sub clon-info" hidden></p>
@@ -129,18 +141,36 @@
   <style>
     .batch-clonar{margin:-6px 0 10px}
     .batch-clonar summary{cursor:pointer}
-    .batch-clonar .pill:has(input:checked){font-weight:700;border-color:var(--color-accent,#00754a);background-color:#e6f4ea}
+    .batch-clonar .tick-lab{display:inline-flex;align-items:center;gap:6px;cursor:pointer}
+    .batch-clonar .tick-lab.on{font-weight:700;border-color:var(--color-accent,#00754a);background-color:#e6f4ea}
+    .batch-clonar .tick-lab input[type=number]{width:52px;margin:0;font:inherit;border:1.5px solid #9db8ad;border-radius:8px;padding:3px 6px;background:#fff}
     .batch-clonar .pills{margin:6px 0}
   </style>
   <script>
   (function () {
     document.querySelectorAll(".batch-clonar form").forEach(function (f) {
+      var info = f.querySelector(".clon-info");
+      function total() {
+        var n = 0;
+        f.querySelectorAll("input[type=number]").forEach(function (i) {
+          n += Math.max(0, Math.min(99, parseInt(i.value, 10) || 0));
+          var lab = i.closest(".tick-lab");
+          if (lab) lab.classList.toggle("on", (parseInt(i.value, 10) || 0) > 0);
+        });
+        return n;
+      }
+      function upd() {
+        var n = total();
+        if (info) { info.hidden = n === 0; info.textContent = n === 1 ? "Se creará 1 copia" : "Se crearán " + n + " copias"; }
+      }
+      f.querySelectorAll("input[type=number]").forEach(function (c) { c.addEventListener("input", upd); });
       f.addEventListener("submit", function (e) {
-        if (!f.querySelector("input:checked")) {
+        if (total() === 0) {
           e.preventDefault();
-          alert("Elegí al menos un laboratorio distinto al original.");
+          alert("Poné cuántas copias querés en al menos un laboratorio.");
         }
       });
+      upd();
     });
   })();
   </script>

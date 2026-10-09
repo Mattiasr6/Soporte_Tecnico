@@ -1,0 +1,281 @@
+{% extends "atenciones/base.html" %}
+{% block titulo %}Software — Soporte Técnico{% endblock %}
+{% block contenido %}
+<div class="page-wide">
+  <style>
+    .sw-head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+    .sw-head h1{margin:0}
+    .sw-nav .btn{padding:6px 14px;font-size:13px;border-radius:999px}
+    .sw-cols{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:14px;align-items:start}
+    .sw-cols>section{display:contents}
+    .sw-span{grid-column:1/-1}
+    .sw-tl{grid-column:1;grid-row:1}
+    .sw-tr{grid-column:2;grid-row:1}
+    .sw-col{flex:1;min-width:300px}
+    .sw-card{background:var(--color-surface,#fff);border:1px solid #dfe7e2;border-radius:14px;padding:14px 16px;margin-bottom:14px}
+    .sw-card h2{margin:0 0 10px;font-size:16px}
+    .sw-card .hint{font-size:12px;color:var(--muted,#888);margin:0 0 10px}
+    .sw-form{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-bottom:12px}
+    .sw-form label{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--muted,#888)}
+    .sw-form input[type=text],.sw-form select,.sw-form textarea{font:inherit;border:1.5px solid #9db8ad;border-radius:8px;padding:5px 7px;background:#fff;min-width:130px}
+    .sw-form textarea{min-height:52px;min-width:220px}
+    .sw-form .chk{flex-direction:row;align-items:center;gap:5px;padding-bottom:7px}
+    .sw-form .btn{padding:6px 14px;font-size:13px;border-radius:8px}
+    .sw-tabla{width:100%;border-collapse:collapse;font-size:13px}
+    .sw-tabla th,.sw-tabla td{text-align:left;padding:10px 12px;border-bottom:1px solid #eef3f0;vertical-align:top}
+    .sw-tabla th{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted,#888)}
+    .sw-tabla tbody tr:hover{background:#f6faf7}
+    .sw-nombre-t{display:block;font-size:14px;font-weight:700;margin:0 0 5px;line-height:1.3}
+    .sw-meta{display:flex;gap:6px;flex-wrap:wrap;align-items:center;line-height:1.6}
+    .sw-num{white-space:nowrap}
+    .sw-tabla tr.inactivo{opacity:.5}
+    .sw-tag{display:inline-block;font-size:10.5px;font-weight:700;border-radius:999px;padding:1px 8px;margin-right:4px;background:#eef3f0;color:#3d5a50}
+    .sw-tag.esencial{background:#fde8c8;color:#8a5a00}
+    .sw-tag.docente{background:#dce8fc;color:#1f4a9c}
+    .sw-tag.mixta{background:#f0e0f7;color:#6b2d8b}
+    .sw-tag.inactivo{background:#f3e8e8;color:#8b2e2e}
+    .sw-tabla .btn{padding:3px 10px;font-size:12px;border-radius:7px}
+    .sw-matriz{display:flex;flex-wrap:wrap;gap:6px}
+    .sw-matriz label{display:flex;align-items:center;gap:5px;font-size:13px;border:1px solid #dfe7e2;border-radius:8px;padding:5px 9px;background:#fdfcf9;cursor:pointer}
+    .sw-matriz label:hover{border-color:var(--color-accent,#00754a)}
+    .sw-matriz label input:checked + span{font-weight:700;color:var(--color-accent,#00754a)}
+    .sw-plant{border:1px solid #eef3f0;border-radius:10px;padding:8px 10px;margin-bottom:8px;background:#fdfcf9}
+    .sw-plant b{font-size:13.5px}
+    .sw-plant .meta{font-size:11.5px;color:var(--muted,#888);margin-top:3px}
+    .sw-plant .acciones{margin-top:6px}
+    .sw-ok{color:var(--color-accent,#00754a);font-weight:700}
+    @media (max-width:767px){
+      .sw-cols{grid-template-columns:1fr}
+      .sw-tl,.sw-tr{grid-column:auto;grid-row:auto}
+      .sw-col{min-width:0;flex:none;width:100%}
+      .sw-form input[type=text],.sw-form select,.sw-form textarea{min-width:0;width:100%}
+      .sw-form label{width:100%}
+      .sw-tabla{font-size:12px}
+      .sw-tabla,.sw-tabla tbody,.sw-tabla tr,.sw-tabla td{display:block;width:100%;box-sizing:border-box}
+      .sw-tabla thead{display:none}
+      .sw-tabla tr{border:1px solid #eef3f0;border-radius:10px;margin-bottom:8px;padding:4px 0;background:#fff}
+      .sw-tabla td{border:0;padding:3px 9px}
+      .sw-matriz label{font-size:12px;padding:4px 8px}
+    }
+  </style>
+
+  <div class="sw-head">
+    <h1>Software de laboratorios</h1>
+    <nav class="sw-nav" aria-label="Navegación">
+      <a class="btn ghost" href="{% url 'lab_lista' %}">← Registros</a>
+    </nav>
+  </div>
+  <p class="sub">Inventario de programas: licencia, uso y qué lab lo tiene. Publicás como: <b>{{ quien|default:"—" }}</b>.</p>
+  {% if error %}<p class="error">{{ error }}</p>{% endif %}
+  {% if flash %}<p class="flash {{ flash.tipo }}">{{ flash.texto }}</p>{% endif %}
+
+  <div class="sw-cols">
+    <section class="sw-col">
+      <div class="sw-card sw-tl">
+        <h2>Programa en un lab</h2>
+        <p class="hint">Elegí lab y marcá qué corre ahí. Guardar reemplaza la lista completa de ese lab.</p>
+        <form method="get">
+          <div class="sw-form">
+            <label>Lab
+              <select name="lab" required onchange="this.form.submit()">
+                <option value="">— elegir —</option>
+                {% for l in labs %}
+                <option value="{{ l.id }}" {% if lab_sel == l.id|stringformat:"s" %}selected{% endif %}>{{ l.codigo }}</option>
+                {% endfor %}
+              </select>
+            </label>
+          </div>
+        </form>
+        {% if lab_sel %}
+        <form method="post" id="sw-matriz-form">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="matriz">
+          <input type="hidden" name="lab_id" value="{{ lab_sel }}">
+          <div class="sw-matriz">
+            {% for s in sws %}
+            {% if s.activo %}
+            <label>
+              <input type="checkbox" name="software_ids" value="{{ s.id }}" {% if s.id in sw_lab_ids %}checked{% endif %} {% if not puede_editar %}disabled{% endif %}>
+              <span>{{ s.nombre }}</span>
+            </label>
+            {% endif %}
+            {% empty %}
+            <p class="hint">Sin programas en el catálogo.</p>
+            {% endfor %}
+          </div>
+          <p style="margin-top:10px"><button class="btn" type="submit" {% if not puede_editar %}disabled{% endif %}>Guardar en este lab</button></p>
+        </form>
+        <script>
+        (function () {
+          var f = document.getElementById("sw-matriz-form");
+          if (!f) return;
+          f.addEventListener("submit", function (e) {
+            var n = f.querySelectorAll('input[name="software_ids"]:checked').length;
+            if (n === 0 && !confirm("Vas a dejar el lab sin ningún programa. ¿Seguro?")) {
+              e.preventDefault();
+            }
+          });
+        })();
+        </script>
+        {% else %}
+        <p class="hint">Elegí un lab para ver/editar su lista.</p>
+        {% endif %}
+      </div>
+
+      <div class="sw-card sw-span">
+        <h2>Catálogo ({{ sws|length }})</h2>
+        <p class="hint">Licencia por programa. Los esenciales deben estar en todos los labs.</p>
+        <table class="sw-tabla">
+          <thead><tr><th>Nombre</th><th>Licencia</th><th>Labs</th>{% if puede_editar %}<th></th>{% endif %}</tr></thead>
+          <tbody>
+            {% for s in sws %}
+            <tr {% if not s.activo %}class="inactivo"{% endif %}>
+              <td>
+                <span class="sw-nombre-t">{{ s.nombre }}</span>
+                <span class="sw-meta">
+                  {% if s.esencial %}<span class="sw-tag esencial">esencial</span>{% endif %}
+                  {% if s.docentes %}<span class="sw-tag docente">docentes</span>{% endif %}
+                  {% if not s.activo %}<span class="sw-tag inactivo">inactivo</span>{% endif %}
+                  {% if s.uso %}<span class="hint">{{ s.uso }}</span>{% endif %}
+                </span>
+              </td>
+              <td class="sw-num"><span class="sw-tag {{ s.licencia }}">{{ s.licencia }}</span></td>
+              <td class="sw-num">{{ s.labs|length }}</td>
+              {% if puede_editar %}
+              <td><button class="btn ghost" type="button" data-sw-editar="{{ s.id }}">Editar</button></td>
+              {% endif %}
+            </tr>
+            {% empty %}
+            <tr><td colspan="4" class="hint">Catálogo vacío.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="sw-col">
+      <div class="sw-card sw-tr">
+        <h2 id="sw-form-title">Agregar programa</h2>
+        <form method="post" id="sw-form">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="crear" id="sw-action">
+          <input type="hidden" name="id" value="" id="sw-id">
+          <div class="sw-form">
+            <label>Nombre <input type="text" name="nombre" required id="sw-nombre" maxlength="150"></label>
+            <label>Licencia
+              <select name="licencia" id="sw-licencia">
+                <option value="gratuita">gratuita</option>
+                <option value="mixta">mixta</option>
+                <option value="paga">paga</option>
+              </select>
+            </label>
+            <label>Uso <input type="text" name="uso" id="sw-uso" maxlength="250"></label>
+            <label class="chk"><input type="checkbox" name="esencial" id="sw-esencial"> esencial</label>
+            <label class="chk"><input type="checkbox" name="docentes" id="sw-docentes"> docentes</label>
+            <label class="chk"><input type="checkbox" name="activo" id="sw-activo" checked> activo</label>
+            <button class="btn" type="submit" id="sw-submit" {% if not puede_editar %}disabled{% endif %}>Agregar</button>
+            <button class="btn ghost" type="button" id="sw-cancel" onclick="swNuevo()" hidden>Cancelar</button>
+          </div>
+        </form>
+        <p class="hint" id="sw-msg"></p>
+      </div>
+
+      <div class="sw-card sw-span">
+        <h2>Plantillas de atención</h2>
+        <p class="hint">Texto armado para registrar una atención de software ({"{programa}" } y {"{pc}"} se rellenan a mano).</p>
+        <form method="post">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="plantilla" id="pl-action">
+          <input type="hidden" name="id" value="" id="pl-id">
+          <div class="sw-form">
+            <label>Nombre <input type="text" name="nombre" id="pl-nombre" required maxlength="150"></label>
+            <label>Categoría
+              <select name="categoria" id="pl-cat">
+                {% for c in categorias %}<option value="{{ c.nombre }}">{{ c.nombre }}</option>{% endfor %}
+              </select>
+            </label>
+            <label>Turno
+              <select name="turno" id="pl-turno"><option value="">—</option>{% for t in turnos %}<option value="{{ t }}">{{ t|capfirst }}</option>{% endfor %}</select>
+            </label>
+            <label class="chk"><input type="checkbox" name="activa" id="pl-activa" checked> activa</label>
+            <button class="btn" type="submit" {% if not puede_editar %}disabled{% endif %}>Guardar plantilla</button>
+          </div>
+          <div class="sw-form">
+            <label>Descripción <textarea name="descripcion" id="pl-desc" maxlength="500"></textarea></label>
+            <label>Solución <textarea name="solucion" id="pl-sol" maxlength="500"></textarea></label>
+          </div>
+        </form>
+        {% for p in plantillas %}
+        <div class="sw-plant">
+          <b>{{ p.nombre }}</b>
+          {% if not p.activa %}<span class="sw-tag inactivo">inactiva</span>{% endif %}
+          <div class="meta">{{ p.categoria }}{% if p.turno %} · {{ p.turno }}{% endif %}</div>
+          {% if p.descripcion %}<div class="meta">{{ p.descripcion }}</div>{% endif %}
+          {% if p.solucion %}<div class="meta">→ {{ p.solucion }}</div>{% endif %}
+          {% if puede_editar %}
+          <div class="acciones"><button class="btn ghost" type="button" data-pl-editar="{{ p.id }}">Editar</button></div>
+          {% endif %}
+        </div>
+        {% empty %}
+        <p class="hint">Sin plantillas todavía.</p>
+        {% endfor %}
+      </div>
+    </section>
+  </div>
+</div>
+
+<script id="sw-json" type="application/json">{{ sws_json|safe }}</script>
+<script id="pl-json" type="application/json">{{ plantillas_json|safe }}</script>
+<script>
+var SW = JSON.parse(document.getElementById("sw-json").textContent || "[]");
+var PL = JSON.parse(document.getElementById("pl-json").textContent || "[]");
+
+function swNuevo() {
+  document.getElementById("sw-form").reset();
+  document.getElementById("sw-action").value = "crear";
+  document.getElementById("sw-id").value = "";
+  document.getElementById("sw-activo").checked = true;
+  document.getElementById("sw-form-title").textContent = "Agregar programa";
+  document.getElementById("sw-submit").textContent = "Agregar";
+  document.getElementById("sw-cancel").hidden = true;
+}
+function swEditar(s) {
+  document.getElementById("sw-action").value = "editar";
+  document.getElementById("sw-id").value = s.id;
+  document.getElementById("sw-nombre").value = s.nombre;
+  document.getElementById("sw-licencia").value = s.licencia || "gratuita";
+  document.getElementById("sw-uso").value = s.uso || "";
+  document.getElementById("sw-esencial").checked = !!s.esencial;
+  document.getElementById("sw-docentes").checked = !!s.docentes;
+  document.getElementById("sw-activo").checked = !!s.activo;
+  document.getElementById("sw-form-title").textContent = "Editar: " + s.nombre;
+  document.getElementById("sw-submit").textContent = "Guardar";
+  document.getElementById("sw-cancel").hidden = false;
+  document.getElementById("sw-form").scrollIntoView({ behavior: "smooth", block: "center" });
+}
+function plEditar(p) {
+  document.getElementById("pl-action").value = "plantilla";
+  document.getElementById("pl-id").value = p.id;
+  document.getElementById("pl-nombre").value = p.nombre;
+  document.getElementById("pl-cat").value = p.categoria || "SOFTWARE";
+  document.getElementById("pl-turno").value = p.turno || "";
+  document.getElementById("pl-activa").checked = p.activa !== false;
+  document.getElementById("pl-desc").value = p.descripcion || "";
+  document.getElementById("pl-sol").value = p.solucion || "";
+  document.getElementById("pl-nombre").scrollIntoView({ behavior: "smooth", block: "center" });
+}
+document.addEventListener("click", function (e) {
+  var b = e.target.closest("[data-sw-editar]");
+  if (b) {
+    var s = SW.filter(function (x) { return x.id === +b.dataset.swEditar; })[0];
+    if (s) swEditar(s);
+    return;
+  }
+  var p = e.target.closest("[data-pl-editar]");
+  if (p) {
+    var pl = PL.filter(function (x) { return x.id === +p.dataset.plEditar; })[0];
+    if (pl) plEditar(pl);
+  }
+});
+</script>
+{% endblock %}

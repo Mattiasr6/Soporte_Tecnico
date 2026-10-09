@@ -9,13 +9,16 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import app.models.area
 import app.models.atencion
+import app.models.auditoria
 import app.models.feedback_ia
 import app.models.grupo
 import app.models.grupo_padre
 import app.models.horario
+import app.models.lab_pc
 import app.models.laboratorio
 import app.models.log_ia
 import app.models.propuesta_ia
+import app.models.software
 import app.models.sugerencia
 import app.models.usuario  # noqa: F401
 from app.core.config import settings

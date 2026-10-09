@@ -41,13 +41,17 @@ def sesion(request):
         "lab_editar": "laboratorios",
         "lab_eliminar": "laboratorios",
         "lab_clonar": "laboratorios",
+        "lab_pcs": "laboratorios",
+        "software": "software",
+        "auditoria": "auditoria",
         "lab_reportes": "lab_reportes",
         "lab_dashboard": "lab_dashboard",
+        "lab_tablero": "tablero",
+        "lab_timeline": "timeline",
         "lab_export_csv": "laboratorios",
         "auxiliares": "auxiliares",
         "auxiliares_horarios": "auxiliares_horarios",
         "auxiliares_sabados": "auxiliares_horarios",
-        "auxiliares_soy": "auxiliares",
         "novedades": "novedades",
         "novedad_foto": "novedades",
         "horarios_export_xlsx": "auxiliares_horarios",
@@ -56,6 +60,8 @@ def sesion(request):
         "reportes": "reportes",
         "jerarquia": "jerarquia",
         "perfil": "perfil",
+        "auxiliares_perfil": "auxiliares_perfil",
+        "auxiliares_perfil_guardar": "auxiliares_perfil",
         "notas": "notas",
         "sugerencias": "sugerencias",
         "horarios": "horarios",
@@ -70,7 +76,7 @@ def sesion(request):
     # OJO: matchear sobre url_name (lab_lista, lab_nueva...), NO sobre pagina
     # mapeada ("laboratorios" no empieza con lab_ y rompe el sistema).
     _es_lab = (url_name or "").startswith("lab_")
-    if pagina in ("auxiliares", "auxiliares_horarios", "auxiliares_soy", "horarios_export_xlsx", "horarios_export_pdf", "novedades") or _es_lab:
+    if pagina in ("auxiliares", "auxiliares_horarios", "horarios_export_xlsx", "horarios_export_pdf", "novedades", "software", "auditoria", "auxiliares_perfil") or _es_lab:
         sistema = "AUXILIARES"
     elif pagina == "sugerencias" and request.session.get("sistema_panel") in ("SOPORTE", "AUXILIARES"):
         sistema = request.session["sistema_panel"]

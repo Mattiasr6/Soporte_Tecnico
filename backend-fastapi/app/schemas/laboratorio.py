@@ -34,6 +34,16 @@ class LaboratorioOut(BaseModel):
     codigo: str
     nombre: str
     activa: bool
+    procesador: str | None = None
+    ram: str | None = None
+    disco: str | None = None
+    marca: str | None = None
+    gpu: str | None = None
+    monitores: str | None = None
+    sillas: int | None = None
+    capacidad: int | None = None
+    pcs_estudiantes: int | None = None
+    pcs_docentes: int | None = None
 
 
 class LaboratorioCreate(BaseModel):
@@ -45,6 +55,16 @@ class LaboratorioUpdate(BaseModel):
     codigo: str | None = None
     nombre: str | None = None
     activa: bool | None = None
+    procesador: str | None = None
+    ram: str | None = None
+    disco: str | None = None
+    marca: str | None = None
+    gpu: str | None = None
+    monitores: str | None = None
+    sillas: int | None = None
+    capacidad: int | None = None
+    pcs_estudiantes: int | None = None
+    pcs_docentes: int | None = None
 
 
 class LabCategoriaOut(BaseModel):
@@ -78,6 +98,7 @@ class LabAtencionCreate(BaseModel):
     observaciones: str | None = None
     fecha_registro: date | None = None
     forzar_duplicado: bool = False
+    pc_nombre: str | None = None
 
 
 class LabAtencionUpdate(BaseModel):
@@ -103,6 +124,7 @@ class LabAtencionOut(BaseModel):
     categoria_id: int
     categoria: str = ""
     auxiliar_nombre: str
+    pc_nombre: str | None = None
     turno: str | None = None
     medio_solicitud: str | None = None
     descripcion: str
@@ -150,6 +172,7 @@ class AuxiliarEntry(BaseModel):
     nombre: str
     activo: bool = True
     encargado: bool = False
+    usuario_id: int | None = None
 
 
 class AuxiliarCreate(BaseModel):
@@ -164,6 +187,17 @@ class EquipoReplace(BaseModel):
     auxiliares: list[AuxiliarEntry] = []
 
 
+class VinculoIn(BaseModel):
+    nombre: str
+    usuario_id: int | None = None
+
+
+class MiembroYoOut(BaseModel):
+    nombre: str
+    encargado: bool
+    activo: bool
+
+
 class EncargadoIn(BaseModel):
     nombre: str
     encargado: bool = True
@@ -173,3 +207,16 @@ class TurnoHorario(BaseModel):
     inicio: str
     fin: str
     auxiliares: list[str] = []
+
+
+class LabPcIn(BaseModel):
+    nombre: str
+    fila: int = 0
+    col: int = 0
+    activa: bool = True
+
+
+class LabPcsIn(BaseModel):
+    filas: int = 0
+    cols: int = 0
+    pcs: list[LabPcIn] = []

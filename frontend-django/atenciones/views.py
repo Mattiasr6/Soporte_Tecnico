@@ -21,6 +21,7 @@ from .api import (
 )
 from .auth import con_login
 from .forms import LoginForm
+from .views_lab import AVISO_SIN_VINCULO, _sin_vinculo, cargar_identidad_auxiliar
 
 _ZONA_LA_PAZ = ZoneInfo("America/La_Paz")
 
@@ -73,6 +74,7 @@ def login_vista(request: HttpRequest) -> HttpResponse:
                 )
                 request.session["jwt"] = data["token"]
                 request.session["usuario"] = data["user"]
+                cargar_identidad_auxiliar(request)
                 _marcar_sesion(request, True)
                 return redirect(_destino(request))
             except ApiError as e:
@@ -1717,6 +1719,19 @@ def jerarquia_accion_vista(request: HttpRequest) -> HttpResponse:
     return redirect(destino)
 
 
+ROLES_NOMINA = ("Auxiliar", "Encargado")
+URL_VINCULAR = "/api/laboratorios/equipo/vincular"
+
+
+def _nomina_equipo(token: str) -> list[dict]:
+    try:
+        datos = api_get("/api/laboratorios/equipo", token)
+    except ApiError:
+        return []
+    auxiliares = datos.get("auxiliares") if isinstance(datos, dict) else None
+    return [m for m in auxiliares or [] if isinstance(m, dict)]
+
+
 @con_login
 def usuarios_vista(request: HttpRequest) -> HttpResponse:
     if not _puede_dashboard(request):
@@ -1726,6 +1741,16 @@ def usuarios_vista(request: HttpRequest) -> HttpResponse:
     )
     lista = usuarios if isinstance(usuarios, list) else []
     sesion = request.session.get("usuario") or {}
+    es_jefe = _rol(request) == "Jefe"
+    nomina: list[dict] = []
+    if es_jefe:
+        nomina = _nomina_equipo(str(request.session["jwt"]))
+        por_usuario = {
+            m["usuario_id"]: m["nombre"] for m in nomina if m.get("usuario_id")
+        }
+        for u in lista:
+            if u.get("role") in ROLES_NOMINA:
+                u["nomina"] = por_usuario.get(u.get("id"))
     return render(
         request,
         "atenciones/usuarios.html",
@@ -1733,6 +1758,9 @@ def usuarios_vista(request: HttpRequest) -> HttpResponse:
             "activos": [u for u in lista if u.get("activo")],
             "inactivos": [u for u in lista if not u.get("activo")],
             "roles": ["Tecnico", "Jefe", "Auxiliar", "Encargado"],
+            "roles_nomina": ROLES_NOMINA,
+            "es_jefe": es_jefe,
+            "nomina": [m for m in nomina if m.get("activo")],
             "mi_id": sesion.get("id"),
             "flash": request.session.pop("flash", None),
             "detalle": request.GET.get("detalle", ""),
@@ -1758,8 +1786,42 @@ def usuarios_accion_vista(request: HttpRequest) -> HttpResponse:
             password = request.POST.get("password", "")
             if password:
                 cuerpo["password"] = password
-            api_post("/api/usuarios", token, cuerpo)
+            creado = api_post("/api/usuarios", token, cuerpo)
             texto = "Usuario creado."
+            miembro = request.POST.get("nomina", "")
+            if (
+                miembro
+                and cuerpo["role"] in ROLES_NOMINA
+                and _rol(request) == "Jefe"
+                and isinstance(creado, dict)
+            ):
+                try:
+                    api_post(
+                        URL_VINCULAR,
+                        token,
+                        {"nombre": miembro, "usuario_id": creado.get("id")},
+                    )
+                except ApiError as e:
+                    raise ApiError(
+                        e.status,
+                        f"Usuario creado, pero no se pudo vincular: {_detalle_error(e)}",
+                    ) from e
+                texto = f"Usuario creado y vinculado a {miembro}."
+        elif accion in ("vincular", "desvincular"):
+            if _rol(request) != "Jefe":
+                raise ApiError(403, "Solo el Jefe vincula cuentas a la nómina.")
+            nombre = request.POST.get("nombre", "")
+            api_post(
+                URL_VINCULAR,
+                token,
+                {
+                    "nombre": nombre,
+                    "usuario_id": ident if accion == "vincular" else None,
+                },
+            )
+            texto = (
+                f"Vinculado a {nombre}." if accion == "vincular" else "Desvinculado."
+            )
         elif accion in ("activar", "desactivar"):
             api_patch(
                 f"/api/usuarios/{ident}/activo",
@@ -1790,8 +1852,31 @@ def usuarios_accion_vista(request: HttpRequest) -> HttpResponse:
     return redirect(reverse("usuarios"))
 
 
+def _cambiar_password(request: HttpRequest) -> tuple[str, str]:
+    """Cambia la contraseña propia y vuelve a loguear. Devuelve (texto, error)."""
+    nueva = request.POST.get("nueva", "")
+    if nueva != request.POST.get("repetir", ""):
+        return "", "Las dos contraseñas nuevas no coinciden."
+    email = str((request.session.get("usuario") or {}).get("email") or "")
+    try:
+        api_post(
+            "/api/auth/password",
+            str(request.session["jwt"]),
+            {"actual": request.POST.get("actual", ""), "nueva": nueva},
+        )
+        datos = login_api(email, nueva)
+        request.session["jwt"] = datos["token"]
+        request.session["usuario"] = datos["user"]
+        cargar_identidad_auxiliar(request)
+    except ApiError as e:
+        return "", _detalle_error(e)
+    return "Contraseña cambiada.", ""
+
+
 @con_login
 def perfil_vista(request: HttpRequest) -> HttpResponse:
+    if _es_auxiliar(request):
+        return redirect("auxiliares_perfil")
     token = str(request.session["jwt"])
     usuario = api_get("/api/usuarios/me", token)
     assert isinstance(usuario, dict)
@@ -1826,23 +1911,7 @@ def perfil_guardar_vista(request: HttpRequest) -> HttpResponse:
         except ApiError as e:
             error = _detalle_error(e)
     elif accion == "password":
-        nueva = request.POST.get("nueva", "")
-        if nueva != request.POST.get("repetir", ""):
-            error = "Las dos contraseñas nuevas no coinciden."
-        else:
-            email = str((request.session.get("usuario") or {}).get("email") or "")
-            try:
-                api_post(
-                    "/api/auth/password",
-                    token,
-                    {"actual": request.POST.get("actual", ""), "nueva": nueva},
-                )
-                datos = login_api(email, nueva)
-                request.session["jwt"] = datos["token"]
-                request.session["usuario"] = datos["user"]
-                texto = "Contraseña cambiada."
-            except ApiError as e:
-                error = _detalle_error(e)
+        texto, error = _cambiar_password(request)
     else:
         error = "Acción desconocida."
     request.session["flash"] = {
@@ -1850,6 +1919,40 @@ def perfil_guardar_vista(request: HttpRequest) -> HttpResponse:
         "texto": error or texto,
     }
     return redirect("perfil")
+
+
+@con_login
+def auxiliares_perfil_vista(request: HttpRequest) -> HttpResponse:
+    if not _es_auxiliar(request):
+        return redirect("perfil")
+    sin_vinculo = _sin_vinculo(request)
+    sesion = request.session.get("usuario") or {}
+    return render(
+        request,
+        "atenciones/auxiliares_perfil.html",
+        {
+            "perfil": sesion,
+            "nomina": request.session.get("auxiliar_nombre", ""),
+            "aviso_vinculo": AVISO_SIN_VINCULO if sin_vinculo else "",
+            "flash": request.session.pop("flash", None),
+        },
+    )
+
+
+@con_login
+@require_POST
+def auxiliares_perfil_guardar_vista(request: HttpRequest) -> HttpResponse:
+    if not _es_auxiliar(request):
+        return redirect("perfil")
+    if request.POST.get("accion", "") == "password":
+        texto, error = _cambiar_password(request)
+    else:
+        texto, error = "", "Acción desconocida."
+    request.session["flash"] = {
+        "tipo": "error" if error else "ok",
+        "texto": error or texto,
+    }
+    return redirect("auxiliares_perfil")
 
 
 @con_login

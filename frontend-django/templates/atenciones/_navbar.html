@@ -86,6 +86,10 @@
           <iconify-icon icon="mdi:view-dashboard-outline" aria-hidden="true"></iconify-icon>
           <span class="side-link-label">Dashboard labs</span>
         </a>
+        <a class="side-link{% if nav_page == 'tablero' %} active{% endif %}" href="{% url 'lab_tablero' %}" {% if nav_page == 'tablero' %}aria-current="page"{% endif %} data-nav-page="tablero">
+          <iconify-icon icon="mdi:traffic-light-outline" aria-hidden="true"></iconify-icon>
+          <span class="side-link-label">Tablero</span>
+        </a>
         {% endif %}
         <a class="side-link{% if nav_page == 'auxiliares' %} active{% endif %}" href="{% url 'auxiliares' %}" {% if nav_page == 'auxiliares' %}aria-current="page"{% endif %} data-nav-page="auxiliares">
           <iconify-icon icon="mdi:account-supervisor-outline" aria-hidden="true"></iconify-icon>
@@ -103,6 +107,20 @@
           <iconify-icon icon="mdi:forum-outline" aria-hidden="true"></iconify-icon>
           <span class="side-link-label">Novedades</span>
         </a>
+        <a class="side-link{% if nav_page == 'timeline' %} active{% endif %}" href="{% url 'lab_timeline' %}" {% if nav_page == 'timeline' %}aria-current="page"{% endif %} data-nav-page="timeline">
+          <iconify-icon icon="mdi:timeline-clock-outline" aria-hidden="true"></iconify-icon>
+          <span class="side-link-label">Línea del día</span>
+        </a>
+        <a class="side-link{% if nav_page == 'software' %} active{% endif %}" href="{% url 'software' %}" {% if nav_page == 'software' %}aria-current="page"{% endif %} data-nav-page="software">
+          <iconify-icon icon="mdi:package-variant-closed" aria-hidden="true"></iconify-icon>
+          <span class="side-link-label">Software</span>
+        </a>
+        {% if can_dashboard %}
+        <a class="side-link{% if nav_page == 'auditoria' %} active{% endif %}" href="{% url 'auditoria' %}" {% if nav_page == 'auditoria' %}aria-current="page"{% endif %} data-nav-page="auditoria">
+          <iconify-icon icon="mdi:eye-outline" aria-hidden="true"></iconify-icon>
+          <span class="side-link-label">Auditoría</span>
+        </a>
+        {% endif %}
         <a class="side-link{% if nav_page == 'auxiliares_horarios' %} active{% endif %}" href="{% url 'auxiliares_horarios' %}" {% if nav_page == 'auxiliares_horarios' %}aria-current="page"{% endif %} data-nav-page="auxiliares_horarios">
           <iconify-icon icon="mdi:calendar-clock-outline" aria-hidden="true"></iconify-icon>
           <span class="side-link-label">Horarios</span>
@@ -117,12 +135,16 @@
           <iconify-icon icon="mdi:comment-quote-outline" aria-hidden="true"></iconify-icon>
           <span class="side-link-label">Sugerencias</span>
         </a>
+        <a class="side-link{% if nav_page == 'auxiliares_perfil' %} active{% endif %}" href="{% url 'auxiliares_perfil' %}" {% if nav_page == 'auxiliares_perfil' %}aria-current="page"{% endif %} data-nav-page="auxiliares_perfil">
+          <iconify-icon icon="mdi:account-circle-outline" aria-hidden="true"></iconify-icon>
+          <span class="side-link-label">Perfil</span>
+        </a>
       </div>
     </nav>
     <div class="side-footer">
       <div class="side-user">
         <span class="avatar">{{ usuario.display_name|default:"U"|slice:":1"|upper }}</span>
-        <span class="side-user-main"><strong>{{ usuario.display_name|default:"Usuario" }}</strong><small>{{ usuario.role|default:"" }}</small>{% if auxiliar_nombre %}<small>Soy: {{ auxiliar_nombre }} · <a href="{% url 'auxiliares_soy' %}">cambiar</a></small>{% endif %}</span>
+        <span class="side-user-main"><strong>{{ usuario.display_name|default:"Usuario" }}</strong><small>{{ usuario.role|default:"" }}</small>{% if auxiliar_nombre %}<small>Soy: {{ auxiliar_nombre }}</small>{% endif %}</span>
       </div>
       <form method="post" action="{% url 'logout' %}">
         {% csrf_token %}

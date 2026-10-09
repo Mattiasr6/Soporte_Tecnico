@@ -49,6 +49,12 @@ urlpatterns = [
     path("horarios/copiar/", views.horarios_copiar_vista, name="horarios_copiar"),
     path("perfil/", views.perfil_vista, name="perfil"),
     path("perfil/guardar/", views.perfil_guardar_vista, name="perfil_guardar"),
+    path("auxiliares/perfil/", views.auxiliares_perfil_vista, name="auxiliares_perfil"),
+    path(
+        "auxiliares/perfil/guardar/",
+        views.auxiliares_perfil_guardar_vista,
+        name="auxiliares_perfil_guardar",
+    ),
     path("sugerencias/", views.sugerencias_vista, name="sugerencias"),
     path("notas/", views.notas_vista, name="notas"),
     path("notas/guardar/", views.notas_guardar_vista, name="notas_guardar"),
@@ -84,13 +90,23 @@ urlpatterns = [
     ),
     path("auxiliares/atenciones/", views_lab.lab_lista_vista, name="lab_lista"),
     path("auxiliares/atenciones/nueva/", views_lab.lab_nueva_vista, name="lab_nueva"),
+    path(
+        "auxiliares/laboratorios/<int:laboratorio_id>/pcs/",
+        views_lab.lab_pcs_vista,
+        name="lab_pcs",
+    ),
+    path("auxiliares/software/", views_lab.software_vista, name="software"),
+    path(
+        "auxiliares/auditoria/",
+        views_lab.auditoria_vista,
+        name="auditoria",
+    ),
     path("auxiliares/novedades/", views_lab.novedades_vista, name="novedades"),
     path(
         "auxiliares/novedades/<int:novedad_id>/foto/",
         views_lab.novedad_foto_vista,
         name="novedad_foto",
     ),
-    path("auxiliares/soy/", views_lab.soy_vista, name="auxiliares_soy"),
     path(
         "auxiliares/horarios/export.xlsx",
         views_lab.horarios_export_xlsx_vista,
@@ -122,6 +138,8 @@ urlpatterns = [
         name="lab_ticket",
     ),
     path("auxiliares/dashboard/", views_lab.lab_dashboard_vista, name="lab_dashboard"),
+    path("auxiliares/tablero/", views_lab.lab_tablero_vista, name="lab_tablero"),
+    path("auxiliares/timeline/", views_lab.lab_timeline_vista, name="lab_timeline"),
     path("auxiliares/reportes/", views_lab.lab_reportes_vista, name="lab_reportes"),
     path(
         "auxiliares/export.csv",
