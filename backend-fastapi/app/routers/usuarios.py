@@ -30,7 +30,11 @@ from app.services.horarios import LA_PAZ, esta_fuera_de_horario
 router = APIRouter(prefix="/api/usuarios", tags=["usuarios"])
 
 ESTADOS_VALIDOS = {"disponible": "Disponible", "ocupado": "Ocupado"}
-ROLES_VALIDOS = ("Tecnico", "Jefe", "Auxiliar", "Encargado")
+# Decano and Invitado exist for the asignacion module (horarios.perfiles roles).
+# Their Soporte permissions are not defined yet: no check grants them anything,
+# so they only get the default (least privileged) behavior.
+ROLES_VALIDOS = ("Tecnico", "Jefe", "Auxiliar", "Encargado", "Decano", "Invitado")
+ROL_INVALIDO = "Rol inválido. Use: " + ", ".join(ROLES_VALIDOS)
 
 
 def _hoy_local() -> tuple[int, int, int]:
@@ -144,7 +148,7 @@ def crear_usuario(dto: UsuarioCreateIn, db: DbSession, user: CurrentUser):
     if len(nombre) > 255:
         raise bad_request("El nombre no puede superar 255 caracteres")
     if dto.role not in ROLES_VALIDOS:
-        raise bad_request("Rol inválido. Use: Tecnico, Jefe, Auxiliar, Encargado")
+        raise bad_request(ROL_INVALIDO)
     if dto.password is not None and len(dto.password) < MINIMO_PASSWORD:
         raise bad_request(
             f"La contraseña necesita al menos {MINIMO_PASSWORD} caracteres"
@@ -212,7 +216,7 @@ def cambiar_rol(usuario_id: int, dto: RolIn, db: DbSession, user: CurrentUser):
     if usuario_id == user.id:
         raise bad_request("No puedes cambiar tu propio rol")
     if dto.role not in ROLES_VALIDOS:
-        raise bad_request("Rol inválido. Use: Tecnico, Jefe, Auxiliar, Encargado")
+        raise bad_request(ROL_INVALIDO)
     target = db.get(Usuario, usuario_id)
     if target is None:
         raise not_found("Usuario no encontrado")
@@ -231,7 +235,9 @@ def cambiar_rol(usuario_id: int, dto: RolIn, db: DbSession, user: CurrentUser):
 
 
 @router.post("/{usuario_id}/reset-password", status_code=204)
-def reset_password(usuario_id: int, dto: PasswordResetIn, db: DbSession, user: CurrentUser):
+def reset_password(
+    usuario_id: int, dto: PasswordResetIn, db: DbSession, user: CurrentUser
+):
     if not is_privileged(user):
         raise forbidden("Solo Jefe puede gestionar usuarios")
     if len(dto.password) < MINIMO_PASSWORD:
@@ -241,7 +247,9 @@ def reset_password(usuario_id: int, dto: PasswordResetIn, db: DbSession, user: C
     target = db.get(Usuario, usuario_id)
     if target is None:
         raise not_found("Usuario no encontrado")
-    target.password_hash = bcrypt.hashpw(dto.password.encode(), bcrypt.gensalt()).decode()
+    target.password_hash = bcrypt.hashpw(
+        dto.password.encode(), bcrypt.gensalt()
+    ).decode()
     target.updated_at = datetime.now(UTC)
     db.commit()
 

@@ -17,6 +17,8 @@ ROLE_MAP: dict[str, str] = {
     "Jefe": "admin",
     "Encargado": "encargado",
     "Auxiliar": "auxiliar",
+    "Decano": "decano",
+    "Invitado": "invitado",
     "Tecnico": "invitado",
 }
 DEFAULT_ROL = "invitado"

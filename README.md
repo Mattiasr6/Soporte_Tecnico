@@ -15,6 +15,8 @@ Dos paneles, una base:
 | Encargado | panel Auxiliares + dashboard/reportes labs | nómina y horarios, sus atenciones |
 | Técnico | panel Soporte | sus atenciones |
 | Auxiliar | panel Auxiliares (lectura equipo/horarios) | sus atenciones |
+| Decano | panel Soporte (como Técnico, sin privilegios) | nada propio: permisos en Soporte pendientes de definir; en Horarios = `decano` |
+| Invitado | panel Soporte (como Técnico, sin privilegios) | nada propio: permisos en Soporte pendientes de definir; en Horarios = `invitado` (sin acceso) |
 
 ## Ambientes
 

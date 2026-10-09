@@ -1732,7 +1732,7 @@ def usuarios_vista(request: HttpRequest) -> HttpResponse:
         {
             "activos": [u for u in lista if u.get("activo")],
             "inactivos": [u for u in lista if not u.get("activo")],
-            "roles": ["Tecnico", "Jefe", "Auxiliar", "Encargado"],
+            "roles": ["Tecnico", "Jefe", "Auxiliar", "Encargado", "Decano", "Invitado"],
             "mi_id": sesion.get("id"),
             "flash": request.session.pop("flash", None),
             "detalle": request.GET.get("detalle", ""),
