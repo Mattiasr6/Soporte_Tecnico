@@ -4,6 +4,9 @@ import { IconoComponent } from '../../compartido/icono.component';
 import { ModalComponent } from '../../compartido/modal.component';
 import { CategoriaFalla, FallaPc, HorarioTurno, Perfil, RotacionSabado, TurnoCodigo, TurnoProgramado } from '../../core/modelos';
 import { CATEGORIAS_FALLA } from '../../core/tickets';
+import { AuthService } from '../../core/auth.service';
+import { UsuariosService } from '../../core/usuarios.service';
+import { EncargadosEquipoComponent } from './encargados-equipo.component';
 import { NotificacionesService } from '../../core/notificaciones.service';
 import { OperacionService, turnosDeHoy } from '../../core/operacion.service';
 import { environment } from '../../../environments/environment';
@@ -18,7 +21,7 @@ const NOMBRE_TURNO: Record<string, string> = { M: 'Mañana', MD: 'Mediodía', T:
  */
 @Component({
   selector: 'app-auxiliares',
-  imports: [FormsModule, IconoComponent, ModalComponent],
+  imports: [FormsModule, IconoComponent, ModalComponent, EncargadosEquipoComponent],
   template: `
     <header class="mb-4 flex flex-wrap items-end justify-between gap-3">
       <div>
@@ -170,6 +173,13 @@ const NOMBRE_TURNO: Record<string, string> = { M: 'Mañana', MD: 'Mediodía', T:
       <p class="px-3 py-2 text-xs text-slate-400">Para crear o desactivar cuentas, usa Configuración → Usuarios (solo admin).</p>
     </div>
 
+    <!-- ENCARGADOS (rol Soporte Encargado / Auxiliar) -->
+    <section class="mb-8">
+      <h2 class="mb-1 text-lg font-semibold">Encargados</h2>
+      <p class="mb-2 text-sm text-slate-600">Marca quién es encargado. El encargado gestiona el equipo, los turnos y las bajas de PCs.</p>
+      <app-encargados-equipo [miembros]="equipo()" [puedeCambiar]="auth.esAdmin()" [cambiando]="cambiandoRol()" (alternar)="alternarEncargado($event)" />
+    </section>
+
     <!-- ROTACIÓN DE SÁBADOS -->
     <section>
       <h2 class="mb-2 text-lg font-semibold">Rotación de sábados</h2>
@@ -215,11 +225,16 @@ const NOMBRE_TURNO: Record<string, string> = { M: 'Mañana', MD: 'Mediodía', T:
   `,
 })
 export class AuxiliaresComponent implements OnInit {
+  protected readonly auth = inject(AuthService);
   private readonly op = inject(OperacionService);
+  private readonly usuarios = inject(UsuariosService);
   private readonly notificaciones = inject(NotificacionesService);
 
   protected readonly nombreTurno = NOMBRE_TURNO;
   protected readonly auxiliares = signal<Perfil[]>([]);
+  /** Active auxiliares and encargados, for the encargado toggle */
+  protected readonly equipo = signal<Perfil[]>([]);
+  protected readonly cambiandoRol = signal<string | null>(null);
   protected readonly rotacion = signal<RotacionSabado[]>([]);
   protected readonly turnosProgramados = signal<TurnoProgramado[]>([]);
   protected readonly guardando = signal(false);
@@ -246,8 +261,11 @@ export class AuxiliaresComponent implements OnInit {
 
   private async cargar(): Promise<void> {
     try {
-      const [aux, rot, prog] = await Promise.all([this.op.listarAuxiliares(), this.op.listarRotacion(), this.op.listarTurnosProgramados()]);
+      const [aux, rot, prog, equipo] = await Promise.all([
+        this.op.listarAuxiliares(), this.op.listarRotacion(), this.op.listarTurnosProgramados(), this.op.listarEquipo(),
+      ]);
       this.auxiliares.set(aux);
+      this.equipo.set(equipo);
       this.rotacion.set(rot);
       this.turnosProgramados.set(prog);
     } catch (e) {
@@ -361,6 +379,27 @@ export class AuxiliaresComponent implements OnInit {
       await this.cargar();
     } catch (e) {
       this.notificaciones.error(e);
+    }
+  }
+
+  /**
+   * Sets the Soporte role Encargado or Auxiliar through the users endpoint
+   * (Jefe only: fn_es_admin). The perfil rol follows it (ROLE_MAP), so the
+   * lists are reloaded: a new encargado leaves the auxiliares shift table.
+   */
+  protected async alternarEncargado(m: Perfil): Promise<void> {
+    const aEncargado = m.rol !== 'encargado';
+    const texto = aEncargado ? `¿Hacer encargado a ${m.nombre_completo}?` : `¿Quitar a ${m.nombre_completo} como encargado? Vuelve a ser auxiliar.`;
+    if (!confirm(texto)) return;
+    this.cambiandoRol.set(m.id);
+    try {
+      await this.usuarios.actualizar(m.id, { role: aEncargado ? 'Encargado' : 'Auxiliar' });
+      this.notificaciones.exito(aEncargado ? `${m.nombre_completo} ahora es encargado.` : `${m.nombre_completo} ahora es auxiliar.`);
+      await this.cargar();
+    } catch (e) {
+      this.notificaciones.error(e, 'No se cambió el rol');
+    } finally {
+      this.cambiandoRol.set(null);
     }
   }
 

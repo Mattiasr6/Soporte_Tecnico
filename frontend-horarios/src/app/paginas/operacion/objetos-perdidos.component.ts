@@ -10,8 +10,10 @@ import { CatalogosService } from '../../core/catalogos.service';
 import { fechaActual, horaActual } from '../../core/fechas';
 import { comprimirFoto } from '../../core/fotos';
 import { ObjetoPerdido } from '../../core/modelos';
+import { DIAS_CUSTODIA, EstadoObjetoVisible, estadoVisible } from '../../core/objetos';
 import { NotificacionesService } from '../../core/notificaciones.service';
 import { ApiService } from '../../core/api.service';
+import { ObjetoEstadoChipComponent } from './objeto-estado-chip.component';
 
 /** Photos downloaded at the same time (each one is an authenticated request) */
 const DESCARGAS_SIMULTANEAS = 6;
@@ -33,7 +35,7 @@ interface FormEntrega { objeto: ObjetoPerdido; entregadoA: string; documento: st
  */
 @Component({
   selector: 'app-objetos-perdidos',
-  imports: [FormsModule, IconoComponent, ModalComponent, DatePipe],
+  imports: [FormsModule, IconoComponent, ModalComponent, DatePipe, ObjetoEstadoChipComponent],
   template: `
     <header class="mb-4 flex flex-wrap items-end justify-between gap-3">
       <div>
@@ -76,9 +78,7 @@ interface FormEntrega { objeto: ObjetoPerdido; entregadoA: string; documento: st
             } @else {
               <span class="flex h-full items-center justify-center text-slate-400"><app-icono nombre="camara" [tamano]="28" /></span>
             }
-            <span class="chip absolute top-2 left-2" [class]="o.estado === 'entregado' ? 'bg-emerald-600 text-white' : 'bg-amber-500 text-white'">
-              {{ o.estado === 'entregado' ? 'Entregado' : 'En custodia' }}
-            </span>
+            <span class="absolute top-2 left-2"><app-objeto-estado-chip [estado]="estadoDe(o)" /></span>
           </button>
           <div class="flex flex-1 flex-col gap-1 p-3">
             <p class="font-semibold">{{ o.nombre }}</p>
@@ -230,8 +230,9 @@ export class ObjetosPerdidosComponent implements OnInit, OnDestroy {
   private readonly notificaciones = inject(NotificacionesService);
 
   protected readonly sugerencias = SUGERENCIAS;
-  protected readonly filtros: { valor: 'en_custodia' | 'entregado' | null; texto: string }[] = [
-    { valor: 'en_custodia', texto: 'En custodia' }, { valor: 'entregado', texto: 'Entregados' }, { valor: null, texto: 'Todos' },
+  protected readonly filtros: { valor: EstadoObjetoVisible | null; texto: string }[] = [
+    { valor: 'en_custodia', texto: 'En custodia' }, { valor: 'vencido', texto: `Vencidos +${DIAS_CUSTODIA} días` },
+    { valor: 'entregado', texto: 'Entregados' }, { valor: null, texto: 'Todos' },
   ];
 
   protected readonly objetos = signal<ObjetoPerdido[]>([]);
@@ -239,17 +240,23 @@ export class ObjetosPerdidosComponent implements OnInit, OnDestroy {
   protected readonly urls = signal<Map<string, string>>(new Map());
   protected readonly cargando = signal(false);
   protected readonly guardando = signal(false);
-  protected readonly filtroEstado = signal<'en_custodia' | 'entregado' | null>('en_custodia');
+  protected readonly filtroEstado = signal<EstadoObjetoVisible | null>('en_custodia');
   protected readonly filtroLab = signal<number | null>(null);
   protected readonly busqueda = signal('');
   protected readonly registro = signal<FormRegistro | null>(null);
   protected readonly entrega = signal<FormEntrega | null>(null);
   protected readonly fotoGrande = signal<{ url: string; titulo: string } | null>(null);
 
+  /** Today in La Paz, taken when the list loads (the "vencido" rule counts calendar days) */
+  private readonly hoy = signal(fechaActual(environment.zonaHoraria));
+  /** Visible state of each object (stored state plus the computed "vencido") */
+  private readonly estados = computed(() =>
+    new Map(this.objetos().map((o) => [o.id, estadoVisible(o, this.hoy(), environment.zonaHoraria)])));
+
   protected readonly filtrados = computed(() => {
     const texto = normalizar(this.busqueda().trim());
     return this.objetos().filter((o) =>
-      (!this.filtroEstado() || o.estado === this.filtroEstado()) &&
+      (!this.filtroEstado() || this.estadoDe(o) === this.filtroEstado()) &&
       (!this.filtroLab() || o.ambiente_id === this.filtroLab()) &&
       (!texto || normalizar(`${o.nombre} ${o.descripcion ?? ''} ${o.entregado_a ?? ''}`).includes(texto)));
   });
@@ -262,8 +269,12 @@ export class ObjetosPerdidosComponent implements OnInit, OnDestroy {
     for (const url of this.urls().values()) URL.revokeObjectURL(url);
   }
 
-  protected cuenta(estado: 'en_custodia' | 'entregado' | null): number {
-    return this.objetos().filter((o) => !estado || o.estado === estado).length;
+  protected cuenta(estado: EstadoObjetoVisible | null): number {
+    return this.objetos().filter((o) => !estado || this.estadoDe(o) === estado).length;
+  }
+
+  protected estadoDe(o: ObjetoPerdido): EstadoObjetoVisible {
+    return this.estados().get(o.id) ?? o.estado;
   }
 
   /** "AAAA-MM-DDTHH:mm" de ahora en La Paz (para el campo fecha y hora) */
@@ -276,6 +287,7 @@ export class ObjetosPerdidosComponent implements OnInit, OnDestroy {
     await this.limpiarFotosViejas().catch((e) => console.error(e));
     try {
       const lista = await this.api.get<ObjetoPerdido[]>('/objetos-perdidos', { limite: 300 });
+      this.hoy.set(fechaActual(environment.zonaHoraria));
       this.objetos.set(lista);
       await this.descargarFotos(lista);
     } catch (e) {

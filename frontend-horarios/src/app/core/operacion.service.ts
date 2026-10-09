@@ -331,6 +331,11 @@ export class OperacionService {
     return this.api.get<Perfil[]>('/auxiliares', { rol: 'auxiliar' });
   }
 
+  /** Active auxiliares and encargados (team screen: who is encargado) */
+  listarEquipo(): Promise<Perfil[]> {
+    return this.api.get<Perfil[]>('/auxiliares', { rol: ['auxiliar', 'encargado'], activo: true });
+  }
+
   /** Personal de operación activo (auxiliares, técnicos y encargados), para elegir colaboradores */
   listarPersonalOperacion(): Promise<Perfil[]> {
     return this.api.get<Perfil[]>('/auxiliares', { rol: ['auxiliar', 'tecnico', 'encargado'], activo: true });
