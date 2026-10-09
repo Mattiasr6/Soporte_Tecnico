@@ -8,8 +8,8 @@ asignacion-only fields (turno_habitual, sabado_rotativo) are written to
 
 Why a thin endpoint instead of calling `/api/usuarios` from Angular: the screen
 needs perfil ids and asignacion fields next to the identity (and the correo,
-which `/api/usuarios` does not return), and the rol <-> Role translation (with
-its Tecnico rule) belongs on the server, in one place with ROLE_MAP.
+which `/api/usuarios` does not return), and the rol <-> Role translation
+belongs on the server, in one place with ROLE_MAP.
 
 Permission: admin only (`fn_es_admin`), like the old `fn_crear_usuario`,
 `fn_cambiar_password` and the `perfiles_editar` policy. The asignacion admin is
@@ -44,7 +44,7 @@ from app.schemas.asignacion_usuarios import (
 )
 from app.schemas.usuario import UsuarioCreateIn
 from app.services.asignacion.sql import Permission, not_found, require, writing
-from app.services.asignacion_perfiles import ROL_TO_ROLE, ensure_perfil, map_role
+from app.services.asignacion_perfiles import ROL_TO_ROLE, ensure_perfil
 
 logger = logging.getLogger(__name__)
 
@@ -129,9 +129,9 @@ def actualizar(
     target = _usuario_de(db, perfil_id)
     cambios = dto.model_fields_set
     with writing(db):
-        # A Tecnico shows as "invitado": keeping that rol must not rewrite the
-        # Role, so it is only written when the asignacion rol really changes.
-        if dto.rol is not None and dto.rol != map_role(target.role):
+        # Only a real change is written: aplicar_rol refuses any self rol
+        # change, so an admin saving their own row with the same rol must pass.
+        if dto.rol is not None and ROL_TO_ROLE[dto.rol] != target.role:
             aplicar_rol(user.id, target, ROL_TO_ROLE[dto.rol])
         if dto.activo is not None and dto.activo != target.activo:
             aplicar_activo(user.id, target, dto.activo)

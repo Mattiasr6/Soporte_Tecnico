@@ -43,6 +43,8 @@ class PerfilOut(BaseModel):
     nombre_completo: str
     correo: str
     rol: str | None
+    # Soporte role (Usuarios.Role): the role model of the Angular app.
+    role: str
     activo: bool
     turno_habitual: str | None
     sabado_rotativo: bool
@@ -53,8 +55,9 @@ class PerfilOut(BaseModel):
 _ME = text(
     """
     select p.id, p.nombre_completo, p.correo, horarios.fn_rol_actual() as rol,
-           p.activo, p.turno_habitual, p.sabado_rotativo
+           u."Role" as role, p.activo, p.turno_habitual, p.sabado_rotativo
       from horarios.perfiles p
+      join "Usuarios" u on u."Id" = p.usuario_id
      where p.id = horarios.fn_usuario_actual()
     """
 )
@@ -71,6 +74,7 @@ def me(user: CurrentUser, db: AsignacionDb) -> PerfilOut:
         nombre_completo=row.nombre_completo,
         correo=row.correo,
         rol=row.rol,
+        role=row.role,
         activo=row.activo,
         turno_habitual=row.turno_habitual,
         sabado_rotativo=row.sabado_rotativo,

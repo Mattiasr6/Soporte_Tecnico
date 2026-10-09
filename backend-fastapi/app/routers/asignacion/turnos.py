@@ -42,7 +42,7 @@ from app.services.asignacion.sql import (
 
 router = APIRouter()
 
-Rol = Literal["admin", "auxiliar", "decano", "encargado", "invitado"]
+Rol = Literal["admin", "auxiliar", "decano", "encargado", "invitado", "tecnico"]
 
 
 def nombre_de(alias: str) -> str:

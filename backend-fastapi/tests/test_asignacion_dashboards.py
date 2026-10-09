@@ -133,7 +133,7 @@ def test_operacion_counts_seeded_ticket(make_usuario, lab_con_ticket: int) -> No
 
 
 @pytest.mark.parametrize("nombre", sorted(KEYS))
-@pytest.mark.parametrize("role", ["Auxiliar", "Tecnico"])
+@pytest.mark.parametrize("role", ["Auxiliar", "Tecnico", "Invitado"])
 def test_without_permission_is_403(nombre: str, role: str, make_usuario) -> None:
     r = client.get(f"{API}/{nombre}", params=RANGO, headers=_auth(make_usuario(role)))
     assert r.status_code == 403, r.text

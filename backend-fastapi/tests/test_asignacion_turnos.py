@@ -173,7 +173,7 @@ def equipo(make_usuario, horarios_restaurados) -> dict:
     for the auxiliares whatever the time of day the suite runs.
     """
     aux, aux2 = make_usuario("Auxiliar"), make_usuario("Auxiliar")
-    enc, inv = make_usuario("Encargado"), make_usuario("Tecnico")
+    enc, inv = make_usuario("Encargado"), make_usuario("Invitado")
     ids = {"aux_perfil": _perfil_id(aux), "aux2_perfil": _perfil_id(aux2)}
     with SessionLocal() as db:
         for pid in ids.values():
@@ -232,7 +232,7 @@ def test_reads_need_token_and_staff(make_usuario, path: str) -> None:
     assert client.get(f"{API}{path}").status_code == 401
     r = client.get(f"{API}{path}", headers=_auth(make_usuario("Auxiliar")))
     assert r.status_code == 200, r.text
-    invitado = make_usuario("Tecnico")
+    invitado = make_usuario("Invitado")
     assert client.get(f"{API}{path}", headers=_auth(invitado)).status_code == 403
 
 
@@ -373,7 +373,7 @@ def test_saturday_rotation_crud(make_usuario) -> None:
 
 
 def test_open_and_close_work_shift(make_usuario) -> None:
-    aux, inv = make_usuario("Auxiliar"), make_usuario("Tecnico")
+    aux, inv = make_usuario("Auxiliar"), make_usuario("Invitado")
     body = {"turno": "M", "es_sabado_rotativo": False, "notas": f"{PREFIX}abre"}
     assert (
         client.post(f"{API}/turnos-trabajo", json=body, headers=_auth(inv)).status_code

@@ -126,7 +126,7 @@ def test_lists_are_readable_by_staff_and_hidden_from_invitado(
     assert r.status_code == 200, r.text
     assert isinstance(r.json(), list)
 
-    invitado = make_usuario("Tecnico")
+    invitado = make_usuario("Invitado")
     assert client.get(f"{API}{path}", headers=_auth(invitado)).status_code == 403
 
 

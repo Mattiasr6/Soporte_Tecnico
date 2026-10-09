@@ -197,7 +197,7 @@ def test_scheduling_reads_need_token_and_staff(make_usuario, path: str) -> None:
     r = client.get(f"{API}{path}", headers=_auth(make_usuario("Auxiliar")))
     assert r.status_code == 200, r.text
     assert isinstance(r.json(), list)
-    invitado = make_usuario("Tecnico")
+    invitado = make_usuario("Invitado")
     assert client.get(f"{API}{path}", headers=_auth(invitado)).status_code == 403
 
 
@@ -585,7 +585,7 @@ def test_asignacion_moves_busy_days_to_another_ambiente(make_usuario, catalogo) 
     assert editada["ambiente_destino_id"] is None
     assert editada["aula_destino"] == "Aula 201"
 
-    invitado = _auth(make_usuario("Tecnico"))
+    invitado = _auth(make_usuario("Invitado"))
     assert (
         client.get(
             f"{API}/reubicaciones?asignacion_horario_id={horario_id}",

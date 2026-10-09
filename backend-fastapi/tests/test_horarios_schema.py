@@ -143,7 +143,7 @@ def test_overlapping_asignaciones_are_rejected(conn: Connection) -> None:
     assert err.value.orig.sqlstate == "P0001"
 
 
-def _new_perfil(conn: Connection) -> tuple[int, object]:
+def _new_perfil(conn: Connection, rol: str = "admin") -> tuple[int, object]:
     usuario_id = _scalar(
         conn,
         'insert into public."Usuarios" ("Email", "DisplayName", "Role", "EstadoActual", '
@@ -154,8 +154,9 @@ def _new_perfil(conn: Connection) -> tuple[int, object]:
     perfil_id = _scalar(
         conn,
         "insert into horarios.perfiles (nombre_completo, correo, rol, usuario_id) "
-        "values ('Perfil test', 'perfil.test@example.invalid', 'admin', :u) returning id",
+        "values ('Perfil test', 'perfil.test@example.invalid', :rol, :u) returning id",
         u=usuario_id,
+        rol=rol,
     )
     return int(usuario_id), perfil_id
 
@@ -186,3 +187,26 @@ def test_usuario_actual_follows_set_local(conn: Connection) -> None:
         conn, "select creado_por from horarios.asignaciones where id = :a", a=asignacion
     )
     assert creado_por == perfil_id
+
+
+@pytest.mark.parametrize(
+    ("helper", "expected"),
+    [
+        ("fn_puede_ver()", True),
+        ("fn_puede_operar()", True),
+        ("fn_puede_editar()", False),
+        ("fn_puede_gestionar_auxiliares()", False),
+        ("fn_es_admin()", False),
+        ("fn_puede_cerrar_turno('M')", False),
+    ],
+)
+def test_tecnico_operates_like_auxiliar_without_managing(
+    conn: Connection, helper: str, expected: bool
+) -> None:
+    """0023: a Soporte Tecnico sees everything and operates, with no own shift."""
+    usuario_id, _ = _new_perfil(conn, rol="tecnico")
+    conn.execute(
+        text("select set_config('app.usuario_id', :u, true)"), {"u": str(usuario_id)}
+    )
+    assert _scalar(conn, "select horarios.fn_rol_actual()") == "tecnico"
+    assert _scalar(conn, f"select horarios.{helper}") is expected

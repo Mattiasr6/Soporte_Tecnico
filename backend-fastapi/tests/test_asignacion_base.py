@@ -87,7 +87,9 @@ def _set_role(usuario_id: int, role: str) -> None:
         ("Jefe", "admin"),
         ("Encargado", "encargado"),
         ("Auxiliar", "auxiliar"),
-        ("Tecnico", "invitado"),
+        ("Tecnico", "tecnico"),
+        ("Decano", "decano"),
+        ("Invitado", "invitado"),
     ],
 )
 def test_role_mapping(role: str, expected: str) -> None:
@@ -113,12 +115,14 @@ def test_me_creates_admin_perfil_bound_to_db_context(make_usuario) -> None:
         "nombre_completo",
         "correo",
         "rol",
+        "role",
         "activo",
         "turno_habitual",
         "sabado_rotativo",
     }
     assert body["usuario_id"] == jefe.id
     assert body["rol"] == "admin"
+    assert body["role"] == "Jefe"
     assert body["activo"] is True
     assert body["correo"] == jefe.email
     assert body["nombre_completo"] == jefe.display_name
@@ -143,11 +147,25 @@ def test_demoted_jefe_resyncs_despite_admin_protection_trigger(make_usuario) -> 
     """Usuarios is the source of truth: the self-demotion guard must not block it."""
     jefe = make_usuario("Jefe")
     first = client.get(ME, headers=_auth(jefe)).json()
-    _set_role(jefe.id, "Tecnico")
+    _set_role(jefe.id, "Invitado")
     r = client.get(ME, headers=_auth(jefe))
     assert r.status_code == 200, r.text
     assert r.json()["rol"] == "invitado"
     assert r.json()["perfil_id"] == first["perfil_id"]
+
+
+def test_me_returns_tecnico_rol_and_soporte_role(make_usuario) -> None:
+    tecnico = make_usuario("Tecnico")
+    r = client.get(ME, headers=_auth(tecnico))
+    assert r.status_code == 200, r.text
+    assert (r.json()["rol"], r.json()["role"]) == ("tecnico", "Tecnico")
+
+
+def test_me_role_follows_usuarios_change(make_usuario) -> None:
+    usuario = make_usuario("Auxiliar")
+    assert client.get(ME, headers=_auth(usuario)).json()["role"] == "Auxiliar"
+    _set_role(usuario.id, "Tecnico")
+    assert client.get(ME, headers=_auth(usuario)).json()["role"] == "Tecnico"
 
 
 def test_inactive_usuario_gets_inactive_perfil(make_usuario) -> None:

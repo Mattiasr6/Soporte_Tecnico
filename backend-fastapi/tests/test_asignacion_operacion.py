@@ -153,7 +153,7 @@ def lab(make_usuario) -> dict:
         "pcs": pcs,
         "aux": make_usuario("Auxiliar"),
         "enc": make_usuario("Encargado"),
-        "inv": make_usuario("Tecnico"),
+        "inv": make_usuario("Invitado"),
     }
 
 
@@ -193,7 +193,7 @@ def test_reads_need_token_and_staff(make_usuario, path: str) -> None:
     assert client.get(f"{API}{path}").status_code == 401
     r = client.get(f"{API}{path}", headers=_auth(make_usuario("Auxiliar")))
     assert r.status_code == 200, r.text
-    invitado = make_usuario("Tecnico")
+    invitado = make_usuario("Invitado")
     assert client.get(f"{API}{path}", headers=_auth(invitado)).status_code == 403
 
 
@@ -317,6 +317,35 @@ def test_pc_state_changes_only_through_the_rpc(lab) -> None:
     r = client.post(f"{API}/ambiente-pcs/estado", json=body, headers=_auth(aux))
     assert r.status_code == 422
     assert r.json()["detail"]["code"] == "P0001"
+
+
+def test_tecnico_operates_like_auxiliar_but_does_not_manage(lab, make_usuario) -> None:
+    """0023: a Soporte Tecnico gets OPERAR (tickets, PC states), not EDITAR/GESTIONAR."""
+    tec = make_usuario("Tecnico")
+    pc = lab["pcs"][1]
+    r = client.get(f"{API}/atenciones", headers=_auth(tec))
+    assert r.status_code == 200, r.text
+    r = client.post(
+        f"{API}/atenciones", json=[_ticket(lab, pc_id=pc)], headers=_auth(tec)
+    )
+    assert r.status_code == 201, r.text
+    body = {"ids": [pc], "estado": "inactiva", "detalle": "sin teclado"}
+    r = client.post(f"{API}/ambiente-pcs/estado", json=body, headers=_auth(tec))
+    assert r.status_code == 200, r.text
+    assert _pc_estado(pc) == "inactiva"
+
+    # GESTIONAR_AUXILIARES and EDITAR stay out of reach.
+    r = client.post(
+        f"{API}/fallas-pc", json={"nombre": f"{PREFIX}falla"}, headers=_auth(tec)
+    )
+    assert r.status_code == 403, r.text
+    assert r.json()["detail"]["code"] == "42501"
+    r = client.put(
+        f"{API}/feriados/2099-12-24",
+        json={"descripcion": f"{PREFIX}feriado"},
+        headers=_auth(tec),
+    )
+    assert r.status_code == 403, r.text
 
 
 def test_generar_pcs(lab) -> None:

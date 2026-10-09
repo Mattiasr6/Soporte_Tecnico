@@ -11,28 +11,20 @@ from sqlalchemy.orm import Session
 
 from app.models.usuario import Usuario
 
-# Usuarios.Role -> perfiles.rol. Tecnico has no asignacion equivalent, so it gets
-# the least privileged rol. Unknown roles fall back to the same.
+# Usuarios.Role -> perfiles.rol, one rol per Soporte role (Tecnico got its own
+# `tecnico` rol in migration 0023). Unknown roles get the least privileged rol.
 ROLE_MAP: dict[str, str] = {
     "Jefe": "admin",
     "Encargado": "encargado",
     "Auxiliar": "auxiliar",
     "Decano": "decano",
     "Invitado": "invitado",
-    "Tecnico": "invitado",
+    "Tecnico": "tecnico",
 }
 DEFAULT_ROL = "invitado"
-# perfiles.rol -> Usuarios.Role, used when the asignacion screen changes a rol.
-# Not the inverse of ROLE_MAP for Tecnico (it maps to invitado): callers only
-# write a Role when the requested rol differs from map_role(current Role), so a
-# Tecnico is never turned into Invitado by a save that keeps "invitado".
-ROL_TO_ROLE: dict[str, str] = {
-    "admin": "Jefe",
-    "encargado": "Encargado",
-    "auxiliar": "Auxiliar",
-    "decano": "Decano",
-    "invitado": "Invitado",
-}
+# perfiles.rol -> Usuarios.Role (exact inverse of ROLE_MAP), used when the
+# asignacion screen changes a rol.
+ROL_TO_ROLE: dict[str, str] = {rol: role for role, rol in ROLE_MAP.items()}
 # perfiles_textos_check: nombre_completo is 1..120 chars after trim.
 NOMBRE_MAX = 120
 

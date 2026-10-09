@@ -11,9 +11,11 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.schemas.asignacion_turnos import TurnoCodigo
 
-RolAsignacion = Literal["admin", "auxiliar", "decano", "encargado", "invitado"]
-# Same set the old fn_crear_usuario accepted: a new account always gets access.
-RolNuevo = Literal["admin", "auxiliar", "decano", "encargado"]
+RolAsignacion = Literal[
+    "admin", "auxiliar", "decano", "encargado", "invitado", "tecnico"
+]
+# A new account always gets access (old fn_crear_usuario set, plus tecnico).
+RolNuevo = Literal["admin", "auxiliar", "decano", "encargado", "tecnico"]
 
 
 class _In(BaseModel):

@@ -157,7 +157,7 @@ def test_invalid_role_message_lists_six_roles(make_usuario) -> None:
 
 @pytest.mark.parametrize(
     ("role", "rol"),
-    [("Decano", "decano"), ("Invitado", "invitado"), ("Tecnico", "invitado")],
+    [("Decano", "decano"), ("Invitado", "invitado"), ("Tecnico", "tecnico")],
 )
 def test_new_roles_map_to_asignacion_rol(role: str, rol: str) -> None:
     assert map_role(role) == rol

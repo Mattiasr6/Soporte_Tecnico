@@ -178,7 +178,7 @@ def test_list_includes_every_soporte_user_with_mapped_rol(make_usuario) -> None:
         "turno_habitual",
         "sabado_rotativo",
     }
-    assert listed[tecnico.id]["rol"] == "invitado"
+    assert listed[tecnico.id]["rol"] == "tecnico"
     assert listed[tecnico.id]["role"] == "Tecnico"
     assert listed[tecnico.id]["correo"] == tecnico.email
     assert listed[decano.id]["rol"] == "decano"
@@ -218,7 +218,12 @@ def test_create_makes_a_soporte_user_that_can_log_in(make_usuario) -> None:
 
 @pytest.mark.parametrize(
     ("rol", "role"),
-    [("admin", "Jefe"), ("encargado", "Encargado"), ("auxiliar", "Auxiliar")],
+    [
+        ("admin", "Jefe"),
+        ("encargado", "Encargado"),
+        ("auxiliar", "Auxiliar"),
+        ("tecnico", "Tecnico"),
+    ],
 )
 def test_create_translates_rol_to_soporte_role(make_usuario, rol, role) -> None:
     jefe = make_usuario("Jefe")
@@ -298,18 +303,30 @@ def test_change_rol_writes_soporte_role(make_usuario) -> None:
     assert _perfil(aux.id)["rol"] == "encargado"
 
 
-def test_tecnico_is_not_downgraded_when_rol_stays_invitado(make_usuario) -> None:
+def test_keeping_tecnico_rol_leaves_soporte_role(make_usuario) -> None:
     jefe = make_usuario("Jefe")
     tecnico = make_usuario("Tecnico")
     perfil_id = _perfil_id(jefe, tecnico.id)
     r = client.patch(
         f"{BASE}/{perfil_id}",
-        json={"rol": "invitado", "sabado_rotativo": True},
+        json={"rol": "tecnico", "sabado_rotativo": True},
         headers=_auth(jefe),
     )
     assert r.status_code == 200, r.text
     assert _usuario(tecnico.id).role == "Tecnico"
-    assert r.json()["role"] == "Tecnico"
+    assert (r.json()["rol"], r.json()["role"]) == ("tecnico", "Tecnico")
+
+
+def test_tecnico_rol_sets_soporte_tecnico(make_usuario) -> None:
+    jefe = make_usuario("Jefe")
+    aux = make_usuario("Auxiliar")
+    perfil_id = _perfil_id(jefe, aux.id)
+    r = client.patch(
+        f"{BASE}/{perfil_id}", json={"rol": "tecnico"}, headers=_auth(jefe)
+    )
+    assert r.status_code == 200, r.text
+    assert _usuario(aux.id).role == "Tecnico"
+    assert _perfil(aux.id)["rol"] == "tecnico"
 
 
 def test_invitado_rol_sets_soporte_invitado(make_usuario) -> None:
