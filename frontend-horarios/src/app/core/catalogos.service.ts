@@ -2,7 +2,7 @@ import { computed, inject, Injectable, signal } from '@angular/core';
 import {
   Ambiente, AmbientePc, BloqueHorario, Carrera, Docente, Feriado, Materia, SistemaAcademico, TipoReserva,
 } from './modelos';
-import { ErrorSistema, SupabaseService } from './supabase.service';
+import { ApiService } from './api.service';
 
 /** Tablas de catálogo que se guardan en memoria */
 export type TablaCatalogo =
@@ -15,7 +15,7 @@ export type TablaCatalogo =
  */
 @Injectable({ providedIn: 'root' })
 export class CatalogosService {
-  private readonly supabase = inject(SupabaseService);
+  private readonly api = inject(ApiService);
 
   readonly carreras = signal<Carrera[]>([]);
   readonly docentes = signal<Docente[]>([]);
@@ -64,71 +64,73 @@ export class CatalogosService {
     return this.carga;
   }
 
-  /** Vuelve a leer una tabla desde Supabase */
+  /** Re-reads a catalog from the API (same ordering and embeds as the old PostgREST query) */
   async recargar(tabla: TablaCatalogo): Promise<void> {
-    const cliente = this.supabase.cliente;
     switch (tabla) {
       case 'carreras':
-        this.carreras.set(await this.leer(cliente.from('carreras').select('*').order('nombre')));
+        this.carreras.set(await this.api.get<Carrera[]>('/carreras'));
         break;
       case 'docentes':
-        this.docentes.set(await this.leer(cliente.from('docentes')
-          .select('*, docente_carreras(carrera_id), docente_materias(materia_id)')
-          .order('apellidos').order('nombres')));
+        this.docentes.set(await this.api.get<Docente[]>('/docentes'));
         break;
       case 'materias':
-        this.materias.set(await this.leer(cliente.from('materias').select('*').order('nombre')));
+        this.materias.set(await this.api.get<Materia[]>('/materias'));
         break;
       case 'ambientes':
         // El sistema maneja solo laboratorios (las aulas se registran como texto al reubicar)
-        this.ambientes.set(await this.leer(cliente.from('ambientes').select('*').eq('tipo', 'laboratorio').order('orden').order('codigo')));
+        this.ambientes.set(await this.api.get<Ambiente[]>('/ambientes', { tipo: 'laboratorio' }));
         break;
       case 'ambiente_pcs':
-        this.pcs.set(await this.leer(cliente.from('ambiente_pcs').select('*, cambio:perfiles!ambiente_pcs_estado_por_fkey(nombre_completo)').order('ambiente_id').order('orden').order('etiqueta')));
+        this.pcs.set(await this.api.get<AmbientePc[]>('/ambiente-pcs'));
         break;
       case 'sistemas_academicos':
-        this.sistemas.set(await this.leer(cliente.from('sistemas_academicos').select('*').eq('activo', true).order('id')));
+        this.sistemas.set(await this.api.get<SistemaAcademico[]>('/sistemas-academicos'));
         break;
       case 'bloques_horario':
-        this.bloques.set(await this.leer(cliente.from('bloques_horario').select('*').order('orden')));
+        this.bloques.set(await this.api.get<BloqueHorario[]>('/bloques-horario'));
         break;
       case 'tipos_reserva':
-        this.tiposReserva.set(await this.leer(cliente.from('tipos_reserva').select('*').order('id')));
+        this.tiposReserva.set(await this.api.get<TipoReserva[]>('/tipos-reserva'));
         break;
       case 'feriados':
-        this.feriados.set(await this.leer(cliente.from('feriados').select('*').order('fecha')));
+        this.feriados.set(await this.api.get<Feriado[]>('/feriados'));
         break;
     }
   }
 
   /**
    * Inserta o actualiza una fila de un catálogo y refresca la lista.
+   * Key 'id': no id -> POST (create), id -> PATCH (update).
+   * Other key (feriados by fecha): PUT (create or replace, like the old upsert).
    * @returns la fila guardada
    */
   async guardar<T extends object>(tabla: TablaCatalogo, fila: T, clave = 'id'): Promise<T> {
-    const datos = { ...fila } as Record<string, unknown>;
-    const valorClave = datos[clave];
-    let consulta;
-    if (valorClave !== undefined && valorClave !== null && clave === 'id') {
-      delete datos['id'];
-      consulta = this.supabase.cliente.from(tabla).update(datos).eq('id', valorClave).select().single();
-    } else if (clave !== 'id') {
-      consulta = this.supabase.cliente.from(tabla).upsert(datos).select().single();
+    const path = editablePath(tabla);
+    const body = { ...fila } as Record<string, unknown>;
+    const key = body[clave];
+    delete body[clave];
+    let saved: T;
+    if (clave !== 'id') {
+      saved = await this.api.put<T>(`${path}/${encodeURIComponent(String(key))}`, body);
+    } else if (key !== undefined && key !== null) {
+      saved = await this.api.patch<T>(`${path}/${key}`, body);
     } else {
-      delete datos['id'];
-      consulta = this.supabase.cliente.from(tabla).insert(datos).select().single();
+      saved = await this.api.post<T>(path, body);
     }
-    const { data, error } = await consulta;
-    if (error) throw new ErrorSistema(error);
     await this.recargar(tabla);
-    return data as T;
+    return saved;
   }
 
   /** Elimina una fila de un catálogo y refresca la lista */
-  async eliminar(tabla: TablaCatalogo, valor: unknown, clave = 'id'): Promise<void> {
-    const { error } = await this.supabase.cliente.from(tabla).delete().eq(clave, valor);
-    if (error) throw new ErrorSistema(error);
+  async eliminar(tabla: TablaCatalogo, valor: unknown, _clave = 'id'): Promise<void> {
+    await this.api.delete(`${editablePath(tabla)}/${encodeURIComponent(String(valor))}`);
     await this.recargar(tabla);
+  }
+
+  /** Replaces a docente's carreras and materias (one transaction) and refreshes the list */
+  async guardarRelacionesDocente(docenteId: number, carreras: number[], materias: number[]): Promise<void> {
+    await this.api.put(`/docentes/${docenteId}/relaciones`, { carreras, materias });
+    await this.recargar('docentes');
   }
 
   /** Nombre "Apellidos Nombres" de un docente */
@@ -143,11 +145,20 @@ export class CatalogosService {
     if (!id) return '—';
     return this.mapaAmbientes().get(id)?.codigo ?? `#${id}`;
   }
+}
 
-  /** Ejecuta una consulta y devuelve sus filas o lanza error */
-  private async leer<T>(consulta: PromiseLike<{ data: unknown; error: unknown }>): Promise<T[]> {
-    const { data, error } = await consulta;
-    if (error) throw new ErrorSistema(error as { message: string });
-    return (data ?? []) as T[];
-  }
+/** Catalogs the app edits, and their API path */
+const EDITABLE_PATHS: Partial<Record<TablaCatalogo, string>> = {
+  carreras: '/carreras',
+  docentes: '/docentes',
+  materias: '/materias',
+  ambientes: '/ambientes',
+  ambiente_pcs: '/ambiente-pcs',
+  feriados: '/feriados',
+};
+
+function editablePath(tabla: TablaCatalogo): string {
+  const path = EDITABLE_PATHS[tabla];
+  if (!path) throw new Error(`El catálogo ${tabla} no se edita desde la aplicación.`);
+  return path;
 }

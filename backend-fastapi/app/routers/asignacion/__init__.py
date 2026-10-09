@@ -13,8 +13,10 @@ from sqlalchemy import text
 from app.core.errors import forbidden
 from app.core.security import CurrentUser
 from app.db.asignacion import AsignacionDb
+from app.routers.asignacion import catalogos
 
 router = APIRouter(prefix="/api/asignacion", tags=["asignacion"])
+router.include_router(catalogos.router)
 
 
 class PerfilOut(BaseModel):

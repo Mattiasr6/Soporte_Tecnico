@@ -7,7 +7,6 @@ import { AuthService } from '../../core/auth.service';
 import { CatalogosService } from '../../core/catalogos.service';
 import { Docente } from '../../core/modelos';
 import { NotificacionesService } from '../../core/notificaciones.service';
-import { ErrorSistema, SupabaseService } from '../../core/supabase.service';
 
 /** Datos editables de un docente en el modal */
 interface FormDocente {
@@ -123,7 +122,6 @@ interface FormDocente {
 export class DocentesComponent {
   protected readonly auth = inject(AuthService);
   protected readonly catalogos = inject(CatalogosService);
-  private readonly supabase = inject(SupabaseService);
   private readonly notificaciones = inject(NotificacionesService);
 
   protected readonly busqueda = signal('');
@@ -203,17 +201,8 @@ export class DocentesComponent {
         id: f.id, nombres: f.nombres.trim(), apellidos: f.apellidos.trim(), carnet: f.carnet.trim() || null,
         telefono: f.telefono.trim() || null, correo: f.correo.trim() || null, activo: f.activo,
       })) as unknown as { id: number };
-      const cliente = this.supabase.cliente;
-      // Reemplaza relaciones: borra y vuelve a insertar
-      await this.verificar(cliente.from('docente_carreras').delete().eq('docente_id', docente.id));
-      await this.verificar(cliente.from('docente_materias').delete().eq('docente_id', docente.id));
-      if (f.carreras.length) {
-        await this.verificar(cliente.from('docente_carreras').insert(f.carreras.map((carrera_id) => ({ docente_id: docente.id, carrera_id }))));
-      }
-      if (f.materias.length) {
-        await this.verificar(cliente.from('docente_materias').insert(f.materias.map((materia_id) => ({ docente_id: docente.id, materia_id }))));
-      }
-      await this.catalogos.recargar('docentes');
+      // Replaces relations atomically (the API deletes and re-inserts in one transaction)
+      await this.catalogos.guardarRelacionesDocente(docente.id, f.carreras, f.materias);
       this.notificaciones.exito('Docente guardado.');
       this.form.set(null);
     } catch (e) {
@@ -231,11 +220,5 @@ export class DocentesComponent {
     } catch (e) {
       this.notificaciones.error(e, 'No se pudo eliminar (¿tiene asignaciones?). Puede marcarlo como inactivo');
     }
-  }
-
-  /** Lanza error si la operación de Supabase falló */
-  private async verificar(operacion: PromiseLike<{ error: unknown }>): Promise<void> {
-    const { error } = await operacion;
-    if (error) throw new ErrorSistema(error as { message: string });
   }
 }
