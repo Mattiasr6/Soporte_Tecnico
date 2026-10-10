@@ -1,6 +1,6 @@
 import { computed, inject, Injectable, signal } from '@angular/core';
 import {
-  Ambiente, AmbientePc, BloqueHorario, Carrera, Docente, Feriado, Materia, SistemaAcademico, TipoReserva,
+  Ambiente, AmbientePc, BloqueHorario, Carrera, Docente, FichaLaboratorio, Feriado, Materia, SistemaAcademico, TipoReserva,
 } from './modelos';
 import { ApiService } from './api.service';
 
@@ -118,6 +118,13 @@ export class CatalogosService {
       saved = await this.api.post<T>(path, body);
     }
     await this.recargar(tabla);
+    return saved;
+  }
+
+  /** Replaces a lab's hardware sheet (Jefe/Encargado) and refreshes the ambientes */
+  async guardarFichaLaboratorio(ambienteId: number, ficha: FichaLaboratorio): Promise<Ambiente> {
+    const saved = await this.api.put<Ambiente>(`/ambientes/${ambienteId}/ficha`, ficha);
+    await this.recargar('ambientes');
     return saved;
   }
 

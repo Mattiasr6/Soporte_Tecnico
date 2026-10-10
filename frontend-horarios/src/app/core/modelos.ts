@@ -108,6 +108,30 @@ export interface Ambiente {
   estado: EstadoAmbiente;
   color: string;
   orden: number;
+  /** Lab hardware sheet (G8): declared standard spec; real per-PC values are in AmbientePc */
+  procesador?: string | null;
+  ram?: string | null;
+  almacenamiento?: string | null;
+  marca?: string | null;
+  gpu?: string | null;
+  monitores?: string | null;
+  sillas?: number | null;
+  pcs_estudiantes?: number | null;
+  pcs_docentes?: number | null;
+}
+
+/** Lab hardware sheet sent to PUT /ambientes/{id}/ficha (replaces it; null clears, except capacidad) */
+export interface FichaLaboratorio {
+  procesador: string | null;
+  ram: string | null;
+  almacenamiento: string | null;
+  marca: string | null;
+  gpu: string | null;
+  monitores: string | null;
+  sillas: number | null;
+  capacidad: number | null;
+  pcs_estudiantes: number | null;
+  pcs_docentes: number | null;
 }
 
 export type EstadoPc = 'operativa' | 'inactiva' | 'mantenimiento' | 'baja';

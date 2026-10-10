@@ -4,10 +4,11 @@ import { ModalComponent } from '../../compartido/modal.component';
 import { OcupacionDetalleComponent } from '../../compartido/ocupacion-detalle.component';
 import { LaboratorioCroquisComponent } from './laboratorio-croquis.component';
 import { LaboratorioEquiposComponent } from './laboratorio-equipos.component';
+import { FichaLaboratorioComponent } from './ficha-laboratorio.component';
 import { AuthService } from '../../core/auth.service';
 import { CatalogosService } from '../../core/catalogos.service';
 import { DIAS_CORTOS, diaIso, fechaCorta, fechaLarga, hhmm, hoyIso, rangoFechas, seSolapan, sumarDias } from '../../core/fechas';
-import { Asignacion, BloqueHorario, Ocupacion } from '../../core/modelos';
+import { Asignacion, BloqueHorario, FichaLaboratorio, Ocupacion } from '../../core/modelos';
 import { NotificacionesService } from '../../core/notificaciones.service';
 import { OcupacionService } from '../../core/ocupacion.service';
 import { PanelesService, PestanaLaboratorio } from '../../core/paneles.service';
@@ -21,7 +22,7 @@ import { AsignacionesService } from '../../core/asignaciones.service';
  */
 @Component({
   selector: 'app-laboratorio-detalle',
-  imports: [IconoComponent, ModalComponent, OcupacionDetalleComponent, LaboratorioCroquisComponent, LaboratorioEquiposComponent],
+  imports: [IconoComponent, ModalComponent, OcupacionDetalleComponent, LaboratorioCroquisComponent, LaboratorioEquiposComponent, FichaLaboratorioComponent],
   template: `
     <div class="flex h-full flex-col">
       <!-- Encabezado -->
@@ -73,6 +74,11 @@ import { AsignacionesService } from '../../core/asignaciones.service';
 
           <!-- Inventario de PCs del laboratorio -->
           <app-laboratorio-equipos [ambienteId]="ambienteId()" />
+
+          <!-- Ficha de hardware del laboratorio (especificación estándar) -->
+          <app-ficha-laboratorio [ambiente]="ambiente()" [puedeEditar]="auth.puedeGestionarAuxiliares()"
+                                 [guardando]="guardandoFicha()" [inventarioEstudiantes]="pcsEstudiantes()"
+                                 [inventarioDocentes]="totalPcs() - pcsEstudiantes()" (guardar)="guardarFicha($event)" />
         } @else {
         <!-- Semana -->
         <section>
@@ -221,6 +227,21 @@ export class LaboratorioDetalleComponent {
   private readonly pcs = computed(() => this.catalogos.pcsPorAmbiente().get(this.ambienteId()) ?? []);
   protected readonly totalPcs = computed(() => this.pcs().length);
   protected readonly pcsOperativas = computed(() => this.pcs().filter((pc) => pc.estado === 'operativa').length);
+  protected readonly pcsEstudiantes = computed(() => this.pcs().filter((pc) => !pc.es_docente).length);
+  protected readonly guardandoFicha = signal(false);
+
+  /** Saves the lab hardware sheet (backend: Jefe/Encargado) */
+  protected async guardarFicha(ficha: FichaLaboratorio): Promise<void> {
+    this.guardandoFicha.set(true);
+    try {
+      await this.catalogos.guardarFichaLaboratorio(this.ambienteId(), ficha);
+      this.notificaciones.exito('Ficha guardada.');
+    } catch (e) {
+      this.notificaciones.error(e, 'No se guardó la ficha');
+    } finally {
+      this.guardandoFicha.set(false);
+    }
+  }
 
   constructor() {
     effect(() => {
