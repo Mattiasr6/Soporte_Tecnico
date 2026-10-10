@@ -360,8 +360,10 @@ Strategy: ask-on-risk. Forecast M0–M2 ≈ 400 authored lines. RDD disabled for
     `auxiliar_id` is the requester, 422 once decided. Trigger `trg_reportes_turno_estado` sends a
     decided report back to pendiente when turno, novedades or a new photo change (photo expiry does
     not). API: POST `/reportes-turno/{id}/validacion {estado}`, GET `/reportes-turno?estado=`, reports
-    embed `validador`. Existing reports start pendiente (UPDS had 0; prod history would show as
-    pending — user decision if that should be backfilled).
+    embed `validador`. Existing reports are marked validado at migration time with no validator
+    (user decision 2026-10-10; 0025 adds the columns with that default, then switches to pendiente,
+    so no UPDATE trigger runs). Verified on the test DB: a report seeded at 0024 came out validado
+    after upgrade; `test_asignacion_novedades.py` 11 passed.
   - Timeline: new events `novedad` (photo via `/novedades/{id}/foto`) and `cierre_validado` /
     `cierre_rechazado` (at `validado_en`, author = validator).
   - Angular: `/novedades` (menu "Novedades", every role reads; create for puedeOperar) container

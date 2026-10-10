@@ -24,8 +24,10 @@ fn_decidir_reporte(id, estado) validates or rejects: only
 fn_puede_gestionar_auxiliares (Jefe, Encargado; Django `_gestiona_equipo`),
 never on a report whose auxiliar is the requester, and only while pendiente.
 Trigger trg_reportes_turno_estado sends a decided report back to pendiente when
-its content (turno, novedades or a new photo) changes. Existing reports start
-as pendiente.
+its content (turno, novedades or a new photo) changes. Reports that already exist
+when this migration runs are marked validado at migration time with no validator
+(decided 2026-10-10), so the pending list starts empty in prod. The columns are
+added with that default and then switched to pendiente, so no UPDATE trigger runs.
 
 Revision ID: 0025_horarios_novedades_cierre
 Revises: 0024_horarios_turno_medio
@@ -62,13 +64,17 @@ CREATE INDEX novedades_fecha_idx ON horarios.novedades USING btree (fecha DESC, 
 CREATE INDEX novedades_ambiente_idx ON horarios.novedades USING btree (ambiente_id);
 
 ALTER TABLE horarios.reportes_turno
-  ADD COLUMN estado text DEFAULT 'pendiente'::text NOT NULL,
+  ADD COLUMN estado text DEFAULT 'validado'::text NOT NULL,
   ADD COLUMN validado_por uuid REFERENCES horarios.perfiles(id) ON DELETE SET NULL,
-  ADD COLUMN validado_en timestamp with time zone,
+  ADD COLUMN validado_en timestamp with time zone DEFAULT now(),
   ADD CONSTRAINT reportes_turno_estado_check
     CHECK ((estado = ANY (ARRAY['pendiente'::text, 'validado'::text, 'rechazado'::text]))),
   ADD CONSTRAINT reportes_turno_validacion_check
     CHECK (((estado = 'pendiente'::text) = (validado_en IS NULL)));
+-- Existing reports were filled as validado above; new ones start pendiente.
+ALTER TABLE horarios.reportes_turno
+  ALTER COLUMN estado SET DEFAULT 'pendiente'::text,
+  ALTER COLUMN validado_en DROP DEFAULT;
 CREATE INDEX reportes_turno_estado_idx ON horarios.reportes_turno USING btree (estado, creado_en DESC);
 
 -- A decided report whose content changes must be decided again.
