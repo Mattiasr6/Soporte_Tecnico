@@ -121,8 +121,15 @@ export class SoporteService {
     return this.api.get<ArbolJerarquia>('/jerarquia/arbol');
   }
 
-  /** Without `incluirInactivos` the backend returns active Técnicos and Jefes */
-  usuarios(incluirInactivos = false): Promise<UsuarioSoporte[]> {
-    return this.api.get<UsuarioSoporte[]>('/usuarios', incluirInactivos ? { incluir_inactivos: true } : undefined);
+  /**
+   * Without `incluirInactivos` the backend returns active Técnicos and Jefes.
+   * The Wilmercito assistant account is hidden: Wilmercito does not exist in Angular.
+   */
+  async usuarios(incluirInactivos = false): Promise<UsuarioSoporte[]> {
+    const usuarios = await this.api.get<UsuarioSoporte[]>(
+      '/usuarios',
+      incluirInactivos ? { incluir_inactivos: true } : undefined,
+    );
+    return usuarios.filter((u) => !/wilmercito/i.test(u.display_name));
   }
 }
