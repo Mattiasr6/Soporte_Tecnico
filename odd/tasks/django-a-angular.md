@@ -76,7 +76,7 @@ frontends already talk to the same FastAPI, so only the presentation layer must 
   - [x] G6 (M) Saturday hours per date and several auxiliares per turno; XLSX/PDF schedule export.
   - [x] G7 (L) Software inventory (`horarios.software`, `ambiente_software`, `pc_software`, attention templates).
   - [x] G8 (L) Lab hardware sheet columns on `ambientes`; room layout: keep the Angular 4-PC table croquis (no free fila/col grid).
-  - [ ] M4b Soporte "Nueva atención" (Django keeps a session batch draft + Wilmercito suggestion).
+  - [x] M4b Soporte "Nueva atención" (batch draft in the client; Wilmercito suggestion excluded by user decision).
 - [ ] M6 Data migration: LabAtenciones (131) → `horarios.atenciones`, aux JSON → perfiles.
 - [ ] Later areas (dashboards, reports, jerarquía, IA) are added as tasks per slice.
 
@@ -526,3 +526,36 @@ Strategy: ask-on-risk. Forecast M0–M2 ≈ 400 authored lines. RDD disabled for
     Angular part).
   - Left out: the Django free grid editor and pattern generator (decision above), and an audit entry for sheet
     edits (Django wrote `registrar(... "laboratorio")`; horarios has no audit log for catalog writes).
+- 2026-10-10: M4b done (route: delegated, one writer; trigger: 2+ non-trivial files). Commit `5a69bf9`
+  feat(horarios): add Soporte new attention page with a batch draft. No backend change.
+  - `/soporte/atenciones/nueva` (guard `exigirSoporte`: Jefe, Técnico, Decano = Django's "not Auxiliar/Encargado";
+    the backend batch endpoint accepts any logged-in user) and a "Nueva atención" button on `/soporte/atenciones`.
+  - Same as `nueva_vista`: área or dependencia (sector › dependencia › área picker), medio (default Interno),
+    solicitante (default ADM), categoría, the 4 quick templates (Conectividad/Acceso/Hardware/Software), descripción,
+    solución, optional observaciones/enlace behind checkboxes, colaborador (current user left out; "No podés ser tu
+    propio colaborador"), fecha (default today, browser date; Django used the UTC date), Django's error messages.
+    "Agregar a la lista" / "Guardar cambios", Editar and × per row, "Cancelar edición"; "Registrar la atención" sends
+    the form when the list is empty, otherwise "Registrar las N atenciones" sends only the list (Angular adds a
+    confirm when the form holds text not added). The 10 recent attentions (GET `/api/atenciones?limit=10`) are shown.
+    Django's nueva has no PC field and reads no prefill query params, so none were ported.
+  - Sending: one POST `/api/atenciones/batch` (one transaction: all rows or none). On failure the backend detail is
+    shown (e.g. "AreaId N no existe") and every row stays in the list; per-row errors are not possible with an
+    atomic batch. On success the list is cleared and the page goes to the list.
+  - Draft: `core/borrador-soporte.service.ts`, a signal store (items + edited index) persisted in localStorage under
+    `upds.soporte.borrador.<usuario_id>`, read/write in try/catch, removed when empty.
+  - Structure: container `nueva-atencion-soporte`, presentational `nueva-atencion-soporte-form`,
+    `borrador-soporte-lista`, and `selector-area-soporte` (area picker + `destinosDeArbol`, now also used by the M4
+    edit form `ticket-soporte-form`).
+  - Excluded by user decision: the Wilmercito/IA suggestion (`/api/ia/buscar`): no calls, no UI, no service in Angular.
+    Note: a Soporte user account named "Wilmercito" still appears in the collaborator list because `/api/usuarios`
+    returns it (Django shows it too); not filtered.
+  - Left out: hierarchy counts in the picker (`/api/atenciones/stats`, same as M4).
+  - Checks: horarios image build → "Application bundle generation complete" (before and after removing the IA
+    suggestion). Smoke on :4213 as paul (Tecnico): POST `/api/atenciones/batch` with 2 rows (área 43, dependencia 237)
+    → 200 `registros_insertados: 2`, read back in `/api/atenciones` with the área/dependencia names; unknown area_id →
+    400 "AreaId 999999 no existe". Browser as paul: "Nueva atención" link → 2 rows added through the form, key
+    `upds.soporte.borrador.3` written; reload → "Lista (2)"; Editar row 1 loads its área and texts, "Guardar cambios"
+    replaced it; empty add → "Elegí un área o dependencia."; "Registrar las 2 atenciones" → back on the list, key
+    removed, rows read back (fecha today, Interno, ADM); 0 `/ia/` requests; 0 console errors. Smoke rows deleted
+    (4 rows, 204, 0 left). Clicks were DOM events. No Angular spec files exist (test-first exception). GitNexus index is
+    for another checkout (detect_changes not run).
