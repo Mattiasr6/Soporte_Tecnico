@@ -86,7 +86,8 @@ frontends already talk to the same FastAPI, so only the presentation layer must 
 - [x] M9 Jerarquía (área/dependencia tree + editing) and Soporte técnicos horarios (guardar/limpiar/copiar) under the
   SOPORTE panel (`/soporte/jerarquia`, `/soporte/horarios` "Horarios de técnicos"). Route: delegated (one writer;
   trigger: 2+ non-trivial files). No backend change.
-- [ ] M10 Soporte inicio (estado + anuncio) and sugerencias.
+- [x] M10 Soporte inicio (estado + anuncio + team presence, `/soporte/inicio`) and sugerencias (`/sugerencias`, both
+  panels). Route: delegated (one writer; trigger: 2+ non-trivial Angular files). No backend change.
 - [ ] M6 Data migration (see above) before Django shutdown.
 - Excluded by user decision (2026-10-10): Wilmercito, Conocimiento and Asistente (all IA screens)
   never exist in Angular; the Wilmercito account is hidden from Soporte pickers (`12d4cc8`).
@@ -104,216 +105,44 @@ Strategy: ask-on-risk. Forecast M0–M2 ≈ 400 authored lines. RDD disabled for
 ## Progress
 
 - 2026-10-09: map done, doc created.
-- 2026-10-09: M0–M2 done (route: delegated, one writer; trigger: 2+ non-trivial files).
-  Commit `5a2a2ed` feat(horarios): add Mi cuenta profile and notes pages.
-  - M0: `ApiRaizService` (subclass of `ApiService`, base `/api`) reuses `ErrorSistema` handling;
-    the interceptor already covers every `/api/*` URL. Exempted `/api/auth/password` from the
-    401 → logout rule (wrong current password answers 401). "Mi cuenta" section in the menu
-    (all roles), routes `/cuenta/perfil` and `/cuenta/notas`.
-  - M1: `/api/usuarios/me`, PATCH `/api/usuarios/{id}/especialidad` (backend: Jefe or
-    dashboard viewers only, same as Django), POST `/api/auth/password`; the backend bumps
-    `token_version`, so the page re-logs in via `AuthService.iniciarSesion(correo, nueva)`;
-    if that fails the session is dropped and the user goes to login.
-  - M2: GET/PUT `/api/usuarios/notas`, autosave after 1.2 s idle, on blur, on leaving the page
-    and on `beforeunload`, with the same status indicator as `notas.js`.
-  - Not migrated: the Perfil "Accesibilidad" block (letter size/contrast/motion in
-    localStorage) needs global CSS classes in `src/styles.css`, outside this slice; the
-    "estadísticas etapa 2" placeholder was skipped.
-  - Note: Soporte `Tecnico` users mapped to Angular `invitado` (D5) at that time; fixed by R1/R2.
-  - Checks: horarios image build → "Application bundle generation complete", no errors;
-    login as paul → GET `/api/usuarios/me` 200, GET `/api/usuarios/notas` 200; POST
-    `/api/auth/password` with a wrong current password → 401 (confirms the exemption is
-    needed; password not changed); `/cuenta/perfil` and `/cuenta/notas` → 200 (SPA fallback);
-    `cuenta/perfil` present in the served `main-*.js`. No spec files exist (test-first
-    exception); no browser click-through was done.
-- 2026-10-09: R1–R2 done (route: delegated, one writer; trigger: 2+ non-trivial files across
-  backend and Angular). Commits `fbdfc46` feat(asignacion): give Tecnico a real horarios role,
-  and the R2 commit feat(horarios): use Soporte roles as the Angular role model.
-  - R1: migration `0023_horarios_rol_tecnico` (inline SQL, `_run_sql`): `perfiles_rol_check`
-    + `tecnico`, `fn_puede_operar` + `tecnico`; downgrade turns tecnico perfiles back into
-    invitado and restores both. `ROLE_MAP` Tecnico→tecnico, `ROL_TO_ROLE` is now its exact
-    inverse; `RolAsignacion`, `RolNuevo` and the turnos `Rol` filter accept `tecnico`. The
-    "Tecnico shows as invitado" special case in `routers/asignacion/usuarios.py` is gone; the
-    "only write a real change" check stays (aplicar_rol refuses any self rol change).
-    `/asignacion/me` also returns `role` (Usuarios.Role, joined on `perfiles.usuario_id`).
-  - Tests that used a Tecnico as the "no access" user now use Invitado; new tests cover the
-    tecnico permissions (schema), `/me` role, users-screen tecnico rol, and a Tecnico creating
-    a ticket + changing a PC state while getting 403 on fallas-pc (GESTIONAR), feriados
-    (EDITAR) and dashboards.
-  - RED: 16 failed / 160 passed on the 9 asignacion test files before the code change.
-    GREEN: 176 passed. Full suite: baseline 90 failed / 211 passed / 39 errors → after
-    90 failed / 228 passed / 39 errors, same failing set (seed users missing in test DB).
-  - Migration: dev DB upgrade → 0023 (head); round-trip downgrade -1 → 0022, upgrade → 0023.
-    Test DB upgraded to 0023. Ruff check + format clean on touched files (host ruff; the
-    container has none).
-  - GitNexus impact: the index (other checkout) did not resolve `ensure_perfil`/`map_role`/`me`;
-    manual check: `ensure_perfil` runs in `get_asignacion_db` (every asignacion request) and the
-    users router; `/me` is only read by Angular `auth.service.ts`.
-  - R2: `RolSoporte` + `ROLES_SOPORTE` + `ROL_DE_ROLE` in `core/modelos.ts`; `AuthService.role`
-    (missing/unknown → Invitado, fail closed) drives every computed; new `esTecnico` and
-    `puedeCerrarTurno` (manager or auxiliar: the technician has no shift, so the close-shift
-    form is hidden for him while the turno page still lets him mark pending tasks). Users
-    screen shows/assigns the 6 Soporte roles (service translates with `ROL_DE_ROLE`), Técnico
-    confirmation removed. Collaborator list (`listarPersonalOperacion`) includes técnicos in a
-    "Técnicos" group. Sidebar shows the Soporte role name; /espera copy talks about Invitado.
-  - Checks: horarios image build → "Application bundle generation complete", no errors.
-    Smoke as paul (Tecnico) on :4213: `/api/asignacion/me` 200 rol `tecnico` role `Tecnico`;
-    `/api/asignacion/atenciones` 200 (403 before); `/auxiliares?rol=tecnico` 200;
-    dashboard operacion 403. Browser: paul lands on `/` (no longer /espera) with menu Inicio,
-    Cerrar turno, Atenciones, Objetos perdidos, Laboratorios, Registros, Mi cuenta. No Angular
-    spec files exist (test-first exception for R2).
-  - Known limitation: a técnico only appears in the collaborator list after he opened the
-    Angular app once (perfiles are created lazily by `ensure_perfil`; the users screen syncs all).
-- 2026-10-09: M3–M4 done (route: delegated, one writer; trigger: 2+ non-trivial files).
-  Commits `35d7177` feat(horarios): add read-only audit trail screen, `069711a`
-  feat(horarios): add Soporte attentions list and ticket.
-  - M3: `/auditoria` (menu item "Auditoría", guard `exigirDashboard`). Django and the backend
-    both allow Jefe **or** `Usuarios.CanViewDashboard` (`is_privileged`), which Angular could not
-    see, so `/asignacion/me` now also returns `can_view_dashboard` (backend change, 4 lines) and
-    `AuthService.puedeVerDashboard` mirrors it. Same filters (entidad, acción, limite 200) and
-    columns (Cuándo, Quién + rol/#id, Acción, Entidad, Detalle). Files: `core/auditoria.service.ts`,
-    `paginas/auditoria/auditoria.component.ts` (container), `auditoria-tabla.component.ts`
-    (presentational), `History` icon as `historial`.
-  - M3 tests: RED 2 failed / 17 passed on `tests/test_asignacion_base.py` (key set + new
-    `test_me_exposes_can_view_dashboard_flag`), GREEN 19 passed; host ruff check + format clean.
-  - M4: `/soporte/atenciones` under a new "Soporte" menu section (guard `exigirSoporte`:
-    Jefe, Técnico, Decano = Django's "everyone but Auxiliar/Encargado"; Invitado never enters
-    Angular). Same as `lista_vista`: GET `/api/atenciones` (backend: Jefe/dashboard see all,
-    others their own), search on descripción/área, categoría and mes filtered client-side,
-    técnico filter (Jefe/dashboard only, `usuario_id` server-side, users incl. "(de baja)"),
-    columns Fecha, Área, Categoría, Técnico, Fuera de turno, "Ver más" +50 up to 500. Ticket in
-    a modal; owner-only Editar (PUT `/api/atenciones/{id}`, area picker over
-    `/api/jerarquia/arbol`, collaborators from `/api/usuarios`, empty fields omitted like
-    `_cuerpo_edicion`) and Eliminar (DELETE, confirm). `Perfil.usuario_id` added for the owner
-    check. Files: `core/soporte.service.ts`, `paginas/soporte/atenciones-soporte.component.ts`
-    (container), `atenciones-soporte-tabla`, `ticket-soporte`, `ticket-soporte-form`
-    (presentational).
-  - M4 size: ~730 authored lines, over the 400 heuristic because list + ticket + edit form with
-    the area picker form one behavior; not split.
-  - Not migrated: "Nueva atención" (`nueva_vista`: session batch draft + Wilmercito
-    suggestion), the hierarchy counts (`conteos_json`) in the area picker, and clearing a
-    collaborator (the backend ignores `colaborador_id: null`, same as Django).
-  - Checks: horarios image build → "Application bundle generation complete", no errors (both
-    slices). Smoke on :4213: paul (Tecnico) `/asignacion/me` 200 `can_view_dashboard:false`,
-    `/api/auditoria` 403; Jefe token (minted in the api container) `/api/auditoria` 200 with
-    and without filters (0 rows in the UPDS DB). paul `/api/atenciones` 200 (584, own only),
-    Jefe 200 (2936), Jefe `?usuario_id=3` 584; `/api/jerarquia/arbol` 200; `/api/usuarios` 200;
-    `?incluir_inactivos=true` 200; PUT own (unchanged categoría) 204; PUT/DELETE another
-    user's 403; DELETE missing 404. `/auditoria` and `/soporte/atenciones` → 200 (SPA) and in
-    `main-*.js`. Browser as paul: list renders 584 rows, Soporte section in the menu, no
-    Auditoría item, ticket modal and edit form open with the area preselected; 0 console
-    errors. No Angular spec files exist (test-first exception for the Angular parts).
-  - GitNexus `detect_changes` unavailable: the index is for another checkout.
-- 2026-10-09: G1–G2 done (route: delegated, one writer; trigger: 2+ non-trivial files per task). Commits `64e9d0f`
-  feat(horarios): add printable attention ticket and clone into labs, `8f52194` feat(horarios): show expired lost
-  objects and toggle encargado role. No backend change. (Condensed 2026-10-10.)
-  - G1: "Ver e imprimir ticket" modal (`ticket-atencion`), print via `body.imprimiendo` + `.zona-impresion`; "Clonar
-    en otros laboratorios" (`clonar-atencion`, one bulk POST `/api/asignacion/atenciones`, puedeOperar). Left out:
-    correctivo/cambio_estado cloning, editable copy date.
-  - G2: computed "Vencido" (pending > 90 days, `core/objetos.ts`), tab "Vencidos +90 días"; "Encargados" switch list on
-    `/auxiliares` (PATCH rol; admin-only backend, so Jefe only). Left out: "Purgar vencidos".
-  - Checks: image build → "Application bundle generation complete"; smoke on :4213 (clone POST 201 → 3 rows, PATCH rol
-    paul/Encargado 403, Jefe 200 both ways, objetos POST/GET/DELETE OK); browser as Jefe OK, 0 console errors; print
-    dialog not exercised; no spec files (test-first exception).
-- 2026-10-09: G3 done (route: delegated, one writer; trigger: 2+ non-trivial files across
-  migration, API and Angular). Commits `6c77a69` feat(asignacion): add turno and medio to
-  atenciones and a lab dashboard, `310b944` feat(horarios): add turno and medio to attentions
-  and a lab dashboard.
-  - Migration `0024_horarios_turno_medio` (inline `_run_sql`, with downgrade):
-    `atenciones.turno` (M/MD/T/N, NOT NULL after backfill) and `medio_solicitud`
-    ('Presencial'|'WhatsApp', default Presencial), CHECK constraints; BEFORE INSERT trigger
-    `trg_atenciones_turno` fills a missing turno from the linked `turnos_trabajo`, else from
-    `fn_turno_horario_de(creado_en)` (horarios_turno hours in La Paz, latest started turno
-    still running, fallback N: same rule as fn_dashboard_detalle `tickets_por_turno`). It also
-    covers the RPC inserts (reparaciones, cambio de estado). Backfill disables
-    `trg_atenciones_actualizado` so `actualizado_en` is untouched. New
-    `fn_dashboard_laboratorios(desde, hasta, turno, ambiente_id)` (permission
-    fn_puede_gestionar_auxiliares like the other dashboards): kpis (total, lab_top, turno_top,
-    auxiliares_activos), por_lab (top_tipo, top_turno), por_tipo, por_turno (all 4, shift
-    order), por_medio, por_mes (January .. month of `hasta`).
-  - API: `AtencionIn` + `turno`/`medio_solicitud` (values checked by the DB → 422);
-    GET `/atenciones?turno=&medio_solicitud=`; GET `/dashboard/laboratorios` (declared before
-    `/{dashboard}`; `FiltroLaboratorios` = range + Literal turno + ambiente_id).
-  - Angular: atenciones list filters Turno and Medio, card chips (turno, WhatsApp), form
-    selects (turno "Automático (turno abierto u hora)" on new, hidden for a new correctivo
-    which goes through the RPC), CSV columns, printable ticket rows, clone keeps the medio.
-    New page `/dashboard-laboratorios` ("Labs por turno" menu item, guard
-    exigirGestionAuxiliares, link from Desempeño): container `dashboard-laboratorios`
-    (mes, turno, lab filters, CSV of the per-lab table) + presentational
-    `dashboard-laboratorios-vista` (KPIs, per-lab table, year trend with
-    `app-grafico-lineas`, bars by lab/turno/category with `app-grafico-barras`, medio bars).
-    No new chart dependency.
-  - Semantics chosen: Django turnos mañana/mediodia/tarde/noche → horarios M/MD/T/N; Django
-    "categoría" (LabCategoria) → horarios `tipo`; Django "auxiliares activos" (distinct
-    auxiliar_nombre) → distinct `auxiliar_id`; Django allowed a null turno, horarios always
-    derives one; permission is the horarios dashboard one (admin/encargado), not Django's
-    `_puede_reportes`.
-  - Tests: RED 13 failed / 58 passed (`test_asignacion_operacion.py` +
-    `test_asignacion_dashboards.py`), GREEN 71 passed; all `tests/test_asignacion*` 169 passed;
-    full suite 90 failed / 248 passed / 39 errors (same failure counts as baseline, seed users).
-    Host ruff check + format clean on the 8 touched Python files.
-  - Migration: test DB and UPDS DB upgrade → 0024, downgrade -1 → 0023, upgrade → 0024 (head).
-  - Checks: horarios image build → "Application bundle generation complete", no errors. Smoke
-    on :4213: paul POST 2 atenciones 201 (explicit T/WhatsApp; the other defaulted to T at
-    17:59 La Paz, medio Presencial), GET filter turno=T&medio=WhatsApp → only the first,
-    turno "mañana" → 422, paul `/dashboard/laboratorios` 403, Jefe (minted) 200 (kpis total 2,
-    LAB-01, turno T) and 200 with turno+lab filter, DELETE 204, 0 smoke rows left. Browser as
-    Jefe: `/dashboard-laboratorios` renders, "Labs por turno" in the menu, 0 console errors.
-    No Angular spec files exist (test-first exception for the Angular part).
-  - Left out: Django `fuera_por_turno`/`fuera_por_auxiliar` (no "fuera de turno" flag in
-    horarios), the 10 "recientes" rows of the Django dashboard, and Django's raw-rows CSV export
-    for labs (the atenciones list CSV now carries turno and medio). GitNexus index is for another
-    checkout (detect_changes not run).
-- 2026-10-09: G4 done (route: delegated, one writer; trigger: 2+ non-trivial files across API and
-  Angular). Commits `7bbc591` feat(asignacion): add lab traffic-light board and day timeline
-  endpoints, `e97413a` feat(horarios): add lab traffic-light board and day timeline pages.
-  - No migration and no SQL function: both are single SELECTs (the timeline a UNION ALL) in
-    `app/services/asignacion/tablero.py`; router `routers/asignacion/tablero.py`
-    (GET `/tablero-laboratorios`, GET `/timeline?fecha=`; fixed paths, no enum conflict).
-  - Permission: `fn_puede_ver` for both. Django showed the board to Jefe/dashboard/Encargado and
-    the timeline to everyone; in horarios every row both read is already VER-readable through
-    `/atenciones`, `/objetos-perdidos` and `/reportes-turno`, so a narrower gate would hide nothing.
-  - Semáforo rule (La Paz calendar days; labs `tipo = laboratorio`, `estado <> baja`):
-    **rojo** = at least one `objetos_perdidos` row `en_custodia` found at most 90 days ago
-    (`objetos_perdidos.ambiente_id` is NOT NULL; Django turned red on the lab's novedades with
-    effective estado "pendiente", which excludes vencidos); **amarillo** = a PC of the lab had an
-    attention with `pc_id` on or after today − 7 (Django's rule), or a PC in `mantenimiento` or
-    `baja`, or a `solicitudes_baja` row `pendiente`; **verde** = none. Lab-level attentions count
-    in `atenciones_7d` but do not turn it yellow. Note: a PC kept in `baja` keeps its lab yellow
-    until it is removed from the inventory (accepted per the task; revisit if noisy).
-  - Card: total/operativas/mantenimiento/baja PCs, PCs attended in 7 days, objects in custody and
-    vencidos, pending baja requests, last attention (date, author, tipo as "categoría").
-    Actions: Croquis (`PanelesService.abrirLaboratorio(..., 'croquis')`), Atenciones and Objetos
-    (`?lab=<id>`, bound with `withComponentInputBinding`; the attentions list also turns off
-    "solo míos" so the auxiliar sees the whole lab).
-  - Timeline: events `atencion` (creado_en), `reporte` (reportes_turno.creado_en, novedades),
-    `tarea_hecha` (reporte_tareas.hecha_en), `objeto_registrado` (encontrado_en) and
-    `objeto_entregado` (entregado_en, detalle = entregado_a), newest first like Django, hour
-    HH:MM in La Paz from SQL, limit 1000. `foto` names the existing endpoint
-    (`/objetos-perdidos/{id}/fotos/objeto|entrega`, `/reportes-turno/{id}/foto`); Angular downloads
-    blobs 3 at a time, a missing photo is just not shown. Date picker with previous/next/Hoy
-    (future days disabled).
-  - Angular: `tablero-laboratorios` + `tablero-laboratorios-vista`, `timeline` + `timeline-vista`
-    (container/presentational), routes `/tablero-laboratorios` and `/timeline` (no extra guard:
-    every Angular role has VER), menu "Tablero de labs" and "Actividad del día", icons `tablero`
-    (Gauge) and `actividad` (Activity).
-  - Tests: RED 7 failed (404) on new `tests/test_asignacion_tablero.py`; GREEN 7 passed; all
-    `tests/test_asignacion*` 176 passed; full suite (`--continue-on-collection-errors`) 90 failed /
-    255 passed / 39 errors (same failure counts as baseline, seed users). Host ruff check + format
-    clean on the 4 touched Python files.
-  - Checks: horarios image build → "Application bundle generation complete", no errors. Smoke on
-    :4213 as paul (Tecnico): board 200 all verde → POST atención on LAB-01 PC SCPC101 + object in
-    LAB-02 → LAB-01 amarillo (PCs atendidas SCPC101, última 18:08 docente, author Paul), LAB-02
-    rojo; timeline 200 with both events at 18:08, `?fecha=2026-01-01` 200, `?fecha=x` 422. Jefe
-    (minted) board 200. Browser: menu shows both entries; board summary 1 rojo/1 amarillo/8 verde;
-    Croquis opens the LAB-01 panel, Atenciones → `/atenciones?lab=1` with LAB-01 selected and the
-    smoke row, Objetos → `/objetos-perdidos?lab=2` with LAB-02 selected; timeline shows the photo
-    thumbnail (blob) and the modal, previous day shows the empty state; 0 console errors. Smoke
-    rows deleted (atención 204, objeto as Jefe 204, 0 left). No Angular spec files exist
-    (test-first exception for the Angular part).
-  - Left out: Django "cierre" events (G5 adds cierre validation), the auxiliar "soy" identity
-    redirect (Angular uses the logged-in perfil), and created-but-pending tasks as separate events
-    (they belong to their report).
+- 2026-10-09: M0–M2 done (delegated, one writer). Commit `5a2a2ed` feat(horarios): add Mi cuenta profile and notes
+  pages. `ApiRaizService` (base `/api`); `/api/auth/password` exempt from 401 → logout; Perfil (`/usuarios/me`,
+  especialidad PATCH Jefe/dashboard only, password change + re-login), Notas (GET/PUT `/usuarios/notas`, autosave).
+  Left out: Perfil "Accesibilidad" block, "estadísticas etapa 2". Checks: image build → "Application bundle generation
+  complete"; paul `/usuarios/me` 200, `/usuarios/notas` 200, wrong password 401. No spec files (test-first exception).
+  (Condensed 2026-10-10.)
+- 2026-10-09: R1–R2 done (delegated, one writer). Commits `fbdfc46` feat(asignacion): give Tecnico a real horarios role,
+  and feat(horarios): use Soporte roles as the Angular role model. Migration `0023_horarios_rol_tecnico` (tecnico in
+  `perfiles_rol_check` and `fn_puede_operar`), `ROLE_MAP` Tecnico→tecnico, `/asignacion/me` returns `role`; Angular
+  `RolSoporte`/`ROLES_SOPORTE`, `AuthService.role` fail-closed, `esTecnico`, `puedeCerrarTurno`. Tests RED 16 failed →
+  GREEN 176 passed; full suite 90 failed / 228 passed / 39 errors (same failing set, seed users). Migration round-trip
+  0023 ↔ 0022 OK; ruff clean. Smoke: paul `/asignacion/me` rol `tecnico`, atenciones 200, dashboard 403; browser lands
+  on `/`. Limitation: a técnico appears as collaborator only after opening Angular once (lazy `ensure_perfil`).
+  (Condensed 2026-10-10.)
+- 2026-10-09: M3–M4 done (delegated, one writer). Commits `35d7177` feat(horarios): add read-only audit trail screen,
+  `069711a` feat(horarios): add Soporte attentions list and ticket. M3 `/auditoria` (guard `exigirDashboard`;
+  `/asignacion/me` now returns `can_view_dashboard`): tests RED 2 failed → GREEN 19 passed, ruff clean. M4
+  `/soporte/atenciones` (guard `exigirSoporte`: Jefe, Técnico, Decano), list + ticket modal, owner-only edit/delete.
+  Smoke: paul `/api/auditoria` 403, Jefe 200; paul atenciones 584 (own), Jefe 2936; PUT/DELETE another user's 403.
+  Browser as paul OK, 0 console errors. Size ~730 lines (one behavior). (Condensed 2026-10-10.)
+- 2026-10-09: G1–G2 done (delegated, one writer). Commits `64e9d0f` feat(horarios): add printable attention ticket and
+  clone into labs, `8f52194` feat(horarios): show expired lost objects and toggle encargado role. No backend change.
+  Checks: image build OK; clone POST 201 → 3 rows; PATCH rol paul 403, Jefe 200; browser OK, 0 console errors.
+  Left out: correctivo cloning, "Purgar vencidos". (Condensed 2026-10-10.)
+- 2026-10-09: G3 done (delegated, one writer). Commits `6c77a69` feat(asignacion): add turno and medio to atenciones and
+  a lab dashboard, `310b944` feat(horarios): add turno and medio to attentions and a lab dashboard. Migration
+  `0024_horarios_turno_medio` (turno M/MD/T/N via trigger, medio_solicitud, `fn_dashboard_laboratorios`); API filters
+  and GET `/dashboard/laboratorios`; Angular filters, chips and `/dashboard-laboratorios` (exigirGestionAuxiliares).
+  Tests RED 13 failed → GREEN 71 passed; asignacion 169 passed; full suite 90 failed / 248 passed / 39 errors
+  (baseline). Migration round-trip OK; ruff clean. Smoke: paul dashboard 403, Jefe 200; smoke rows deleted. Left out:
+  Django fuera_por_turno/auxiliar, recientes, raw CSV. (Condensed 2026-10-10.)
+- 2026-10-09: G4 done (delegated, one writer). Commits `7bbc591` feat(asignacion): add lab traffic-light board and day
+  timeline endpoints, `e97413a` feat(horarios): add lab traffic-light board and day timeline pages. Single SELECTs in
+  `services/asignacion/tablero.py` (permission `fn_puede_ver`); semáforo rojo = object in custody ≤ 90 days, amarillo =
+  PC attended in 7 days / PC in mantenimiento or baja / pending baja request. Tests RED 7 failed → GREEN 7 passed;
+  asignacion 176 passed; full suite 90 failed / 255 passed / 39 errors (baseline); ruff clean. Smoke: board rojo/amarillo
+  as expected, timeline 200, `?fecha=x` 422; browser OK, 0 console errors; smoke rows deleted. Left out: Django
+  "cierre" events, auxiliar "soy" identity. (Condensed 2026-10-10.)
 - 2026-10-09: G5 done (route: delegated, one writer; trigger: 2+ non-trivial files across migration,
   API and Angular). Commits `5281161` feat(asignacion): add lab novedades and shift-close validation,
   `28c2e00` feat(horarios): add lab novedades and shift-close validation pages.
@@ -638,3 +467,40 @@ Strategy: ask-on-risk. Forecast M0–M2 ≈ 400 authored lines. RDD disabled for
     (Tecnico): menu unchanged, `/soporte/horarios` and `/soporte/jerarquia` → `/`. 0 console errors. No Angular spec
     files exist (test-first exception); no backend change, so no pytest/ruff run.
   - Size: ~670 + ~560 authored lines, over the 400 heuristic: each screen ports a full Django page plus its forms.
+- 2026-10-10: M10 done (route: delegated, one writer; trigger: 2+ non-trivial Angular files). Commits `a728eea`
+  feat(horarios): add Soporte home with presence state and team announcement, `32dfe71` feat(horarios): add suggestion
+  box shared by both menu panels. No backend change: every Django call already had a FastAPI endpoint, and none of the
+  endpoints used answers 401 for permission reasons (only for a missing/invalid token).
+  - Soporte home `/soporte/inicio` (guard `exigirSoporte`: Jefe, Técnico, Decano = Django `inicio_vista` minus
+    Auxiliar/Encargado; Angular `/` stays the horarios grid): `core/inicio-soporte.service.ts`; container
+    `inicio-soporte` (load, 20 s silent refresh of team + announcement, state change, publish); presentational
+    `mi-estado-soporte` (chip + Ponerme ocupado/disponible, disabled off shift with Django's reason text),
+    `anuncio-equipo` (read for everyone; textarea Publicar/Borrar for Jefe or dashboard users, never overwritten while
+    typing), `equipo-presencia` (count per state + cards sorted like `_presencia`), `estado-presencia-chip`,
+    `accesos-soporte` (Registrar atención, Atenciones; Dashboard, Jerarquía, Horarios only for dashboard users since
+    their screens are guarded). Endpoints: GET `/usuarios/me`, PATCH `/usuarios/estado`, GET `/usuarios` (Wilmercito
+    hidden), GET/POST `/announcements`. Menu: with the toggle, "Inicio Soporte" is the first item of the SOPORTE panel
+    and the toggle's SOPORTE landing page (was `/soporte/atenciones`); without the toggle it is the first item of the
+    Soporte section (Técnico, Decano). Icons `inicio` (House), `sugerencia` (MessageSquareText).
+  - Deviations: the 20 s team refresh runs for every role (Django's `panel/estados/` refresh only worked for dashboard
+    users, the initial list was shown to all; same data, `/api/usuarios` is open to every user), so `panel/estados/`
+    needs no port. Not ported: `_marcar_sesion` (POST `/usuarios/sesion` on inicio/login/logout), because Angular has no
+    logout hook to mark the user absent again; no IA/Wilmercito widget exists on the Django home.
+  - Sugerencias `/sugerencias` (every logged-in role; item AMBOS in both panels like Django; the route keeps the current
+    panel): `core/sugerencias.service.ts`; container `sugerencias`, presentational `sugerencia-form` (max 1000) and
+    `sugerencias-lista` (autor, fecha, estado chip, texto). Endpoints: GET/POST `/api/sugerencias`. PATCH estado
+    (Jefe only) has no Django screen, so it is not exposed.
+  - Checks: `ng build` (host) and horarios image build → "Application bundle generation complete" (each slice). API on
+    :4213: paul `/usuarios/me` 200 (extraturno, puede_cambiar_estado false), PATCH estado off shift 403, invalid 400;
+    Técnico id 4 (minted, on shift) ocupado 204 → disponible 204 (restored); POST `/announcements` paul 403, Jefe
+    (minted, id 8) 200, cleared back to null; sugerencias paul GET 200, POST 201, blank 400, PATCH 403, no token 401;
+    Auxiliar (minted, id 10) GET 200. Browser (DOM clicks, 0 console errors): Jefe menu SOPORTE = Inicio Soporte,
+    Inicio, Auditoría, Sugerencias + Soporte section; Inicio Soporte active, off-shift button disabled with the reason,
+    Wilmercito hidden, 9 técnicos 2/0/7/0, Publicar → firma "Josue Huayllas · 17:16", "Publicado ✓", Borrar shown;
+    AUXILIARES → `/`, Novedades, SOPORTE → `/soporte/inicio`. Técnico id 4: no toggle, Soporte › Inicio Soporte,
+    Atenciones; reads the announcement (no textarea); Ponerme ocupado → Ocupado, Ponerme disponible → Disponible.
+    Auxiliar: Sugerencias in the menu, no Inicio Soporte, `/soporte/inicio` → `/`; sending → "Sugerencia enviada.",
+    list 4 → 5, textarea cleared. Jefe on `/sugerencias` keeps SOPORTE, toggle to AUXILIARES stays there. Test
+    suggestions deleted (4 rows left), announcement cleared, técnico state restored. No Angular spec files exist
+    (test-first exception); no backend change, so no pytest/ruff run. GitNexus index is for another checkout.
+  - Size: ~470 + ~190 authored lines; the home is 5 small presentational widgets plus the container.
