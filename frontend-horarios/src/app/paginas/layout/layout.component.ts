@@ -1,5 +1,7 @@
-import { Component, computed, inject, OnInit, signal } from '@angular/core';
-import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { Component, computed, effect, inject, OnInit, signal, untracked } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { filter, map } from 'rxjs';
 import { IconoComponent } from '../../compartido/icono.component';
 import { PanelLateralComponent } from '../../compartido/panel-lateral.component';
 import { TemaService } from '../../core/tema.service';
@@ -8,6 +10,11 @@ import { CatalogosService } from '../../core/catalogos.service';
 import { ROLES_SOPORTE } from '../../core/modelos';
 import { PanelesService } from '../../core/paneles.service';
 
+/** Side-menu panel of the system toggle (Django `context-toggle`) */
+type Sistema = 'SOPORTE' | 'AUXILIARES';
+/** Panel that owns a menu item; AMBOS stays visible in both panels */
+type SistemaItem = Sistema | 'AMBOS';
+
 /** Elemento del menú lateral */
 interface ItemMenu {
   ruta: string;
@@ -15,6 +22,19 @@ interface ItemMenu {
   icono: string;
   /** Si está, solo se muestra cuando la función devuelve true */
   visible?: (auth: AuthService) => boolean;
+  /** Panel of the system toggle that shows the item (default AUXILIARES) */
+  sistema?: SistemaItem;
+}
+
+/**
+ * Panel that owns a URL, so a deep link always shows its active item.
+ * Shared routes (Inicio, Mi cuenta) return null and keep the current panel.
+ */
+function sistemaDeRuta(url: string): Sistema | null {
+  const ruta = url.split(/[?#]/)[0];
+  if (ruta === '/' || ruta === '' || ruta.startsWith('/cuenta/')) return null;
+  if (ruta === '/auditoria' || ruta === '/soporte' || ruta.startsWith('/soporte/')) return 'SOPORTE';
+  return 'AUXILIARES';
 }
 
 /**
@@ -41,7 +61,19 @@ interface ItemMenu {
           </div>
         </div>
 
-        @if (auth.puedeEditar()) {
+        @if (muestraSistema()) {
+          <div class="mx-3 mb-3 grid grid-cols-2 gap-1 rounded-lg bg-white/10 p-1" role="tablist" aria-label="Sistema del menú">
+            @for (s of sistemas; track s) {
+              <button type="button" role="tab" [attr.aria-selected]="sistema() === s" (click)="elegirSistema(s)"
+                      class="rounded-md px-2 py-1.5 text-[11px] font-semibold tracking-wide transition"
+                      [class]="sistema() === s ? 'bg-white text-marca-900' : 'text-white/70 hover:bg-white/10 hover:text-white'">
+                {{ s }}
+              </button>
+            }
+          </div>
+        }
+
+        @if (auth.puedeEditar() && enSistema('AUXILIARES')) {
           <div class="space-y-1.5 px-3 pb-3">
             <button class="flex w-full items-center gap-3 rounded-md bg-white/15 px-3 py-2.5 text-sm font-medium text-white transition hover:bg-white/25" (click)="nuevaAsignacion()">
               <app-icono nombre="agregar" [tamano]="18" /> Nueva asignación
@@ -60,7 +92,7 @@ interface ItemMenu {
               <app-icono [nombre]="item.icono" [tamano]="18" /> {{ item.texto }}
             </a>
           }
-          @if (auth.puedeVerSoporte()) {
+          @if (auth.puedeVerSoporte() && enSistema('SOPORTE')) {
             <p class="px-3 pt-4 pb-1 text-[11px] font-semibold tracking-wide text-white/45 uppercase">Soporte</p>
             @for (item of soporte; track item.ruta) {
               <a [routerLink]="item.ruta" routerLinkActive="!bg-white/15 !text-white" (click)="menuAbierto.set(false)"
@@ -132,7 +164,7 @@ export class LayoutComponent implements OnInit {
 
   /** Menú corto; cada ítem puede depender del rol */
   private readonly items: ItemMenu[] = [
-    { ruta: '/', texto: 'Inicio', icono: 'panel' },
+    { ruta: '/', texto: 'Inicio', icono: 'panel', sistema: 'AMBOS' },
     { ruta: '/turno', texto: 'Cerrar turno', icono: 'hora', visible: (a) => a.puedeOperar() },
     { ruta: '/horario', texto: 'Horario', icono: 'calendario', visible: (a) => a.esAuxiliar() },
     { ruta: '/atenciones', texto: 'Atenciones', icono: 'registros', visible: (a) => a.puedeOperar() },
@@ -147,7 +179,7 @@ export class LayoutComponent implements OnInit {
     { ruta: '/laboratorios', texto: 'Laboratorios', icono: 'laboratorio' },
     { ruta: '/software', texto: 'Software', icono: 'software' },
     { ruta: '/registros', texto: 'Registros', icono: 'registros' },
-    { ruta: '/auditoria', texto: 'Auditoría', icono: 'historial', visible: (a) => a.puedeVerDashboard() },
+    { ruta: '/auditoria', texto: 'Auditoría', icono: 'historial', visible: (a) => a.puedeVerDashboard(), sistema: 'SOPORTE' },
     { ruta: '/configuracion', texto: 'Configuración', icono: 'configuracion', visible: (a) => a.esAdmin() },
   ];
   /** "Soporte": the Soporte system screens (Jefe, Técnico, Decano, as in Django) */
@@ -161,11 +193,83 @@ export class LayoutComponent implements OnInit {
   ];
   /** Visible name of the session's Soporte role */
   protected readonly nombreRol = computed(() => ROLES_SOPORTE.find((r) => r.valor === this.auth.role())?.texto ?? '');
-  /** Ítems visibles para el rol actual */
-  protected readonly menu = computed(() => this.items.filter((i) => !i.visible || i.visible(this.auth)));
+  /** Ítems visibles para el rol actual (y el panel elegido, si hay selector) */
+  protected readonly menu = computed(() =>
+    this.items.filter((i) => (!i.visible || i.visible(this.auth)) && this.enSistema(i.sistema ?? 'AUXILIARES')),
+  );
+
+  protected readonly sistemas: readonly Sistema[] = ['SOPORTE', 'AUXILIARES'];
+  /** Django rule: the toggle shows for dashboard viewers that are not Auxiliar nor Encargado */
+  protected readonly muestraSistema = computed(
+    () => this.auth.puedeVerDashboard() && !this.auth.esAuxiliar() && !this.auth.esEncargado(),
+  );
+  /** Selected panel; null until read from storage or set by the route */
+  private readonly sistemaElegido = signal<Sistema | null>(null);
+  protected readonly sistema = computed<Sistema>(() => this.sistemaElegido() ?? 'SOPORTE');
+  /** Current URL, updated on every finished navigation */
+  private readonly url = toSignal(
+    this.router.events.pipe(
+      filter((e): e is NavigationEnd => e instanceof NavigationEnd),
+      map((e) => e.urlAfterRedirects),
+    ),
+    { initialValue: this.router.url },
+  );
+
+  constructor() {
+    // The route owns its panel (deep links); shared routes keep the stored choice.
+    effect(() => {
+      const usuarioId = this.auth.perfil()?.usuario_id;
+      const dueno = sistemaDeRuta(this.url());
+      if (!this.muestraSistema() || usuarioId == null) return;
+      untracked(() => {
+        if (dueno) this.fijarSistema(dueno);
+        else if (this.sistemaElegido() === null) this.sistemaElegido.set(this.leerSistema() ?? 'SOPORTE');
+      });
+    });
+  }
 
   ngOnInit(): void {
     void this.cargar();
+  }
+
+  /** Whether an item of the given panel is shown; without the toggle every item is */
+  protected enSistema(s: SistemaItem): boolean {
+    return !this.muestraSistema() || s === 'AMBOS' || s === this.sistema();
+  }
+
+  /** Toggle click: switch panels and, like Django, leave a page the new panel does not own */
+  protected elegirSistema(s: Sistema): void {
+    this.fijarSistema(s);
+    const dueno = sistemaDeRuta(this.router.url);
+    if (dueno && dueno !== s) void this.router.navigateByUrl(s === 'SOPORTE' ? '/soporte/atenciones' : '/');
+  }
+
+  private fijarSistema(s: Sistema): void {
+    this.sistemaElegido.set(s);
+    const clave = this.claveSistema();
+    if (!clave) return;
+    try {
+      localStorage.setItem(clave, s);
+    } catch {
+      // Storage unavailable (private mode, quota): the choice lasts for this page only.
+    }
+  }
+
+  private leerSistema(): Sistema | null {
+    const clave = this.claveSistema();
+    if (!clave) return null;
+    try {
+      const valor = localStorage.getItem(clave);
+      return valor === 'SOPORTE' || valor === 'AUXILIARES' ? valor : null;
+    } catch {
+      return null;
+    }
+  }
+
+  /** Per-user storage key, like the Soporte draft (`upds.soporte.borrador.<id>`) */
+  private claveSistema(): string | null {
+    const id = this.auth.perfil()?.usuario_id;
+    return id == null ? null : `upds.menu.sistema.${id}`;
   }
 
   /** Iniciales del usuario para el avatar */
