@@ -44,6 +44,25 @@ export interface CambiosAtencionSoporte {
   colaborador_id?: number;
 }
 
+/** One row of POST /api/atenciones/batch (AtencionCreate), as Django `_item_nueva_desde_post` builds it */
+export interface NuevaAtencionSoporte {
+  /** Always empty: the backend derives the legacy name from the área or dependencia */
+  area_solicitante: string;
+  grupo_padre_id: number | null;
+  grupo_id: number | null;
+  area_id: number | null;
+  medio_solicitud: string;
+  usuario_solicitante: string;
+  categoria: string;
+  descripcion: string;
+  solucion: string;
+  observaciones: string | null;
+  enlace_apoyo: string | null;
+  colaborador_id: number | null;
+  /** ISO date (YYYY-MM-DD) */
+  fecha_registro: string;
+}
+
 /** GET /api/jerarquia/arbol: sector (padre) › dependencia (grupo) › área */
 export interface ArbolJerarquia {
   padres: { id: number; nombre: string; orden: number }[];
@@ -82,6 +101,16 @@ export class SoporteService {
 
   actualizarAtencion(id: number, cambios: CambiosAtencionSoporte): Promise<void> {
     return this.api.put<void>(`/atenciones/${id}`, cambios);
+  }
+
+  /** The 10 most recent attentions the user can see (Django "Atenciones recientes") */
+  recientes(): Promise<AtencionSoporte[]> {
+    return this.api.get<AtencionSoporte[]>('/atenciones', { limit: 10 });
+  }
+
+  /** All rows in one transaction: either every row is stored or none */
+  registrarLote(atenciones: NuevaAtencionSoporte[]): Promise<{ registros_insertados: number }> {
+    return this.api.post<{ registros_insertados: number }>('/atenciones/batch', { atenciones });
   }
 
   eliminarAtencion(id: number): Promise<void> {

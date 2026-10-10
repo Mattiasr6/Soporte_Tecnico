@@ -1,19 +1,9 @@
 import { Component, computed, input, OnInit, output, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { normalizar } from '../../compartido/buscador.component';
 import {
   ArbolJerarquia, AtencionSoporte, CambiosAtencionSoporte, CATEGORIAS_SOPORTE, MEDIOS_SOPORTE, SOLICITANTES_SOPORTE, UsuarioSoporte,
 } from '../../core/soporte.service';
-
-/** A pickable place: a dependencia (grupo) or an área, with its full path */
-interface Destino {
-  clave: string;
-  ruta: string;
-  busca: string;
-  grupo_padre_id: number;
-  grupo_id: number | null;
-  area_id: number | null;
-}
+import { claveDestino, DestinoSoporte, destinosDeArbol, SelectorAreaSoporteComponent } from './selector-area-soporte.component';
 
 /**
  * Edición de una atención de Soporte (presentacional), con los mismos campos
@@ -23,30 +13,11 @@ interface Destino {
  */
 @Component({
   selector: 'app-ticket-soporte-form',
-  imports: [FormsModule],
+  imports: [FormsModule, SelectorAreaSoporteComponent],
   template: `
     <form class="space-y-3" (ngSubmit)="enviar()">
       <div>
-        <label class="etiqueta" for="ts-area">Área</label>
-        @if (destino() && !eligiendo()) {
-          <p class="flex flex-wrap items-center gap-2 text-sm">
-            <span class="font-medium text-marca-700">{{ destino()!.ruta }}</span>
-            <button class="btn-fantasma btn-sm" type="button" (click)="eligiendo.set(true)">Cambiar</button>
-          </p>
-        } @else {
-          <input class="campo" id="ts-area" name="filtroArea" autocomplete="off" placeholder="Escribí para filtrar: sistemas, aula b, vicerrectorado…"
-                 [ngModel]="filtroArea()" (ngModelChange)="filtroArea.set($event)">
-          <ul class="mt-1 max-h-48 overflow-y-auto rounded-md border border-slate-200 text-sm" role="listbox" aria-label="Sector, dependencia y área">
-            @for (d of destinosFiltrados(); track d.clave) {
-              <li>
-                <button type="button" class="w-full px-3 py-1.5 text-left hover:bg-slate-100" role="option"
-                        [attr.aria-selected]="destino()?.clave === d.clave" (click)="elegir(d)">{{ d.ruta }}</button>
-              </li>
-            } @empty {
-              <li class="px-3 py-1.5 text-slate-500">Sin coincidencias.</li>
-            }
-          </ul>
-        }
+        <app-selector-area-soporte idCampo="ts-area" [destinos]="destinos()" [(seleccion)]="destino" />
       </div>
       <div class="grid gap-3 sm:grid-cols-2">
         <div>
@@ -133,36 +104,10 @@ export class TicketSoporteFormComponent implements OnInit {
   protected readonly enlace = signal('');
   protected readonly colaborador = signal<number | null>(null);
   protected readonly fecha = signal('');
-  protected readonly destino = signal<Destino | null>(null);
-  protected readonly eligiendo = signal(false);
-  protected readonly filtroArea = signal('');
+  protected readonly destino = signal<DestinoSoporte | null>(null);
   protected readonly error = signal('');
 
-  /** Groups and areas as one flat list "Sector › Dependencia › Área" (like jerarquia.js) */
-  protected readonly destinos = computed<Destino[]>(() => {
-    const arbol = this.arbol();
-    if (!arbol) return [];
-    const salida: Destino[] = [];
-    const agregar = (d: Omit<Destino, 'busca'>) => salida.push({ ...d, busca: normalizar(d.ruta) });
-    for (const padre of arbol.padres) {
-      for (const grupo of arbol.grupos.filter((g) => g.grupo_padre_id === padre.id)) {
-        const rutaGrupo = `${padre.nombre} › ${grupo.nombre}`;
-        agregar({ clave: `g${grupo.id}`, ruta: rutaGrupo, grupo_padre_id: padre.id, grupo_id: grupo.id, area_id: null });
-        for (const area of arbol.areas.filter((a) => a.grupo_id === grupo.id)) {
-          agregar({ clave: `a${area.id}`, ruta: `${rutaGrupo} › ${area.nombre}`, grupo_padre_id: padre.id, grupo_id: grupo.id, area_id: area.id });
-        }
-      }
-      for (const area of arbol.areas.filter((a) => a.grupo_padre_id === padre.id && !a.grupo_id)) {
-        agregar({ clave: `a${area.id}`, ruta: `${padre.nombre} › ${area.nombre}`, grupo_padre_id: padre.id, grupo_id: null, area_id: area.id });
-      }
-    }
-    return salida;
-  });
-
-  protected readonly destinosFiltrados = computed(() => {
-    const q = normalizar(this.filtroArea().trim());
-    return q ? this.destinos().filter((d) => d.busca.includes(q)) : this.destinos();
-  });
+  protected readonly destinos = computed(() => destinosDeArbol(this.arbol()));
 
   ngOnInit(): void {
     const a = this.atencion();
@@ -175,15 +120,8 @@ export class TicketSoporteFormComponent implements OnInit {
     this.enlace.set(a.enlace_apoyo ?? '');
     this.colaborador.set(a.colaborador_id);
     this.fecha.set(a.fecha_registro);
-    const clave = a.area_id ? `a${a.area_id}` : a.grupo_id ? `g${a.grupo_id}` : '';
+    const clave = claveDestino(a.area_id, a.grupo_id);
     this.destino.set(this.destinos().find((d) => d.clave === clave) ?? null);
-    this.eligiendo.set(!this.destino());
-  }
-
-  protected elegir(d: Destino): void {
-    this.destino.set(d);
-    this.eligiendo.set(false);
-    this.filtroArea.set('');
   }
 
   protected enviar(): void {

@@ -39,6 +39,7 @@ export const routes: Routes = [
       { path: 'registros', title: 'Registros', loadComponent: () => import('./paginas/registros/registros.component').then((m) => m.RegistrosComponent) },
       { path: 'auditoria', title: 'Auditoría', canActivate: [exigirDashboard], loadComponent: () => import('./paginas/auditoria/auditoria.component').then((m) => m.AuditoriaComponent) },
       { path: 'soporte/atenciones', title: 'Atenciones de Soporte', canActivate: [exigirSoporte], loadComponent: () => import('./paginas/soporte/atenciones-soporte.component').then((m) => m.AtencionesSoporteComponent) },
+      { path: 'soporte/atenciones/nueva', title: 'Nueva atención de Soporte', canActivate: [exigirSoporte], loadComponent: () => import('./paginas/soporte/nueva-atencion-soporte.component').then((m) => m.NuevaAtencionSoporteComponent) },
       { path: 'cuenta/perfil', title: 'Perfil', loadComponent: () => import('./paginas/cuenta/perfil.component').then((m) => m.PerfilComponent) },
       { path: 'cuenta/notas', title: 'Bloc de notas', loadComponent: () => import('./paginas/cuenta/notas.component').then((m) => m.NotasComponent) },
       { path: 'configuracion', title: 'Configuración', loadComponent: () => import('./paginas/configuracion/configuracion.component').then((m) => m.ConfiguracionComponent) },

@@ -1,5 +1,6 @@
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { ModalComponent } from '../../compartido/modal.component';
 import { AuthService } from '../../core/auth.service';
 import { NotificacionesService } from '../../core/notificaciones.service';
@@ -39,14 +40,17 @@ interface OpcionTecnico {
  */
 @Component({
   selector: 'app-atenciones-soporte',
-  imports: [FormsModule, ModalComponent, AtencionesSoporteTablaComponent, TicketSoporteComponent, TicketSoporteFormComponent],
+  imports: [FormsModule, RouterLink, ModalComponent, AtencionesSoporteTablaComponent, TicketSoporteComponent, TicketSoporteFormComponent],
   template: `
     <header class="mb-4 flex flex-wrap items-end justify-between gap-3">
       <div>
         <h1 class="text-2xl font-bold">Atenciones de Soporte</h1>
         <p class="text-sm text-slate-500">{{ filtradas().length }} registros</p>
       </div>
-      <button class="btn-secundario btn-sm" type="button" (click)="limpiar()">Limpiar filtros</button>
+      <div class="flex flex-wrap gap-2">
+        <button class="btn-secundario btn-sm" type="button" (click)="limpiar()">Limpiar filtros</button>
+        <a class="btn-primario btn-sm" routerLink="/soporte/atenciones/nueva">Nueva atención</a>
+      </div>
     </header>
 
     <form class="mb-3 flex flex-wrap items-end gap-2" (ngSubmit)="aplicar()">
