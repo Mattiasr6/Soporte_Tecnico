@@ -45,6 +45,7 @@ export const routes: Routes = [
       { path: 'soporte/jerarquia', title: 'Jerarquía de Soporte', canActivate: [exigirDashboard], loadComponent: () => import('./paginas/soporte/jerarquia-soporte.component').then((m) => m.JerarquiaSoporteComponent) },
       { path: 'soporte/horarios', title: 'Horarios de técnicos', canActivate: [exigirDashboard], loadComponent: () => import('./paginas/soporte/horarios-tecnicos.component').then((m) => m.HorariosTecnicosComponent) },
       { path: 'soporte/reportes', title: 'Reportes de Soporte', canActivate: [exigirDashboard], loadComponent: () => import('./paginas/soporte/reportes-soporte.component').then((m) => m.ReportesSoporteComponent) },
+      { path: 'sugerencias', title: 'Sugerencias', loadComponent: () => import('./paginas/sugerencias/sugerencias.component').then((m) => m.SugerenciasComponent) },
       { path: 'cuenta/perfil', title: 'Perfil', loadComponent: () => import('./paginas/cuenta/perfil.component').then((m) => m.PerfilComponent) },
       { path: 'cuenta/notas', title: 'Bloc de notas', loadComponent: () => import('./paginas/cuenta/notas.component').then((m) => m.NotasComponent) },
       { path: 'configuracion', title: 'Configuración', loadComponent: () => import('./paginas/configuracion/configuracion.component').then((m) => m.ConfiguracionComponent) },

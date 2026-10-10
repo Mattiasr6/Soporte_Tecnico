@@ -28,12 +28,12 @@ interface ItemMenu {
 
 /**
  * Panel that owns a URL, so a deep link always shows its active item.
- * Shared routes (Inicio, Mi cuenta) return null and keep the current panel.
+ * Shared routes (Inicio, Sugerencias, Mi cuenta) return null and keep the current panel.
  */
 function sistemaDeRuta(url: string): Sistema | null {
   // SOPORTE owns /auditoria and every /soporte/* screen (inicio, atenciones, dashboard, reportes, jerarquía, horarios de técnicos)
   const ruta = url.split(/[?#]/)[0];
-  if (ruta === '/' || ruta === '' || ruta.startsWith('/cuenta/')) return null;
+  if (ruta === '/' || ruta === '' || ruta === '/sugerencias' || ruta.startsWith('/cuenta/')) return null;
   if (ruta === '/auditoria' || ruta === '/soporte' || ruta.startsWith('/soporte/')) return 'SOPORTE';
   return 'AUXILIARES';
 }
@@ -181,6 +181,8 @@ export class LayoutComponent implements OnInit {
     { ruta: '/software', texto: 'Software', icono: 'software' },
     { ruta: '/registros', texto: 'Registros', icono: 'registros' },
     { ruta: '/auditoria', texto: 'Auditoría', icono: 'historial', visible: (a) => a.puedeVerDashboard(), sistema: 'SOPORTE' },
+    // Django lists Sugerencias in both panels, for every role
+    { ruta: '/sugerencias', texto: 'Sugerencias', icono: 'sugerencia', sistema: 'AMBOS' },
     { ruta: '/configuracion', texto: 'Configuración', icono: 'configuracion', visible: (a) => a.esAdmin() },
   ];
   /**
