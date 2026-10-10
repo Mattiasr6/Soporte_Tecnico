@@ -83,7 +83,11 @@ frontends already talk to the same FastAPI, so only the presentation layer must 
   the SOPORTE panel (`/soporte/dashboard`, `/soporte/reportes`); computations in FastAPI where possible, existing
   SVG chart components, no IA widget. Route: delegated (one writer; trigger: 2+ non-trivial files, API + Angular).
 - [ ] M6 Data migration: LabAtenciones (131) → `horarios.atenciones`, aux JSON → perfiles.
-- [ ] Later areas (dashboards, reports, jerarquía, IA) are added as tasks per slice.
+- [ ] M9 Jerarquía (área/dependencia tree + editing) and Soporte técnicos horarios (guardar/limpiar/copiar).
+- [ ] M10 Soporte inicio (estado + anuncio) and sugerencias.
+- [ ] M6 Data migration (see above) before Django shutdown.
+- Excluded by user decision (2026-10-10): Wilmercito, Conocimiento and Asistente (all IA screens)
+  never exist in Angular; the Wilmercito account is hidden from Soporte pickers (`12d4cc8`).
 
 ## Acceptance (per slice)
 
