@@ -83,7 +83,9 @@ frontends already talk to the same FastAPI, so only the presentation layer must 
   the SOPORTE panel (`/soporte/dashboard`, `/soporte/reportes`); computations in FastAPI where possible, existing
   SVG chart components, no IA widget. Route: delegated (one writer; trigger: 2+ non-trivial files, API + Angular).
 - [ ] M6 Data migration: LabAtenciones (131) → `horarios.atenciones`, aux JSON → perfiles.
-- [ ] M9 Jerarquía (área/dependencia tree + editing) and Soporte técnicos horarios (guardar/limpiar/copiar).
+- [x] M9 Jerarquía (área/dependencia tree + editing) and Soporte técnicos horarios (guardar/limpiar/copiar) under the
+  SOPORTE panel (`/soporte/jerarquia`, `/soporte/horarios` "Horarios de técnicos"). Route: delegated (one writer;
+  trigger: 2+ non-trivial files). No backend change.
 - [ ] M10 Soporte inicio (estado + anuncio) and sugerencias.
 - [ ] M6 Data migration (see above) before Django shutdown.
 - Excluded by user decision (2026-10-10): Wilmercito, Conocimiento and Asistente (all IA screens)
@@ -599,3 +601,40 @@ Strategy: ask-on-risk. Forecast M0–M2 ≈ 400 authored lines. RDD disabled for
     Reportes with the active item and toggle SOPORTE. paul: menu unchanged, `/soporte/dashboard` and
     `/soporte/reportes` → `/`. No Angular spec files exist (test-first exception for the Angular parts).
   - Size: ~1150 + ~1200 authored lines, over the 400 heuristic: each screen carries many chart forms plus its tests.
+- 2026-10-10: M9 done (route: delegated, one writer; trigger: 2+ non-trivial Angular files). Commits `cb899e6`
+  feat(horarios): add Soporte jerarquía tree with node editing, `fad51fb` feat(horarios): add Soporte technicians'
+  monthly schedule screen. No backend change (every Django action already had a FastAPI endpoint).
+  - Jerarquía `/soporte/jerarquia` (guard `exigirDashboard`, menu `puedeVerDashboard` = Django `_puede_dashboard` =
+    backend `is_privileged` on every write): `core/jerarquia.service.ts`; container `jerarquia-soporte` (node and
+    "sueltas" in the URL as Django `?nodo=area:12` / `?sueltas=1`, confirm + notification + reload per action);
+    presentational `jerarquia-arbol` (sector › dependencia › área with per-node attention totals from
+    `/api/atenciones/stats` `por_padre/por_grupo/por_area_id`, inactive chips, áreas without dependencia) and
+    `jerarquia-editor` (ficha, rename with "actualizar texto legado", move, activar/desactivar, convertir en dependencia,
+    eliminar; create sector/dependencia/área). Move/create destinations reuse `selector-area-soporte` (new optional
+    `etiqueta`/`placeholder` inputs; sector keys `s<id>`) and `destinosDeArbol` (dependencias). Endpoints:
+    GET `/jerarquia/arbol?incluir_inactivas=true`, POST/PUT/DELETE `/jerarquia/{grupos-padres|grupos|areas}`,
+    POST `/jerarquia/areas/{id}/convertir-dependencia`. Deviation: sectors get no Activar/Desactivar (the backend
+    sector has no `activo`; Django showed a no-op button and "inactiva").
+  - Horarios de técnicos `/soporte/horarios` (same permission; separate from the auxiliares' `/horario`,
+    horarios-turno and G6 exports): `core/horarios-tecnicos.service.ts`; container `horarios-tecnicos` (month in the
+    URL `?mes=&anio=`, default current La Paz month, stale answers dropped); presentational `horarios-tecnicos-tabla`
+    (L-V with 2 ranges + "Aporta", Sábado 1 range + "Grupo", Jefes without Limpiar; Django PLANTILLAS as one-shot fill)
+    and `cobertura-tecnicos`. Guardar = Django `_desde_formulario` (hours → `/horarios/lote` per day of the block,
+    empty → DELETE `/horarios?usuario_id&mes&anio&dia_semana`, only for days that exist), Limpiar, Copiar del mes
+    anterior (GET previous month → lote; empty month → warning). Endpoints: GET `/horarios`, GET `/horarios/cobertura`,
+    POST `/horarios/lote`, DELETE `/horarios?...`, GET `/usuarios` (Wilmercito filtered by `SoporteService`).
+    Deviations: Limpiar and Copiar ask for confirmation (Django did not).
+  - Checks: horarios image build → "Application bundle generation complete" (after each slice). API smoke on :4213:
+    Jefe (minted, id 9) arbol 200 (3/6/53), stats 200; paul POST sector 403, stats 401; create 2 sectors + dep + área
+    201, rename/move área/move dep 200, deactivate/activate dep, delete sector with children 400, convert 200, deletes
+    204, no ZZ nodes left. Horarios on 2030-01/02 (empty): paul lote 403 and DELETE 403; Jefe lote 204 (6 rows,
+    labels derived), cobertura shows the técnico, copy to Feb 6 rows, all deleted → [] / []. Browser (DOM clicks):
+    Jefe menu Soporte › Atenciones, Dashboard, Reportes, Jerarquía, Horarios de técnicos; Jerarquía totals equal the
+    dashboard (Administrativos 2252), create sector/dep/área, select área (`?nodo=area:289`), rename, move to sector,
+    desactivar (Convertir hidden) / activar, convertir (→ `?nodo=dependencia:242`), delete dep/dep/sector, sueltas 25
+    ↔ árbol; Horarios Enero 2030 7/7/2 rows, plantilla fill + Guardar todo "Guardados 5 turnos.", Aporta "Mañana ·
+    Tarde", Saturday save, coverage, ▶ Febrero, Copiar "Copiados 6 horarios de Enero.", Limpiar L-V and Sábado,
+    empty inputs + Guardar removes rows, Copiar on an empty previous month → warning; 2030 data back to []. paul
+    (Tecnico): menu unchanged, `/soporte/horarios` and `/soporte/jerarquia` → `/`. 0 console errors. No Angular spec
+    files exist (test-first exception); no backend change, so no pytest/ruff run.
+  - Size: ~670 + ~560 authored lines, over the 400 heuristic: each screen ports a full Django page plus its forms.
