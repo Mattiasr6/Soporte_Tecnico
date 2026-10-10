@@ -75,7 +75,7 @@ frontends already talk to the same FastAPI, so only the presentation layer must 
   - [x] G5 (M) Novedades per lab (new `horarios.novedades`) + cierre validation (`estado`, `validado_por`, `validado_en` on `reportes_turno`).
   - [x] G6 (M) Saturday hours per date and several auxiliares per turno; XLSX/PDF schedule export.
   - [x] G7 (L) Software inventory (`horarios.software`, `ambiente_software`, `pc_software`, attention templates).
-  - [ ] G8 (L) Lab hardware sheet columns on `ambientes`; free fila/col room grid (or keep the 4-PC table layout).
+  - [x] G8 (L) Lab hardware sheet columns on `ambientes`; room layout: keep the Angular 4-PC table croquis (no free fila/col grid).
   - [ ] M4b Soporte "Nueva atención" (Django keeps a session batch draft + Wilmercito suggestion).
 - [ ] M6 Data migration: LabAtenciones (131) → `horarios.atenciones`, aux JSON → perfiles.
 - [ ] Later areas (dashboards, reports, jerarquía, IA) are added as tasks per slice.
@@ -490,3 +490,39 @@ Strategy: ask-on-risk. Forecast M0–M2 ≈ 400 authored lines. RDD disabled for
   - Left out: Django `/api/software/esenciales` and `atenciones-pc` endpoints (the matrix shows missing
     esenciales; PC attentions are already in `/atenciones`), the auxiliar "soy" name on the generated attention
     (the logged-in perfil is the author), and the per-PC state in the croquis itself (it lives in the inventory).
+- 2026-10-10: G8 done (route: delegated, one writer; trigger: 2+ non-trivial files across migration, API and
+  Angular). Commits `b10c6ad` feat(asignacion): add lab hardware sheet columns and endpoint on ambientes,
+  `2036d31` feat(horarios): show and edit the lab hardware sheet in the lab panel.
+  - Migration `0028_horarios_ambiente_ficha` (inline `_run_sql`, with downgrade): nullable columns on
+    `horarios.ambientes` with Django's sizes: procesador (≤200), ram, almacenamiento, marca, gpu, monitores (≤100),
+    sillas, pcs_estudiantes, pcs_docentes (≥0), CHECK constraints. Django "disco" is named `almacenamiento`, like
+    `ambiente_pcs.almacenamiento`. `capacidad` already existed (NOT NULL, shared with academic assignment) and is
+    reused. Backfill from Soporte `Laboratorios` by codigo when that table exists (blank strings ignored, capacidad
+    only where the ambiente has 0; `actualizado_en` untouched); the UPDS Soporte sheet was empty, so nothing moved.
+  - Lab-level procesador/ram/disco kept next to the per-PC values: Django shows them as the lab's "Ficha del lab"
+    card (one declared standard spec for the room), while `ambiente_pcs` holds the real value of each PC, which can
+    differ. Likewise pcs_estudiantes/pcs_docentes stay manual declared counts; the UI shows the registered
+    inventory counts (`es_docente`) beside them.
+  - API: GET `/ambientes` exposes the 9 fields (fn_puede_ver). PUT `/ambientes/{id}/ficha` (`AmbienteFichaIn`,
+    extra=forbid) replaces the whole sheet like Django "Guardar ficha": a missing or blank field is cleared, strings
+    are trimmed, a missing/null capacidad keeps the current value; sizes/ranges → 422 (DB 23514); 404 for a missing
+    lab. Permission fn_puede_gestionar_auxiliares = Jefe + Encargado (Django `puede_ficha`); the generic PATCH
+    `/ambientes/{id}` (fn_puede_editar) does not accept the sheet fields, so there is one write path.
+  - Angular: presentational `paginas/panel/ficha-laboratorio.component.ts` (read view for every role, inline form
+    for `puedeEditar`) in the lab panel's "Croquis de PCs" tab under the inventory; container
+    `laboratorio-detalle` saves through `CatalogosService.guardarFichaLaboratorio` (PUT, then reloads ambientes).
+  - Room layout decision (Angular-first rule): the Angular croquis (`laboratorio-croquis.component.ts`, fixed
+    4-PC tables) stays. Django's free fila/col grid editor (`/api/laboratorios/{id}/pcs` dibujo, "Generar con
+    patrón") is not ported.
+  - Tests: new `tests/test_asignacion_ficha.py` RED 7 failed / 1 passed → GREEN 8 passed; all
+    `tests/test_asignacion*` 222 passed. Host ruff check + format clean on the 4 touched Python files.
+  - Migration: UPDS DB and test DB upgrade → 0028, downgrade -1 → 0027, upgrade → 0028 (head).
+  - Checks: horarios image build → "Application bundle generation complete". Smoke on :4213: paul (Tecnico) GET
+    `/ambientes` 200 with the new keys, PUT ficha 403; Jefe (minted) PUT 200 (procesador trimmed, capacidad kept
+    30), read back as paul, `sillas -1` → 422. Browser as Jefe: tablero → Croquis opens LAB-01, the sheet shows the
+    values with "(inventario 30)" / "(inventario 1)"; Editar ficha → Marca Dell, Procesador cleared, Sillas 28 →
+    saved and shown, DB matches; 0 console errors. LAB-01 restored (all sheet fields null, capacidad 30; only
+    `actualizado_en` changed). Clicks were DOM events. No Angular spec files exist (test-first exception for the
+    Angular part).
+  - Left out: the Django free grid editor and pattern generator (decision above), and an audit entry for sheet
+    edits (Django wrote `registrar(... "laboratorio")`; horarios has no audit log for catalog writes).
