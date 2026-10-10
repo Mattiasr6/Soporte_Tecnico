@@ -31,7 +31,7 @@ interface ItemMenu {
  * Shared routes (Inicio, Mi cuenta) return null and keep the current panel.
  */
 function sistemaDeRuta(url: string): Sistema | null {
-  // SOPORTE owns /auditoria and every /soporte/* screen (atenciones, dashboard, reportes, jerarquía, horarios de técnicos)
+  // SOPORTE owns /auditoria and every /soporte/* screen (inicio, atenciones, dashboard, reportes, jerarquía, horarios de técnicos)
   const ruta = url.split(/[?#]/)[0];
   if (ruta === '/' || ruta === '' || ruta.startsWith('/cuenta/')) return null;
   if (ruta === '/auditoria' || ruta === '/soporte' || ruta.startsWith('/soporte/')) return 'SOPORTE';
@@ -194,7 +194,15 @@ export class LayoutComponent implements OnInit {
     { ruta: '/soporte/jerarquia', texto: 'Jerarquía', icono: 'capas', visible: (a) => a.puedeVerDashboard() },
     { ruta: '/soporte/horarios', texto: 'Horarios de técnicos', icono: 'hora', visible: (a) => a.puedeVerDashboard() },
   ];
-  protected readonly soporte = computed(() => this.itemsSoporte.filter((i) => !i.visible || i.visible(this.auth)));
+  /**
+   * Soporte home (Django `inicio`): first item of the SOPORTE panel when the toggle shows;
+   * without the toggle, first item of the "Soporte" section for whoever sees Soporte.
+   */
+  private readonly inicioSoporte: ItemMenu = { ruta: '/soporte/inicio', texto: 'Inicio Soporte', icono: 'inicio', sistema: 'SOPORTE' };
+  protected readonly soporte = computed(() => [
+    ...(!this.muestraSistema() && this.auth.puedeVerSoporte() ? [this.inicioSoporte] : []),
+    ...this.itemsSoporte.filter((i) => !i.visible || i.visible(this.auth)),
+  ]);
   /** "Mi cuenta": every logged-in role sees it */
   protected readonly cuenta: ItemMenu[] = [
     { ruta: '/cuenta/perfil', texto: 'Perfil', icono: 'docente' },
@@ -203,9 +211,10 @@ export class LayoutComponent implements OnInit {
   /** Visible name of the session's Soporte role */
   protected readonly nombreRol = computed(() => ROLES_SOPORTE.find((r) => r.valor === this.auth.role())?.texto ?? '');
   /** Ítems visibles para el rol actual (y el panel elegido, si hay selector) */
-  protected readonly menu = computed(() =>
-    this.items.filter((i) => (!i.visible || i.visible(this.auth)) && this.enSistema(i.sistema ?? 'AUXILIARES')),
-  );
+  protected readonly menu = computed(() => [
+    ...(this.muestraSistema() && this.sistema() === 'SOPORTE' && this.auth.puedeVerSoporte() ? [this.inicioSoporte] : []),
+    ...this.items.filter((i) => (!i.visible || i.visible(this.auth)) && this.enSistema(i.sistema ?? 'AUXILIARES')),
+  ]);
 
   protected readonly sistemas: readonly Sistema[] = ['SOPORTE', 'AUXILIARES'];
   /** Django rule: the toggle shows for dashboard viewers that are not Auxiliar nor Encargado */
@@ -250,7 +259,7 @@ export class LayoutComponent implements OnInit {
   protected elegirSistema(s: Sistema): void {
     this.fijarSistema(s);
     const dueno = sistemaDeRuta(this.router.url);
-    if (dueno && dueno !== s) void this.router.navigateByUrl(s === 'SOPORTE' ? '/soporte/atenciones' : '/');
+    if (dueno && dueno !== s) void this.router.navigateByUrl(s === 'SOPORTE' ? '/soporte/inicio' : '/');
   }
 
   private fijarSistema(s: Sistema): void {

@@ -38,6 +38,7 @@ export const routes: Routes = [
       { path: 'software', title: 'Software de laboratorios', loadComponent: () => import('./paginas/laboratorios/software.component').then((m) => m.SoftwareComponent) },
       { path: 'registros', title: 'Registros', loadComponent: () => import('./paginas/registros/registros.component').then((m) => m.RegistrosComponent) },
       { path: 'auditoria', title: 'Auditoría', canActivate: [exigirDashboard], loadComponent: () => import('./paginas/auditoria/auditoria.component').then((m) => m.AuditoriaComponent) },
+      { path: 'soporte/inicio', title: 'Inicio de Soporte', canActivate: [exigirSoporte], loadComponent: () => import('./paginas/soporte/inicio-soporte.component').then((m) => m.InicioSoporteComponent) },
       { path: 'soporte/atenciones', title: 'Atenciones de Soporte', canActivate: [exigirSoporte], loadComponent: () => import('./paginas/soporte/atenciones-soporte.component').then((m) => m.AtencionesSoporteComponent) },
       { path: 'soporte/atenciones/nueva', title: 'Nueva atención de Soporte', canActivate: [exigirSoporte], loadComponent: () => import('./paginas/soporte/nueva-atencion-soporte.component').then((m) => m.NuevaAtencionSoporteComponent) },
       { path: 'soporte/dashboard', title: 'Dashboard de Soporte', canActivate: [exigirDashboard], loadComponent: () => import('./paginas/soporte/dashboard-soporte.component').then((m) => m.DashboardSoporteComponent) },
