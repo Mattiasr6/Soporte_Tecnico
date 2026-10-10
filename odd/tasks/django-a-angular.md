@@ -79,6 +79,9 @@ frontends already talk to the same FastAPI, so only the presentation layer must 
   - [x] M4b Soporte "Nueva atención" (batch draft in the client; Wilmercito suggestion excluded by user decision).
 - [x] M7 Soporte/Auxiliares menu toggle (Django `context-toggle`): only for dashboard viewers that are not
   Auxiliar/Encargado; per-user localStorage; the route selects its panel. Route: inline (one file, layout).
+- [x] M8 Soporte dashboard + reportes (`dashboard_vista`, `reportes_vista`): KPIs, charts, filters and exports under
+  the SOPORTE panel (`/soporte/dashboard`, `/soporte/reportes`); computations in FastAPI where possible, existing
+  SVG chart components, no IA widget. Route: delegated (one writer; trigger: 2+ non-trivial files, API + Angular).
 - [ ] M6 Data migration: LabAtenciones (131) → `horarios.atenciones`, aux JSON → perfiles.
 - [ ] Later areas (dashboards, reports, jerarquía, IA) are added as tasks per slice.
 
@@ -195,50 +198,17 @@ Strategy: ask-on-risk. Forecast M0–M2 ≈ 400 authored lines. RDD disabled for
     Auditoría item, ticket modal and edit form open with the area preselected; 0 console
     errors. No Angular spec files exist (test-first exception for the Angular parts).
   - GitNexus `detect_changes` unavailable: the index is for another checkout.
-- 2026-10-09: G1–G2 done (route: delegated, one writer; trigger: 2+ non-trivial files per task).
-  Commits `64e9d0f` feat(horarios): add printable attention ticket and clone into labs,
-  `8f52194` feat(horarios): show expired lost objects and toggle encargado role. No backend change.
-  - G1 ticket: "Ver e imprimir ticket" on every record of `/atenciones` opens a modal with
-    `ticket-atencion.component.ts` (presentational: folio, fecha, tipo, lab, autor,
-    colaboradores, estado of the batch, prioridad, solicitante, PCs, descripción, detalle,
-    solución). "Imprimir" adds `imprimiendo` to `<body>` and calls `window.print()`; the
-    `@media print` rule in `src/styles.css` prints only `.zona-impresion` in black on white
-    (normal page printing unchanged). New `imprimir` (Printer) icon.
-  - G1 clone: "Clonar en otros laboratorios" (puedeOperar, tipos docente/programas/preventivo/
-    personal) opens `clonar-atencion.component.ts` (presentational: edit descripción, solución,
-    prioridad; 0–99 copies per lab, several per lab allowed, live count). The container sends one
-    bulk POST `/api/asignacion/atenciones` with lab-level copies (same tipo, detalles, docente/
-    solicitante, colaboradores; current turno; copier is the author). The bulk POST has no
-    duplicate check (Django needed `forzar_duplicado` only on `/api/laboratorios`), so no backend
-    change.
-  - G1 left out: correctivo (changes PC states via fichas) and cambio_estado are not clonable;
-    the copy date (Django `fecha_registro`) is not editable because `creado_en` is not writable
-    in `AtencionIn`; the Django owner/encargado-only clone rule became Angular's puedeOperar,
-    same as edit/delete on this screen.
-  - G2 vencido: `core/objetos.ts` `estadoVisible` mirrors `routers/novedades.py`
-    `_estado_efectivo` (still pending and more than 90 days since registration); the horarios
-    backend has no 90-day rule (only the 9-month photo cleanup), so it is computed client-side on
-    the La Paz calendar date of `encontrado_en`. `objeto-estado-chip.component.ts`
-    (presentational) shows Vencido; new filter tab "Vencidos +90 días"; "En custodia" no longer
-    counts them; Entregar stays available. Left out: Django's "Purgar vencidos" (horarios already
-    deletes rows only for gestionar and clears photos after 9 months).
-  - G2 encargado: section "Encargados" on `/auxiliares` with `encargados-equipo.component.ts`
-    (presentational switch list of active auxiliares + encargados, `listarEquipo()`); the
-    container PATCHes `/api/asignacion/usuarios/{perfil_id}` with rol encargado/auxiliar via
-    `UsuariosService`. The endpoint is admin-only (`fn_es_admin` = Jefe), so the switch is
-    enabled only for the Jefe; an Encargado sees it disabled with a note (Django let the
-    Encargado toggle its JSON roster; the backend rule wins).
-  - Checks: horarios image build → "Application bundle generation complete", no errors (both
-    tasks); new strings present in the served lazy chunks. Smoke on :4213: paul `/asignacion/me`
-    200, `/ambientes` 200, POST `/atenciones` origin 201, clone POST (2 in LAB-02 + 1 in LAB-03)
-    201 → 3 rows, DELETE cleanup 204; Jefe (minted token) GET `/usuarios` 200 (syncs perfiles),
-    `/auxiliares?rol=auxiliar&rol=encargado&activo=true` 200, PATCH rol as paul 403, as Encargado
-    403, as Jefe → encargado 200 and back → auxiliar 200; POST `/objetos-perdidos` (2026-06-01 and
-    2026-10-01) 201, GET 200, DELETE 204. Browser as Jefe: objetos tabs "En custodia 1 · Vencidos
-    +90 días 1", the old one shows "Vencido" with Entregar; `/auxiliares` switch on/off works;
-    `/atenciones` ticket modal renders, clone 2× into LAB-02 created 2 rows; 0 console errors.
-    The print dialog itself was not exercised. No Python touched (no pytest/ruff needed); no
-    Angular spec files exist (test-first exception). GitNexus index is for another checkout.
+- 2026-10-09: G1–G2 done (route: delegated, one writer; trigger: 2+ non-trivial files per task). Commits `64e9d0f`
+  feat(horarios): add printable attention ticket and clone into labs, `8f52194` feat(horarios): show expired lost
+  objects and toggle encargado role. No backend change. (Condensed 2026-10-10.)
+  - G1: "Ver e imprimir ticket" modal (`ticket-atencion`), print via `body.imprimiendo` + `.zona-impresion`; "Clonar
+    en otros laboratorios" (`clonar-atencion`, one bulk POST `/api/asignacion/atenciones`, puedeOperar). Left out:
+    correctivo/cambio_estado cloning, editable copy date.
+  - G2: computed "Vencido" (pending > 90 days, `core/objetos.ts`), tab "Vencidos +90 días"; "Encargados" switch list on
+    `/auxiliares` (PATCH rol; admin-only backend, so Jefe only). Left out: "Purgar vencidos".
+  - Checks: image build → "Application bundle generation complete"; smoke on :4213 (clone POST 201 → 3 rows, PATCH rol
+    paul/Encargado 403, Jefe 200 both ways, objetos POST/GET/DELETE OK); browser as Jefe OK, 0 console errors; print
+    dialog not exercised; no spec files (test-first exception).
 - 2026-10-09: G3 done (route: delegated, one writer; trigger: 2+ non-trivial files across
   migration, API and Angular). Commits `6c77a69` feat(asignacion): add turno and medio to
   atenciones and a lab dashboard, `310b944` feat(horarios): add turno and medio to attentions
@@ -585,3 +555,43 @@ Strategy: ask-on-risk. Forecast M0–M2 ≈ 400 authored lines. RDD disabled for
     (same as before), no key written. Encargado (minted, id 14): no toggle, full gestión menu. 0 console errors.
     The UPDS DB has no Encargado/Auxiliar with `can_view_dashboard`, so the role exclusion was not exercised
     with the flag on (covered by the condition). No Angular spec files exist (test-first exception).
+- 2026-10-10: M8 done (route: delegated, one writer; trigger: 2+ non-trivial files across API and Angular). Commits
+  `b2f0264` feat(horarios): add Soporte monthly report computed by the API, `66b9d7b` feat(horarios): add Soporte
+  dashboard with drill-down computed by the API.
+  - Backend (every computation moved to FastAPI; Angular only renders): `app/services/panel_soporte.py` ports Django
+    `_periodo_reporte`, `_dias_habiles`, `_kpis_reporte`, `_evolucion`, `_top_areas`, `_destacados`, `_metodologia`,
+    `_graficos`, `_ficha` as pure functions over `StatsOut.model_dump()`. `get_stats` body extracted into
+    `calcular_stats` (same behavior, GET `/stats` unchanged). New GET `/api/atenciones/reporte?mes=YYYY-MM&vista=mes|anio`
+    and GET `/api/atenciones/dashboard?desde&hasta&grupo_padre_id&grupo_id&area_id` (in the atenciones router because
+    `main.py` was outside the edit surface). Both: Jefe or `CanViewDashboard` (`is_privileged`, Django
+    `_puede_dashboard`), else 403; dashboard `desde > hasta` → 400 (Django checked it only in JS).
+  - Deviations: destacados query the month directly (Django scanned only the latest 2000 rows, so older months lost
+    cases, e.g. 2026-03); sankey node list sorted (Django used set order); drill bars use one color (Django per-sector
+    palettes); the sankey is shown as two ranked steps (canal → categoría, categoría → sector) since no SVG sankey
+    exists; radar/scatter/heatmaps are new small SVG/HTML components (no new dependency).
+  - Angular: `core/panel-soporte.service.ts`; `/soporte/reportes` (container `reportes-soporte`, presentational
+    `reportes-soporte-vista`; period in the URL, Mes / Acumulado del año, "Imprimir / Guardar PDF" with a multi-page
+    print rule `body.imprimiendo-reporte` in `styles.css`) and `/soporte/dashboard` (container `dashboard-soporte`
+    owns range + drill state and drops stale answers; presentational `dashboard-soporte-vista`). Shared components:
+    `grafico-lineas` (existing), new `grafico-dona`, `barras-ranking` (clickable for the drill), `mapa-calor`
+    (calendar + categoría × mes), `grafico-dispersion`, `grafico-radar`; categorical colors = the desempeño palette
+    slots 1–6 on `:host`. Guards `exigirDashboard`; menu Soporte section now filters per item (Atenciones:
+    `puedeVerSoporte`, Dashboard/Reportes: `puedeVerDashboard`); `/soporte/*` already maps to the SOPORTE panel.
+  - Not ported: `panel/estados/` (used by Inicio, not by the dashboard); Django dashboard has no export, the report's
+    export is print/PDF (ported). No IA widget exists on either screen.
+  - Tests: `tests/test_panel_soporte.py` RED (collection error, module missing) → GREEN 10 passed (reporte);
+    dashboard RED 5 failed / 10 passed → GREEN 15 passed. `tests/test_atenciones.py` 4 failed / 13 errors before and
+    after (seed users, pre-existing). Host ruff check + format --check clean on the 3 Python files.
+  - Checks: horarios image build → "Application bundle generation complete" (each slice). Smoke on :4213: paul
+    (Tecnico, no flag) `/api/atenciones/reporte` and `/dashboard` 403; Jefe (minted, id 8) 200; `desde=2026-05&
+    hasta=2026-04` 400. KPI cross-check run in `soporte-upds_web_1` with Django's own helpers on the same API stats:
+    reporte 2026-09/2026-03/2026-10 mes and año → kpis and charts identical (e.g. Sep: total 363, prev 335, +8,4 %,
+    fuera 6,1 %, 26 días hábiles, 36 áreas; año: 2857); destacados equal except 2026-03 (2000-row limit above).
+    Dashboard `_payload` vs API for {}, desde/hasta 2026-03..08, sector 1, sector 1 + grupo 4 + desde 2026-01 →
+    charts and ficha identical (totals 2936 / 1738 / 2252 / 21). Browser (DOM clicks, 0 console messages): Jefe
+    reportes Sep shows the 5 KPIs and 7 sections, "Acumulado del año" → URL `vista=anio`, 2857, no destacados;
+    dashboard 14 sections, drill Administrativos (2252) → Sistemas (437, "Del total de Administrativos 19,4%"),
+    chip × → back to 2936; Desde > Hasta shows the error; May–Jun → 489; menu Soporte › Atenciones, Dashboard,
+    Reportes with the active item and toggle SOPORTE. paul: menu unchanged, `/soporte/dashboard` and
+    `/soporte/reportes` → `/`. No Angular spec files exist (test-first exception for the Angular parts).
+  - Size: ~1150 + ~1200 authored lines, over the 400 heuristic: each screen carries many chart forms plus its tests.
