@@ -809,3 +809,46 @@ def get_reporte(
         "destacados": destacados,
         "metodologia": panel.metodologia(periodo, ahora),
     }
+
+
+@router.get("/dashboard")
+def get_dashboard(
+    db: DbSession,
+    user: CurrentUser,
+    grupo_padre_id: int | None = None,
+    grupo_id: int | None = None,
+    area_id: int | None = None,
+    desde: Annotated[str | None, Query(max_length=7)] = None,
+    hasta: Annotated[str | None, Query(max_length=7)] = None,
+) -> dict[str, Any]:
+    """Soporte dashboard (Django `dashboard_vista` + `panel_stats_vista`).
+
+    Month range `desde`/`hasta` ("YYYY-MM", invalid values ignored) and the
+    sector > dependency > area drill-down. Jefe or CanViewDashboard only.
+    """
+    if not is_privileged(user):
+        raise forbidden("Solo un jefe o quien ve el dashboard puede verlo")
+    d = panel.mes_valido(desde)
+    h = panel.mes_valido(hasta)
+    if d and h and d > h:
+        raise bad_request("El mes Desde no puede ser posterior al mes Hasta.")
+    rango: dict[str, int | None] = {
+        "desde_anio": d[0] if d else None,
+        "desde_mes": d[1] if d else None,
+        "hasta_anio": h[0] if h else None,
+        "hasta_mes": h[1] if h else None,
+    }
+    stats = calcular_stats(
+        db, grupo_padre_id=grupo_padre_id, grupo_id=grupo_id, area_id=area_id, **rango
+    ).model_dump()
+    padre: dict[str, int] | None = None
+    if grupo_id is not None or area_id is not None:
+        # The sector alone (or everything), to compare the selection with it
+        p = calcular_stats(db, grupo_padre_id=grupo_padre_id, **rango)
+        padre = {"total": p.total, "fuera_de_turno": p.fuera_de_turno}
+    scope = {
+        "grupo_padre_id": str(grupo_padre_id or ""),
+        "grupo_id": str(grupo_id or ""),
+        "area_id": str(area_id or ""),
+    }
+    return {"charts": panel.graficos(stats), "ficha": panel.ficha(stats, scope, padre)}

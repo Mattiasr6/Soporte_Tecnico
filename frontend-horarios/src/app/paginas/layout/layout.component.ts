@@ -185,10 +185,11 @@ export class LayoutComponent implements OnInit {
   ];
   /**
    * "Soporte": the Soporte system screens. Atenciones: Jefe, Técnico, Decano (as in
-   * Django); Reportes: Jefe or dashboard flag (Django `_puede_dashboard`).
+   * Django); Dashboard and Reportes: Jefe or dashboard flag (Django `_puede_dashboard`).
    */
   private readonly itemsSoporte: ItemMenu[] = [
     { ruta: '/soporte/atenciones', texto: 'Atenciones', icono: 'mantenimiento', visible: (a) => a.puedeVerSoporte() },
+    { ruta: '/soporte/dashboard', texto: 'Dashboard', icono: 'grafico', visible: (a) => a.puedeVerDashboard() },
     { ruta: '/soporte/reportes', texto: 'Reportes', icono: 'imprimir', visible: (a) => a.puedeVerDashboard() },
   ];
   protected readonly soporte = computed(() => this.itemsSoporte.filter((i) => !i.visible || i.visible(this.auth)));

@@ -297,3 +297,154 @@ def test_reporte_anio_acumulado(datos_2001):
     assert p["kpis"]["meses_activos"] == 2
     assert p["destacados"] == []
     assert p["metodologia"]["periodo"] == "01/01/2001\u201331/03/2001"
+
+
+# ---------------------------------------------------------------- dashboard
+
+
+STATS_DASH: dict = {
+    "total": 10,
+    "fuera_de_turno": 3,
+    "por_categoria": [
+        {"categoria": "Software", "total": 3},
+        {"categoria": "Hardware", "total": 6},
+        {"categoria": "Redes", "total": 1},
+    ],
+    "por_categoria_mes": [
+        {"categoria": "Hardware", "anio": 2001, "mes": 3, "total": 4},
+        {"categoria": "Hardware", "anio": 2001, "mes": 2, "total": 2},
+        {"categoria": "Software", "anio": 2001, "mes": 3, "total": 3},
+    ],
+    "por_mes": [
+        {"anio": 2001, "mes": 2, "total": 2},
+        {"anio": 2001, "mes": 3, "total": 8},
+    ],
+    "por_dia": [
+        {"fecha": "2001-02-05", "total": 2},
+        {"fecha": "2001-03-01", "total": 8},
+    ],
+    "flujo_sankey": [
+        {"medio": "Interno", "categoria": "Hardware", "grupo_padre": "Adm", "total": 4},
+        {"medio": "Interno", "categoria": "Hardware", "grupo_padre": "Aca", "total": 2},
+    ],
+    "por_tecnico_fuera": [
+        {"usuario_id": 1, "display_name": "Ana Paz", "total": 8, "fuera": 2},
+    ],
+    "por_tecnico_categoria": [
+        {
+            "usuario_id": 1,
+            "display_name": "Ana Paz",
+            "categoria": "Hardware",
+            "total": 5,
+        },
+        {"usuario_id": 2, "display_name": "Beto", "categoria": "Redes", "total": 1},
+        {
+            "usuario_id": 1,
+            "display_name": "Ana Paz",
+            "categoria": "Software",
+            "total": 3,
+        },
+    ],
+    "por_tecnico": [{"usuario_id": 1, "display_name": "Ana Paz", "total": 8}],
+    "asistencias": [{"usuario_id": 2, "display_name": "Beto", "total": 1}],
+    "por_medio": [{"medio": "Interno", "total": 10}],
+    "por_tipo_solicitante": [{"tipo": "ADM", "total": 10}],
+    "por_area": [{"area": "A", "total": 10}],
+    "por_padre": [{"id": 1, "nombre": "Adm", "total": 10}],
+    "por_grupo": [],
+    "por_area_id": [],
+}
+
+
+def test_graficos_como_django():
+    g = ps.graficos(STATS_DASH)
+    assert g["total"] == 10
+    assert g["fuera_de_turno"] == 3
+    assert g["categoria"] == {
+        "labels": ["Hardware", "Software", "Redes"],
+        "values": [6, 3, 1],
+    }
+    assert g["pareto"]["acumulado"] == [60.0, 90.0, 100.0]
+    assert g["categoria_mes"] == {
+        "categorias": ["Hardware", "Software", "Redes"],
+        "meses": ["2001-02", "2001-03"],
+        "celdas": [[1, 0, 4], [0, 0, 2], [1, 1, 3]],
+        "max": 4,
+    }
+    assert g["calendario"] == {
+        "inicio": "2001-02-05",
+        "fin": "2001-03-01",
+        "datos": [["2001-02-05", 2], ["2001-03-01", 8]],
+        "max": 8,
+    }
+    assert g["sankey"]["links"] == [
+        {"source": "Interno", "target": "Hardware", "value": 6},
+        {"source": "Hardware", "target": "Adm", "value": 4},
+        {"source": "Hardware", "target": "Aca", "value": 2},
+    ]
+    assert g["scatter"]["datos"] == [[8, 2, "Ana Paz", 25.0]]
+    assert g["radar"]["ejes"] == ["Hardware", "Software", "Redes"]
+    assert g["radar"]["tecnicos"][0] == {
+        "id": 1,
+        "nombre": "Ana Paz",
+        "valores": [5, 3, 0],
+        "total": 8,
+    }
+    assert g["evolucion"] == {"labels": ["2001-02", "2001-03"], "values": [2, 8]}
+    assert g["colaboraciones"] == {"labels": ["Beto"], "values": [1]}
+
+
+def test_ficha_como_django():
+    scope = {"grupo_padre_id": "1", "grupo_id": "4", "area_id": ""}
+    f = ps.ficha(STATS_DASH, scope, {"total": 40, "fuera_de_turno": 4})
+    assert f["casos"] == 10
+    assert f["nombre_padre"] == "Adm"
+    assert f["fuera_pct"] == 30.0
+    assert f["promedio_mes"] == 5.0
+    assert f["meses_activos"] == 2
+    assert (f["pico"], f["pico_total"]) == ("mar 2001", 8)
+    assert (f["valle"], f["valle_total"]) == ("feb 2001", 2)
+    assert (f["dominante"], f["dominante_pct"]) == ("Hardware", 60.0)
+    assert f["top3_pct"] == 100.0
+    assert f["pct_padre"] == 25.0
+    assert f["delta_padre"] == 20.0
+
+
+def test_dashboard_niega_a_quien_no_ve_dashboard(make_usuario):
+    tecnico = make_usuario("Tecnico")
+    r = client.get("/api/atenciones/dashboard", headers=_auth(tecnico))
+    assert r.status_code == 403
+
+
+def test_dashboard_filtra_por_meses(datos_2001):
+    r = client.get(
+        "/api/atenciones/dashboard",
+        params={"desde": "2001-03", "hasta": "2001-03"},
+        headers=_auth(datos_2001),
+    )
+    assert r.status_code == 200, r.text
+    p = r.json()
+    assert set(p) == {"charts", "ficha"}
+    assert p["charts"]["total"] == 5
+    assert p["charts"]["categoria"]["values"] == [3, 2]
+    f = p["ficha"]
+    assert f["casos"] == 5
+    assert f["fuera_pct"] == 40.0
+    assert f["meses_activos"] == 1
+    assert (f["dominante"], f["dominante_pct"]) == ("Hardware", 60.0)
+    # Both months of 2001
+    r2 = client.get(
+        "/api/atenciones/dashboard",
+        params={"desde": "2001-01", "hasta": "2001-12"},
+        headers=_auth(datos_2001),
+    )
+    assert r2.json()["charts"]["total"] == 7
+
+
+def test_dashboard_rechaza_desde_posterior_a_hasta(datos_2001):
+    r = client.get(
+        "/api/atenciones/dashboard",
+        params={"desde": "2001-04", "hasta": "2001-03"},
+        headers=_auth(datos_2001),
+    )
+    assert r.status_code == 400

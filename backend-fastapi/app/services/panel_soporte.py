@@ -243,3 +243,206 @@ def charts_reporte(
         ),
         "top_areas": top_areas(principal, total),
     }
+
+
+# ---------------------------------------------------------------- dashboard
+
+TOP_HEATMAP = 6
+TOP_PARETO = 8
+
+
+def mes_etiqueta(anio: int, mes: int) -> str:
+    return f"{anio}-{mes:02d}"
+
+
+def mes_corto(anio: int, mes: int) -> str:
+    return f"{MESES_CORTOS[mes - 1]} {anio}"
+
+
+def graficos(stats: Stats) -> dict[str, Any]:
+    """Every dashboard chart series, as Django `_graficos`."""
+    por_categoria = sorted(
+        stats.get("por_categoria") or [], key=lambda c: -_int(c["total"])
+    )
+    total = _int(stats.get("total"))
+
+    acumulado: list[float] = []
+    corrido = 0
+    for c in por_categoria:
+        corrido += _int(c["total"])
+        acumulado.append(round(corrido * 100 / total, 1) if total else 0.0)
+
+    cat_mes = list(stats.get("por_categoria_mes") or [])
+    top_cats = [c["categoria"] for c in por_categoria[:TOP_HEATMAP]]
+    meses = sorted({(_int(m["anio"]), _int(m["mes"])) for m in cat_mes})
+    indices = {c: i for i, c in enumerate(top_cats)}
+    indice_mes = {m: i for i, m in enumerate(meses)}
+    celdas = [
+        [
+            indice_mes[(_int(m["anio"]), _int(m["mes"]))],
+            indices[m["categoria"]],
+            _int(m["total"]),
+        ]
+        for m in cat_mes
+        if m["categoria"] in indices
+    ]
+
+    por_dia = list(stats.get("por_dia") or [])
+    calendario = {
+        "inicio": str(por_dia[0]["fecha"]) if por_dia else None,
+        "fin": str(por_dia[-1]["fecha"]) if por_dia else None,
+        "datos": [[str(d["fecha"]), _int(d["total"])] for d in por_dia],
+        "max": max((_int(d["total"]) for d in por_dia), default=0),
+    }
+
+    # Two-step flow: channel -> category -> sector (same link sums as Django)
+    enlaces: dict[tuple[str, str], int] = {}
+    for fl in stats.get("flujo_sankey") or []:
+        for origen, destino in (
+            (fl["medio"], fl["categoria"]),
+            (fl["categoria"], fl["grupo_padre"]),
+        ):
+            clave = (str(origen), str(destino))
+            enlaces[clave] = enlaces.get(clave, 0) + _int(fl["total"])
+    sankey = {
+        "nodos": [{"name": n} for n in sorted({k for par in enlaces for k in par})],
+        "links": [
+            {"source": o, "target": d, "value": v} for (o, d), v in enlaces.items()
+        ],
+    }
+
+    scatter = {
+        "datos": [
+            [
+                _int(t["total"]),
+                _int(t["fuera"]),
+                str(t["display_name"]),
+                round(_int(t["fuera"]) * 100 / _int(t["total"]), 1)
+                if t["total"]
+                else 0.0,
+            ]
+            for t in stats.get("por_tecnico_fuera") or []
+        ]
+    }
+
+    ejes = [c["categoria"] for c in por_categoria]
+    por_tec: dict[tuple[int, str], dict[str, int]] = {}
+    for t in stats.get("por_tecnico_categoria") or []:
+        clave_tec = (_int(t["usuario_id"]), str(t["display_name"]))
+        por_tec.setdefault(clave_tec, {})[str(t["categoria"])] = _int(t["total"])
+    radar = {
+        "ejes": ejes,
+        "tecnicos": [
+            {
+                "id": k[0],
+                "nombre": k[1],
+                "valores": [v.get(c, 0) for c in ejes],
+                "total": sum(v.values()),
+            }
+            for k, v in sorted(por_tec.items(), key=lambda kv: -sum(kv[1].values()))
+        ],
+    }
+
+    def _pares(filas: Iterable[dict[str, Any]], clave: str) -> dict[str, list[Any]]:
+        lista = list(filas)
+        return {
+            "labels": [f[clave] for f in lista],
+            "values": [_int(f["total"]) for f in lista],
+        }
+
+    por_mes = list(stats.get("por_mes") or [])
+    return {
+        "total": total,
+        "fuera_de_turno": _int(stats.get("fuera_de_turno")),
+        "arbol_conteos": {
+            "padres": stats.get("por_padre") or [],
+            "grupos": stats.get("por_grupo") or [],
+            "areas": stats.get("por_area_id") or [],
+        },
+        "calendario": calendario,
+        "sankey": sankey,
+        "scatter": scatter,
+        "radar": radar,
+        "categoria": _pares(por_categoria, "categoria"),
+        "pareto": {
+            "labels": [c["categoria"] for c in por_categoria[:TOP_PARETO]],
+            "values": [_int(c["total"]) for c in por_categoria[:TOP_PARETO]],
+            "acumulado": acumulado[:TOP_PARETO],
+        },
+        "categoria_mes": {
+            "categorias": top_cats,
+            "meses": [mes_etiqueta(a, m) for a, m in meses],
+            "celdas": celdas,
+            "max": max((c[2] for c in celdas), default=0),
+        },
+        "rendimiento": _pares(stats.get("por_tecnico") or [], "display_name"),
+        "colaboraciones": _pares(stats.get("asistencias") or [], "display_name"),
+        "evolucion": {
+            "labels": [mes_etiqueta(_int(m["anio"]), _int(m["mes"])) for m in por_mes],
+            "values": [_int(m["total"]) for m in por_mes],
+        },
+        "medio": _pares(stats.get("por_medio") or [], "medio"),
+        "tipo_solicitante": _pares(stats.get("por_tipo_solicitante") or [], "tipo"),
+        "top_areas": list(stats.get("por_area") or [])[:10],
+    }
+
+
+def ficha(
+    stats: Stats, scope: dict[str, str], padre: dict[str, int] | None
+) -> dict[str, Any]:
+    """Summary card of the current filter, as Django `_ficha`.
+
+    `padre` holds total / fuera_de_turno of the sector alone when a dependency
+    or area is selected, to compare the share and the after-hours rate.
+    """
+    total = _int(stats.get("total"))
+    fuera = _int(stats.get("fuera_de_turno"))
+    meses = [m for m in stats.get("por_mes") or [] if _int(m["total"]) > 0]
+    pico = max(meses, key=lambda m: _int(m["total"]), default=None)
+    valle = min(meses, key=lambda m: _int(m["total"]), default=None)
+    cats = sorted(stats.get("por_categoria") or [], key=lambda c: -_int(c["total"]))
+    top3 = sum(_int(c["total"]) for c in cats[:3])
+    fuera_pct = round(fuera * 100 / total, 1) if total else 0.0
+    pct_padre = delta_padre = None
+    if padre is not None:
+        ptotal = _int(padre.get("total"))
+        if ptotal:
+            pct_padre = round(total * 100 / ptotal, 1)
+            pfuera = _int(padre.get("fuera_de_turno"))
+            delta_padre = round(fuera_pct - (pfuera * 100 / ptotal), 1)
+    padres = list(stats.get("por_padre") or [])
+    nombre_padre = (
+        str(padres[0]["nombre"])
+        if scope.get("grupo_padre_id") and len(padres) == 1
+        else None
+    )
+    return {
+        "casos": total,
+        "nombre_padre": nombre_padre,
+        "fuera": fuera,
+        "fuera_pct": fuera_pct,
+        "promedio_mes": round(total / len(meses), 1) if meses else 0,
+        "meses_activos": len(meses),
+        "pico": mes_corto(_int(pico["anio"]), _int(pico["mes"])) if pico else None,
+        "pico_total": _int(pico["total"]) if pico else 0,
+        "valle": mes_corto(_int(valle["anio"]), _int(valle["mes"])) if valle else None,
+        "valle_total": _int(valle["total"]) if valle else 0,
+        "dominante": cats[0]["categoria"] if cats else None,
+        "dominante_pct": round(_int(cats[0]["total"]) * 100 / total, 1)
+        if cats and total
+        else 0.0,
+        "top3_pct": round(top3 * 100 / total, 1) if total else 0.0,
+        "pct_padre": pct_padre,
+        "delta_padre": delta_padre,
+        "scope": scope,
+    }
+
+
+def mes_valido(valor: str | None) -> tuple[int, int] | None:
+    """(year, month) of a "YYYY-MM" filter; anything else is ignored (as Django)."""
+    v = (valor or "").strip()
+    if len(v) == 7 and v[4] == "-" and v[:4].isdigit() and v[5:].isdigit():
+        anio, mes = int(v[:4]), int(v[5:])
+        if 1 <= mes <= 12:
+            return anio, mes
+    return None
