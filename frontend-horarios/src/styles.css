@@ -181,3 +181,22 @@
   body.imprimiendo .zona-impresion { position: absolute; top: 0; left: 0; width: 100%; padding: 0; background: #fff !important; }
   body.imprimiendo .no-imprimir { display: none !important; }
 }
+
+/*
+ * Printing a multi-page report (Soporte "Reporte mensual"): the page adds
+ * `imprimiendo-reporte` to <body> before window.print(). The side menu, the
+ * mobile header and `.no-imprimir` controls are dropped and every scroll
+ * container is released so the report flows over several pages in color.
+ */
+@media print {
+  body.imprimiendo-reporte aside,
+  body.imprimiendo-reporte header,
+  body.imprimiendo-reporte .no-imprimir { display: none !important; }
+  body.imprimiendo-reporte,
+  body.imprimiendo-reporte * { overflow: visible !important; }
+  body.imprimiendo-reporte .h-full { height: auto !important; }
+  body.imprimiendo-reporte main { padding: 0 !important; }
+  body.imprimiendo-reporte .zona-reporte { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body.imprimiendo-reporte .zona-reporte .tarjeta { break-inside: avoid; }
+  body.imprimiendo-reporte details { display: none !important; }
+}

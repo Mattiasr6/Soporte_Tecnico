@@ -37,10 +37,11 @@ from app.schemas.atencion import (
     TecnicoFuera,
     TipoSolicitante,
 )
+from app.services import panel_soporte as panel
 from app.services.auditoria import registrar
 from app.services.categorias import CATEGORIAS_VALIDAS, normalizar_categoria
 from app.services.csv_import import parse_csv
-from app.services.horarios import esta_fuera_de_horario
+from app.services.horarios import LA_PAZ, esta_fuera_de_horario
 
 router = APIRouter(prefix="/api/atenciones", tags=["atenciones"])
 
@@ -234,6 +235,36 @@ def get_stats(
 ):
     if not is_privileged(user):
         raise unauthorized("Sin permiso")
+    return calcular_stats(
+        db,
+        usuario_id=usuario_id,
+        grupo_padre_id=grupo_padre_id,
+        grupo_id=grupo_id,
+        area_id=area_id,
+        desde_dia=desde_dia,
+        desde_mes=desde_mes,
+        desde_anio=desde_anio,
+        hasta_dia=hasta_dia,
+        hasta_mes=hasta_mes,
+        hasta_anio=hasta_anio,
+    )
+
+
+def calcular_stats(
+    db: DbSession,
+    *,
+    usuario_id: int | None = None,
+    grupo_padre_id: int | None = None,
+    grupo_id: int | None = None,
+    area_id: int | None = None,
+    desde_dia: int | None = None,
+    desde_mes: int | None = None,
+    desde_anio: int | None = None,
+    hasta_dia: int | None = None,
+    hasta_mes: int | None = None,
+    hasta_anio: int | None = None,
+) -> StatsOut:
+    """Aggregates behind GET /stats; also used by /dashboard and /reporte."""
     jerarquia = (grupo_padre_id, grupo_id, area_id)
     f = _filtros(
         usuario_id,
@@ -705,3 +736,76 @@ def import_csv(
     db.add_all(nuevas)
     db.commit()
     return {"registros_insertados": len(nuevas), "errores": errores or None}
+
+
+def _stats_rango(db: DbSession, desde: date, hasta: date) -> dict[str, Any]:
+    return calcular_stats(
+        db,
+        desde_dia=desde.day,
+        desde_mes=desde.month,
+        desde_anio=desde.year,
+        hasta_dia=hasta.day,
+        hasta_mes=hasta.month,
+        hasta_anio=hasta.year,
+    ).model_dump()
+
+
+@router.get("/reporte")
+def get_reporte(
+    db: DbSession,
+    user: CurrentUser,
+    mes: Annotated[str | None, Query(max_length=7)] = None,
+    vista: Annotated[str | None, Query(max_length=4)] = None,
+) -> dict[str, Any]:
+    """Monthly (or year-to-date) Soporte report, as Django `reportes_vista`.
+
+    Same rule as Django `_puede_dashboard`: Jefe or CanViewDashboard.
+    """
+    if not is_privileged(user):
+        raise forbidden("Solo un jefe o quien ve el dashboard puede ver reportes")
+    ahora = datetime.now(UTC).astimezone(LA_PAZ)
+    periodo = panel.periodo_reporte(mes, vista, ahora.date())
+    anio, num = int(periodo["anio"]), int(periodo["mes_num"])
+    if periodo["vista"] == "anio":
+        principal = _stats_rango(db, *panel.rango_anio(anio, num))
+        previo = None
+        stats_evolucion = principal
+    else:
+        principal = _stats_rango(db, *panel.rango_mes(anio, num))
+        previo = _stats_rango(db, *panel.rango_mes(*panel.mes_vecino(anio, num, -1)))
+        stats_evolucion = _stats_rango(db, *panel.rango_anio(anio, num))
+    dias = panel.dias_habiles(anio, None if periodo["vista"] == "anio" else num)
+    charts = panel.charts_reporte(principal, stats_evolucion, anio, num)
+    destacados: list[dict[str, Any]] = []
+    top3 = charts["categoria"]["labels"][:3]
+    if periodo["vista"] == "mes" and top3:
+        inicio, fin = panel.rango_mes(anio, num)
+        filas = db.scalars(
+            select(Atencion).where(
+                Atencion.fecha_registro >= inicio,
+                Atencion.fecha_registro <= fin,
+                Atencion.categoria.in_(top3),
+            )
+        ).all()
+        destacados = panel.destacados(
+            (
+                {
+                    "id": a.id,
+                    "categoria": a.categoria,
+                    "area_solicitante": a.area_solicitante,
+                    "descripcion": a.descripcion,
+                    "solucion": a.solucion,
+                }
+                for a in filas
+            ),
+            top3,
+        )
+    return {
+        "periodo": {
+            k: periodo[k] for k in ("vista", "mes", "etiqueta", "es_mes_en_curso")
+        },
+        "kpis": panel.kpis_reporte(principal, previo, stats_evolucion, dias),
+        "charts": charts,
+        "destacados": destacados,
+        "metodologia": panel.metodologia(periodo, ahora),
+    }

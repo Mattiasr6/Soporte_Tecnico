@@ -31,6 +31,7 @@ interface ItemMenu {
  * Shared routes (Inicio, Mi cuenta) return null and keep the current panel.
  */
 function sistemaDeRuta(url: string): Sistema | null {
+  // SOPORTE owns /auditoria and every /soporte/* screen (atenciones, dashboard, reportes)
   const ruta = url.split(/[?#]/)[0];
   if (ruta === '/' || ruta === '' || ruta.startsWith('/cuenta/')) return null;
   if (ruta === '/auditoria' || ruta === '/soporte' || ruta.startsWith('/soporte/')) return 'SOPORTE';
@@ -92,9 +93,9 @@ function sistemaDeRuta(url: string): Sistema | null {
               <app-icono [nombre]="item.icono" [tamano]="18" /> {{ item.texto }}
             </a>
           }
-          @if (auth.puedeVerSoporte() && enSistema('SOPORTE')) {
+          @if (soporte().length && enSistema('SOPORTE')) {
             <p class="px-3 pt-4 pb-1 text-[11px] font-semibold tracking-wide text-white/45 uppercase">Soporte</p>
-            @for (item of soporte; track item.ruta) {
+            @for (item of soporte(); track item.ruta) {
               <a [routerLink]="item.ruta" routerLinkActive="!bg-white/15 !text-white" (click)="menuAbierto.set(false)"
                  class="flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition hover:bg-white/10 hover:text-white">
                 <app-icono [nombre]="item.icono" [tamano]="18" /> {{ item.texto }}
@@ -182,10 +183,15 @@ export class LayoutComponent implements OnInit {
     { ruta: '/auditoria', texto: 'Auditoría', icono: 'historial', visible: (a) => a.puedeVerDashboard(), sistema: 'SOPORTE' },
     { ruta: '/configuracion', texto: 'Configuración', icono: 'configuracion', visible: (a) => a.esAdmin() },
   ];
-  /** "Soporte": the Soporte system screens (Jefe, Técnico, Decano, as in Django) */
-  protected readonly soporte: ItemMenu[] = [
-    { ruta: '/soporte/atenciones', texto: 'Atenciones', icono: 'mantenimiento' },
+  /**
+   * "Soporte": the Soporte system screens. Atenciones: Jefe, Técnico, Decano (as in
+   * Django); Reportes: Jefe or dashboard flag (Django `_puede_dashboard`).
+   */
+  private readonly itemsSoporte: ItemMenu[] = [
+    { ruta: '/soporte/atenciones', texto: 'Atenciones', icono: 'mantenimiento', visible: (a) => a.puedeVerSoporte() },
+    { ruta: '/soporte/reportes', texto: 'Reportes', icono: 'imprimir', visible: (a) => a.puedeVerDashboard() },
   ];
+  protected readonly soporte = computed(() => this.itemsSoporte.filter((i) => !i.visible || i.visible(this.auth)));
   /** "Mi cuenta": every logged-in role sees it */
   protected readonly cuenta: ItemMenu[] = [
     { ruta: '/cuenta/perfil', texto: 'Perfil', icono: 'docente' },
