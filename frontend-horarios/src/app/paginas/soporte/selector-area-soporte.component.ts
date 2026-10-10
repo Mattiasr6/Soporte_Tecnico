@@ -3,9 +3,9 @@ import { FormsModule } from '@angular/forms';
 import { normalizar } from '../../compartido/buscador.component';
 import { ArbolJerarquia } from '../../core/soporte.service';
 
-/** A pickable place: a dependencia (grupo) or an área, with its full path */
+/** A pickable place: a sector, a dependencia (grupo) or an área, with its full path */
 export interface DestinoSoporte {
-  /** `g<id>` for a dependencia, `a<id>` for an área */
+  /** `s<id>` for a sector (Jerarquía only), `g<id>` for a dependencia, `a<id>` for an área */
   clave: string;
   ruta: string;
   busca: string;
@@ -48,14 +48,14 @@ export function claveDestino(areaId: number | null | undefined, grupoId: number 
   selector: 'app-selector-area-soporte',
   imports: [FormsModule],
   template: `
-    <label class="etiqueta" [for]="idCampo()">Área</label>
+    <label class="etiqueta" [for]="idCampo()">{{ etiqueta() }}</label>
     @if (seleccion() && !eligiendo()) {
       <p class="flex flex-wrap items-center gap-2 text-sm">
         <span class="font-medium text-marca-700">{{ seleccion()!.ruta }}</span>
         <button class="btn-fantasma btn-sm" type="button" (click)="eligiendo.set(true)">Cambiar</button>
       </p>
     } @else {
-      <input class="campo" [id]="idCampo()" name="filtroArea" autocomplete="off" placeholder="Escribí para filtrar: sistemas, aula b, vicerrectorado…"
+      <input class="campo" [id]="idCampo()" name="filtroArea" autocomplete="off" [placeholder]="placeholder()"
              [ngModel]="filtro()" (ngModelChange)="filtro.set($event)">
       <ul class="mt-1 max-h-48 overflow-y-auto rounded-md border border-slate-200 text-sm" role="listbox" aria-label="Sector, dependencia y área">
         @for (d of filtrados(); track d.clave) {
@@ -74,6 +74,9 @@ export class SelectorAreaSoporteComponent {
   readonly destinos = input<DestinoSoporte[]>([]);
   readonly seleccion = model<DestinoSoporte | null>(null);
   readonly idCampo = input('sel-area');
+  /** Visible label; the Jerarquía screen reuses the picker for "Mover a" / "Ubicación" */
+  readonly etiqueta = input('Área');
+  readonly placeholder = input('Escribí para filtrar: sistemas, aula b, vicerrectorado…');
 
   protected readonly eligiendo = signal(false);
   protected readonly filtro = signal('');

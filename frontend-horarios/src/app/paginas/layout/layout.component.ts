@@ -31,7 +31,7 @@ interface ItemMenu {
  * Shared routes (Inicio, Mi cuenta) return null and keep the current panel.
  */
 function sistemaDeRuta(url: string): Sistema | null {
-  // SOPORTE owns /auditoria and every /soporte/* screen (atenciones, dashboard, reportes)
+  // SOPORTE owns /auditoria and every /soporte/* screen (atenciones, dashboard, reportes, jerarquía)
   const ruta = url.split(/[?#]/)[0];
   if (ruta === '/' || ruta === '' || ruta.startsWith('/cuenta/')) return null;
   if (ruta === '/auditoria' || ruta === '/soporte' || ruta.startsWith('/soporte/')) return 'SOPORTE';
@@ -185,12 +185,13 @@ export class LayoutComponent implements OnInit {
   ];
   /**
    * "Soporte": the Soporte system screens. Atenciones: Jefe, Técnico, Decano (as in
-   * Django); Dashboard and Reportes: Jefe or dashboard flag (Django `_puede_dashboard`).
+   * Django); Dashboard, Reportes and Jerarquía: Jefe or dashboard flag (Django `_puede_dashboard`).
    */
   private readonly itemsSoporte: ItemMenu[] = [
     { ruta: '/soporte/atenciones', texto: 'Atenciones', icono: 'mantenimiento', visible: (a) => a.puedeVerSoporte() },
     { ruta: '/soporte/dashboard', texto: 'Dashboard', icono: 'grafico', visible: (a) => a.puedeVerDashboard() },
     { ruta: '/soporte/reportes', texto: 'Reportes', icono: 'imprimir', visible: (a) => a.puedeVerDashboard() },
+    { ruta: '/soporte/jerarquia', texto: 'Jerarquía', icono: 'capas', visible: (a) => a.puedeVerDashboard() },
   ];
   protected readonly soporte = computed(() => this.itemsSoporte.filter((i) => !i.visible || i.visible(this.auth)));
   /** "Mi cuenta": every logged-in role sees it */

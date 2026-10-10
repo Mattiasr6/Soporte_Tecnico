@@ -41,6 +41,7 @@ export const routes: Routes = [
       { path: 'soporte/atenciones', title: 'Atenciones de Soporte', canActivate: [exigirSoporte], loadComponent: () => import('./paginas/soporte/atenciones-soporte.component').then((m) => m.AtencionesSoporteComponent) },
       { path: 'soporte/atenciones/nueva', title: 'Nueva atención de Soporte', canActivate: [exigirSoporte], loadComponent: () => import('./paginas/soporte/nueva-atencion-soporte.component').then((m) => m.NuevaAtencionSoporteComponent) },
       { path: 'soporte/dashboard', title: 'Dashboard de Soporte', canActivate: [exigirDashboard], loadComponent: () => import('./paginas/soporte/dashboard-soporte.component').then((m) => m.DashboardSoporteComponent) },
+      { path: 'soporte/jerarquia', title: 'Jerarquía de Soporte', canActivate: [exigirDashboard], loadComponent: () => import('./paginas/soporte/jerarquia-soporte.component').then((m) => m.JerarquiaSoporteComponent) },
       { path: 'soporte/reportes', title: 'Reportes de Soporte', canActivate: [exigirDashboard], loadComponent: () => import('./paginas/soporte/reportes-soporte.component').then((m) => m.ReportesSoporteComponent) },
       { path: 'cuenta/perfil', title: 'Perfil', loadComponent: () => import('./paginas/cuenta/perfil.component').then((m) => m.PerfilComponent) },
       { path: 'cuenta/notas', title: 'Bloc de notas', loadComponent: () => import('./paginas/cuenta/notas.component').then((m) => m.NotasComponent) },
