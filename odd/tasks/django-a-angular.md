@@ -77,6 +77,8 @@ frontends already talk to the same FastAPI, so only the presentation layer must 
   - [x] G7 (L) Software inventory (`horarios.software`, `ambiente_software`, `pc_software`, attention templates).
   - [x] G8 (L) Lab hardware sheet columns on `ambientes`; room layout: keep the Angular 4-PC table croquis (no free fila/col grid).
   - [x] M4b Soporte "Nueva atención" (batch draft in the client; Wilmercito suggestion excluded by user decision).
+- [x] M7 Soporte/Auxiliares menu toggle (Django `context-toggle`): only for dashboard viewers that are not
+  Auxiliar/Encargado; per-user localStorage; the route selects its panel. Route: inline (one file, layout).
 - [ ] M6 Data migration: LabAtenciones (131) → `horarios.atenciones`, aux JSON → perfiles.
 - [ ] Later areas (dashboards, reports, jerarquía, IA) are added as tasks per slice.
 
@@ -559,3 +561,27 @@ Strategy: ask-on-risk. Forecast M0–M2 ≈ 400 authored lines. RDD disabled for
     removed, rows read back (fecha today, Interno, ADM); 0 `/ia/` requests; 0 console errors. Smoke rows deleted
     (4 rows, 204, 0 left). Clicks were DOM events. No Angular spec files exist (test-first exception). GitNexus index is
     for another checkout (detect_changes not run).
+- 2026-10-10: M7 done (route: inline; one non-trivial file, the layout). Commit `67cf9a9`
+  feat(horarios): add Soporte/Auxiliares toggle to the side menu. No backend change.
+  - Toggle (SOPORTE / AUXILIARES segmented tabs under the brand) shows only when
+    `puedeVerDashboard && !esAuxiliar && !esEncargado` (Django `can_dashboard and not es_auxiliar and not
+    es_encargado`). Without it every role keeps exactly its previous menu (filter is a no-op).
+  - Split: **SOPORTE** = Soporte section (`/soporte/atenciones`; "Nueva atención" is reached from its button) and
+    Auditoría. **AUXILIARES** = Nueva asignación / Evento o defensa buttons, Cerrar turno, Horario, Atenciones,
+    Objetos perdidos, Novedades, Cierres de turno, Tablero de labs, Actividad del día, Desempeño, Labs por turno,
+    Auxiliares, Laboratorios, Software, Registros, Configuración. **Both** = Inicio and Mi cuenta (Perfil, Bloc de
+    notas). Deviation from Django (user rule): Django lists Auditoría under AUXILIARES; here it is SOPORTE.
+    Django's Inicio sits in the SOPORTE panel, but Angular's Inicio is the horarios grid, so it stays in both.
+  - Route → panel: `/soporte/*` and `/auditoria` → SOPORTE; `/` and `/cuenta/*` keep the current panel; every
+    other route → AUXILIARES (Django context processor does the same per page). A click on the toggle, like
+    Django, leaves a page the new panel does not own (→ `/soporte/atenciones` or `/`).
+  - Persistence: `upds.menu.sistema.<usuario_id>` in localStorage, read/write in try/catch; default SOPORTE
+    (Django default for non-auxiliares); route-driven selections are stored too.
+  - Checks: horarios image build → "Application bundle generation complete". Browser on :4213 (DOM clicks): Jefe
+    (minted, id 8) on `/` → toggle SOPORTE selected, menu Inicio, Auditoría, Soporte › Atenciones, Mi cuenta;
+    AUXILIARES → the 2 buttons + 15 operation items + Inicio + Mi cuenta, key `upds.menu.sistema.8=AUXILIARES`;
+    reload → AUXILIARES kept; deep link `/soporte/atenciones` → SOPORTE with Atenciones active; AUXILIARES from
+    there → `/`. paul (Tecnico, no flag): no toggle, menu Inicio … Registros, Soporte › Atenciones, Mi cuenta
+    (same as before), no key written. Encargado (minted, id 14): no toggle, full gestión menu. 0 console errors.
+    The UPDS DB has no Encargado/Auxiliar with `can_view_dashboard`, so the role exclusion was not exercised
+    with the flag on (covered by the condition). No Angular spec files exist (test-first exception).
