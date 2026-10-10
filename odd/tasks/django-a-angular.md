@@ -82,13 +82,13 @@ frontends already talk to the same FastAPI, so only the presentation layer must 
 - [x] M8 Soporte dashboard + reportes (`dashboard_vista`, `reportes_vista`): KPIs, charts, filters and exports under
   the SOPORTE panel (`/soporte/dashboard`, `/soporte/reportes`); computations in FastAPI where possible, existing
   SVG chart components, no IA widget. Route: delegated (one writer; trigger: 2+ non-trivial files, API + Angular).
-- [ ] M6 Data migration: LabAtenciones (131) → `horarios.atenciones`, aux JSON → perfiles.
+- [x] M6 Data migration: LabAtenciones (131) → `horarios.atenciones`, aux JSON → perfiles. Script
+  `scripts/migrar_soporte_a_horarios.py` + migration 0029 (`0b82289`); run it at cutover (see Cutover runbook).
 - [x] M9 Jerarquía (área/dependencia tree + editing) and Soporte técnicos horarios (guardar/limpiar/copiar) under the
   SOPORTE panel (`/soporte/jerarquia`, `/soporte/horarios` "Horarios de técnicos"). Route: delegated (one writer;
   trigger: 2+ non-trivial files). No backend change.
 - [x] M10 Soporte inicio (estado + anuncio + team presence, `/soporte/inicio`) and sugerencias (`/sugerencias`, both
   panels). Route: delegated (one writer; trigger: 2+ non-trivial Angular files). No backend change.
-- [ ] M6 Data migration (see above) before Django shutdown.
 - Excluded by user decision (2026-10-10): Wilmercito, Conocimiento and Asistente (all IA screens)
   never exist in Angular; the Wilmercito account is hidden from Soporte pickers (`12d4cc8`).
 
@@ -101,6 +101,22 @@ frontends already talk to the same FastAPI, so only the presentation layer must 
 ## Delivery
 
 Strategy: ask-on-risk. Forecast M0–M2 ≈ 400 authored lines. RDD disabled for this clone.
+
+## Cutover runbook (prod, M6)
+
+Run inside the prod api container (`/app`), in this order; stop at any failure.
+
+1. Backup: `pg_dump -Fc` of the prod DB, and a copy of `/app/data` (`appdata-prod` volume: the auxiliar JSON
+   files and photos). Keep both until the user signs off.
+2. `alembic upgrade head` (needs `0029_horarios_migracion_origen`; `alembic current` must print it).
+3. Dry-run: `python scripts/migrar_soporte_a_horarios.py --reporte /app/data/m6_reporte_dry_run.csv`
+   (default mode, writes nothing). Check the printed target `Base: …` is prod.
+4. Review with the user: the report (unmatched auxiliares/PCs/labs, adjusted times, `filas_no_migradas`). Create the
+   missing perfiles/accounts first if authors and Saturday assignments must link (the script never creates them).
+5. Apply: `python scripts/migrar_soporte_a_horarios.py --apply --reporte /app/data/m6_reporte_apply.json`
+   (one transaction). A second `--apply` must show `atenciones_nuevas` 0 / `sabados_nuevos` 0; it also fills the
+   author of attentions and Saturday people whose perfil was created after the first run.
+6. Never commit the reports or JSON files. Django is shut down only after the user approves the migrated data.
 
 ## Progress
 
@@ -504,3 +520,49 @@ Strategy: ask-on-risk. Forecast M0–M2 ≈ 400 authored lines. RDD disabled for
     suggestions deleted (4 rows left), announcement cleared, técnico state restored. No Angular spec files exist
     (test-first exception); no backend change, so no pytest/ruff run. GitNexus index is for another checkout.
   - Size: ~470 + ~190 authored lines; the home is 5 small presentational widgets plus the container.
+- 2026-10-10: M6 done (route: delegated, one writer; trigger: 2+ non-trivial files across migration, service, script
+  and tests). Commit `0b82289` feat(horarios): add re-runnable Soporte to horarios data migration script.
+  - Convention: plain script in `backend-fastapi/scripts/` (like `seed_laboratorios.py`); logic in
+    `app/services/migracion_soporte.py`. Dry-run default, `--apply` one transaction, `--reporte x.csv|x.json`,
+    `--data-dir` (default `/app/data`). Migration `0029_horarios_migracion_origen` adds `horarios.migracion_origen`
+    (origen, origen_id PK; destino, destino_id) as the idempotency map.
+  - Mapping: lab by codigo then nombre (`SOPORTE` "Soporte Técnico" skipped, reported; its 3 attentions keep
+    ambiente NULL); PC by etiqueta within the ambiente (non-operativa PC not linked, reported); category → tipo:
+    SOFTWARE programas, SOPORTE EN LABORATORIOS docente, SOPORTE ACADÉMICO personal, the rest preventivo (original
+    category kept in `detalles.migracion`); turno mañana/mediodia/tarde/noche → M/MD/T/N (empty → trigger derives
+    it); medio WhatsApp/Presencial; "A + B" auxiliares → first matched perfil = auxiliar/resuelto_por, the others
+    colaboradores; estado resuelto, resuelto_en = creado_en; Observaciones appended to solución. Unmatched lab/PC/
+    auxiliar → "[Migrado] Lab: … · PC: … · Auxiliar: …" line in descripción + report row. Perfiles matched by
+    normalized name (accents/case/word order) or email of the perfil or its Usuarios account; ambiguous and
+    "usuario_sin_perfil" are reported; no account/perfil is ever created.
+  - Timestamps: CreatedAt kept when its La Paz or UTC day equals FechaRegistro; rows typed in later for an earlier
+    day get FechaRegistro at their turno start (noon without turno), original CreatedAt in `detalles` + report.
+  - Triggers: satisfied, not bypassed (no `session_replication_role`): explicit creado_en/actualizado_en (no UPDATE
+    trigger on insert), explicit NULL auxiliar_id (avoids the `fn_usuario_actual` default), turno NULL only when
+    unknown so `trg_atenciones_turno` fills it, non-operativa PCs left unlinked for `trg_atenciones_pc_activa`.
+  - Auxiliar JSON: equipo → rol auxiliar↔encargado only (other roles reported, activo never changed); weekly
+    roster → `turno_habitual` only when NULL (conflicts reported, global hours never changed); Saturdays → G6 shape
+    (`sabados` + own hours in `sabado_horarios` + `rotacion_sabados`), unmatched names in the date note, a date
+    already planned in horarios left alone. Re-run fills authors/Saturday people whose perfil appeared since.
+    LabPcs/Software*/Novedades only counted (`filas_no_migradas` when > 0).
+  - Tests: new `tests/test_migracion_soporte.py` (rolled-back transaction, temp JSON) RED = collection error
+    (module missing) → GREEN 9 passed: matched row, unmatched PC + auxiliar, lab without ambiente + non-operativa
+    PC, perfiles/turnos/Saturdays, dry-run writes nothing, second run no duplicates, re-run fills later perfiles,
+    FechaRegistro vs CreatedAt, CSV/JSON report. The re-run fill and timestamp tests were written after the code
+    (added after the UPDS dry-run showed 0 matching auxiliares and 53 backdated rows). All `tests/test_asignacion*`
+    + this file 231 passed. Host ruff check + format --check clean on the 4 files. Test DB 0029 → downgrade -1 →
+    0028 → upgrade → 0029 (head).
+  - UPDS DB (prod copy): upgrade → 0029. Dry-run: 131 attentions new, 131 without a perfil for the auxiliar (no
+    roster auxiliar has a perfil in UPDS), 3 without ambiente (lab SOPORTE), 1 turno derived, 53 times moved to
+    FechaRegistro, 0 PCs named; 11 labs (10 → ambiente, SOPORTE skipped); 19/19 equipo and 19 roster names
+    without perfil; 5 Saturdays new, 0 assignments (names in the note); LabPcs/Software/Novedades 0; 370 report
+    rows. Apply: same counts; second apply: 131 ya migradas, 0 nuevas, 5 sábados ya migrados, table counts
+    unchanged (131 atenciones, 136 map rows, 5 sabados, 5 own-hour rows). Earlier test apply (before the timestamp
+    rule) was removed by map id and re-applied. API spot check (minted Jefe) GET `/api/asignacion/atenciones`
+    200, 131 migrated rows with tipo/turno/medio/estado/ambiente/`[Migrado]` text as expected. Data left in UPDS.
+    Reports (gitignored, not committed): `backend-fastapi/data/m6_reporte_dry_run.csv`, `m6_reporte_apply.json`,
+    `m6_reporte_apply2.json`.
+  - Size: ~735 service + 76 script + 60 migration + 465 test lines; one work unit (the tool is only useful whole).
+  - Human decisions: create perfiles/accounts for the 19 roster auxiliares before the prod apply (or re-run after);
+    confirm the category → tipo table (INVENTARIO, REPORTE Y GESTIÓN, RED, INFRAESTRUCTURA → preventivo); whether
+    the Soporte office should become an ambiente.
